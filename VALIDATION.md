@@ -1,6 +1,6 @@
 # Validation evidence
 
-Verified code commit: `6168061ccc8f396e5489ee6ea032833fa9b7a5d6`.
+Verified code commit: `04f5abd846d29aaf21cb2e6de9977b0cbdf0e788`.
 
 Environment: Windows 11, Python 3.14.10, Node 26.13.0, Pillow 13.0.0, jsonschema 4.x, glTF-Transform 4.5.1, Khronos glTF Validator installed locally in `.tools`. The project works without any optional provider.
 
@@ -15,7 +15,7 @@ python -m unittest discover -s tests
 Result (final run after the review corrections):
 
 ```text
-Ran 75 tests in 88.220s
+Ran 75 tests in 89.232s
 OK (skipped=1)
 exit code 0
 ```
@@ -99,7 +99,7 @@ Observed: job `SUCCEEDED`; upstream probe JSON stored as a report; result `techn
 
 - `Install.ps1` created a repo-local `.venv`, ran `doctor`, exited `0`.
 - `assetforge.cmd --version` printed `assetforge 0.1.0`; `doctor --json` exited `0`.
-- Wheel build: `assetforge-0.1.0-py3-none-any.whl`, 48,587 bytes, SHA-256 `54b0b2f3299ffaa3eded1a75cc56422015617756f182c65536522097b8f19eb2`.
+- Wheel build: `assetforge-0.1.0-py3-none-any.whl`, 48,585 bytes, SHA-256 `5337e489431134afdb40be153eb01dd9fba5acfef88afcc3f984f26844e34bd5`.
 - Wheel installed into a clean environment; `assetforge --version` returned 0.1.0; `texture-pack`, `sprite-atlas` and `img2threejs-codegen` returned job status `SUCCEEDED`; the packaged bridge passed the Khronos validator with `0 error(s), 0 warning(s)` in a project path containing spaces.
 - Wheel installed into a clean environment; `assetforge --version` returned 0.1.0, `glb-inspect` ran against the textured fixture, `validate` returned `PASS` with `PASS=11, FAIL=0, NOT_TESTED=2` (official validator unavailable in that isolated environment, plus no rig data).
 - Packaged validator bridge verified from that installed wheel in a project path containing spaces:
