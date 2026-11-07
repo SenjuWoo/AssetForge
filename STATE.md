@@ -3,8 +3,8 @@
 - **Version:** 0.1.0
 - **Milestone:** Phase 0 + Phase 1 MVP complete; Phase 2 image layer and img2threejs codegen complete; 0.1.0 release preparation complete
 - **Active task:** awaiting operator confirmation to create/push `SenjuWoo/AssetForge`
-- **Current revision:** `55a8f69de1ddcdcba4c718373e8f276d19bd1faf` (verified code commit)
-- **Last known-good:** `55a8f69de1ddcdcba4c718373e8f276d19bd1faf`
+- **Current revision:** `3c3b05c1e0d000ee4cf1df657409aa15863dcbc4` (verified code commit)
+- **Last known-good:** `3c3b05c1e0d000ee4cf1df657409aa15863dcbc4`
 
 ## Completed
 
