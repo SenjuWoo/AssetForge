@@ -51,6 +51,7 @@ class ProviderTests(unittest.TestCase):
                     os.environ["IMG2THREEJS_ROOT"] = old
             self.assertTrue(item["available"])
 
+    @unittest.skipUnless(os.name == "nt", "Windows .cmd shim")
     def test_blender_shim_version_parse(self):
         with tempfile.TemporaryDirectory() as tmp:
             shim = Path(tmp) / "blender.cmd"
