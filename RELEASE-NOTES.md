@@ -21,6 +21,6 @@ First standalone development release.
 
 ## Requirements
 
-- Python 3.10 or newer; Python 3.12–3.14 is exercised in CI.
+- Python 3.10 or newer; the CI matrix covers Python 3.12–3.14.
 - Pillow is optional but recommended for image recipes.
 - All external tools and model weights are optional and independently installed.
