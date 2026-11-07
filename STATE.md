@@ -3,8 +3,8 @@
 - **Version:** 0.1.0
 - **Milestone:** Phase 0 + Phase 1 MVP complete; Phase 2 image layer started (PBR packing, sprite atlas)
 - **Active task:** none — repository is at a verified checkpoint
-- **Current revision:** `4b9e27ea986dbf6f0ca3897276448d42674cb69f` (verified code commit)
-- **Last known-good:** `4b9e27ea986dbf6f0ca3897276448d42674cb69f`
+- **Current revision:** `3f095db38bf03ca9ffe70f6ab16dc99edaabcc3d` (verified code commit)
+- **Last known-good:** `3f095db38bf03ca9ffe70f6ab16dc99edaabcc3d`
 
 ## Completed
 
