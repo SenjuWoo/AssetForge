@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "id": "image-prep",
+  "title": "Prepare an image",
+  "description": "Inspect a raster image, resize or re-encode it, and write a thumbnail.",
+  "input": {"name": "image", "kind": "image", "required": true},
+  "params": {
+    "format": {"type": "string", "default": "png", "choices": ["png", "jpeg", "webp"]},
+    "width": {"type": "integer", "default": 0},
+    "height": {"type": "integer", "default": 0},
+    "quality": {"type": "integer", "default": 90},
+    "thumbnail": {"type": "integer", "default": 256}
+  },
+  "steps": ["image.inspect", "image.convert", "image.thumbnail", "asset.record"]
+}

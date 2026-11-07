@@ -1,0 +1,385 @@
+"""AssetForge command line interface.
+
+Exit codes are part of the public contract:
+    0 success, 2 usage/recipe error, 3 missing project/asset/job,
+    4 provider unavailable, 5 validation or budget failure, 6 run failure.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from pathlib import Path
+
+from . import __version__, exporters, images, providers
+from . import recipes as recipe_lib
+from .adapters import AdapterError
+from .glb import GlbError
+from .runner import ProviderMissing, RunFailed, execute
+from .store import Job, Project, StoreError
+from .util import human_bytes
+
+EXIT_OK = 0
+EXIT_USAGE = 2
+EXIT_NOT_FOUND = 3
+EXIT_PROVIDER = 4
+EXIT_VALIDATION = 5
+EXIT_RUN = 6
+
+
+def _print(data, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(data, indent=2))
+    else:
+        print(data)
+
+
+def _project(required: bool = True) -> Project | None:
+    project = Project.find()
+    if project is None and required:
+        raise SystemExit(_fail("no AssetForge project here; run `assetforge init` first", EXIT_NOT_FOUND))
+    return project
+
+
+def _fail(message: str, code: int) -> int:
+    print(f"error: {message}", file=sys.stderr)
+    return code
+
+
+def _parse_inputs(values: list[str], recipe: dict) -> dict[str, Path]:
+    spec_name = (recipe.get("input") or {}).get("name") or "input"
+    inputs: dict[str, Path] = {}
+    for raw in values:
+        name = None
+        value = raw
+        match = re.match(r"^([A-Za-z_][A-Za-z0-9_-]*)=(.+)$", raw)
+        if match and Path(match.group(2)).expanduser().exists():
+            name, value = match.group(1), match.group(2)
+        path = Path(value).expanduser().resolve()
+        if name is None:
+            name = spec_name if len(values) == 1 else path.stem
+        if name in inputs:
+            raise recipe_lib.RecipeError(f"input {name!r} was given twice")
+        inputs[name] = path
+    return inputs
+
+
+def _parse_sets(values: list[str]) -> dict[str, str]:
+    overrides = {}
+    for item in values:
+        name, sep, value = item.partition("=")
+        if not sep or not name:
+            raise recipe_lib.RecipeError(f"--set expects key=value, got {item!r}")
+        overrides[name] = value
+    return overrides
+
+
+def cmd_doctor(args) -> int:
+    project = Project.find()
+    checks = []
+    python_ok = sys.version_info >= (3, 10)
+    checks.append({
+        "id": "python",
+        "status": "PASS" if python_ok else "FAIL",
+        "detail": f"{sys.version.split()[0]} ({sys.executable})",
+    })
+    checks.append({"id": "core", "status": "PASS", "detail": f"assetforge {__version__} imports"})
+    checks.append({
+        "id": "project",
+        "status": "PASS" if project else "WARNING",
+        "detail": str(project.root) if project else "no project in this folder; run `assetforge init`",
+    })
+    provider_list = providers.detect(project)
+    for item in provider_list:
+        checks.append({
+            "id": item["id"],
+            "status": "PASS" if item["available"] else "WARNING",
+            "detail": (f"{item.get('version') or 'available'} {item.get('path') or ''}").strip()
+            if item["available"]
+            else item.get("reason", "not available"),
+        })
+    failed = any(item["status"] == "FAIL" for item in checks)
+    degraded = any(item["status"] == "WARNING" for item in checks)
+    report = {
+        "schema": 1,
+        "version": __version__,
+        "python": sys.version.split()[0],
+        "platform": sys.platform,
+        "project": str(project.root) if project else None,
+        "checks": checks,
+        "providers": provider_list,
+        "state": "BLOCKED" if failed else ("DEGRADED" if degraded else "READY"),
+    }
+    if args.json:
+        print(json.dumps(report, indent=2))
+    else:
+        print(f"AssetForge {__version__}  {report['state']}")
+        for item in checks:
+            print(f"  {item['status']:<9} {item['id']:<16} {item['detail']}")
+    return 0 if not failed else 1
+
+
+def cmd_capabilities(args) -> int:
+    project = Project.find()
+    now = {item["id"]: item for item in providers.detect(project)}
+    capabilities = [
+        {"id": "image-processing", "status": "IMPLEMENTED", "provider": "pillow", "available": now["pillow"]["available"]},
+        {"id": "glb-inspect", "status": "IMPLEMENTED", "provider": "core", "available": True},
+        {"id": "glb-validate-structural", "status": "IMPLEMENTED", "provider": "core", "available": True},
+        {"id": "glb-validate-official", "status": "IMPLEMENTED", "provider": "gltf-validator", "available": now["gltf-validator"]["available"]},
+        {"id": "glb-optimize", "status": "IMPLEMENTED", "provider": "gltf-transform", "available": now["gltf-transform"]["available"]},
+        {"id": "blender-export", "status": "IMPLEMENTED", "provider": "blender", "available": now["blender"]["available"]},
+        {"id": "comfy-kit-generation", "status": "IMPLEMENTED", "provider": "comfy-kit", "available": now["comfy-kit"]["available"]},
+        {"id": "img2threejs-probe", "status": "IMPLEMENTED", "provider": "img2threejs", "available": now["img2threejs"]["available"]},
+        {"id": "img2threejs-reconstruction", "status": "PLANNED", "provider": "img2threejs", "available": False},
+        {"id": "export-roblox", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED"},
+        {"id": "export-godot", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED"},
+        {"id": "export-generic", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED"},
+        {"id": "ai-3d-providers", "status": "PLANNED"},
+        {"id": "rigging-validation", "status": "PLANNED"},
+        {"id": "teardown-simulation", "status": "PLANNED"},
+        {"id": "graphite-integration", "status": "PLANNED"},
+        {"id": "mcp-server", "status": "PLANNED"},
+    ]
+    if args.json:
+        print(json.dumps({"schema": 1, "version": __version__, "capabilities": capabilities}, indent=2))
+    else:
+        for item in capabilities:
+            extra = " available" if item.get("available") else ""
+            print(f"{item['status']:<12} {item['id']:<28}{extra}")
+    return 0
+
+
+def cmd_providers(args) -> int:
+    project = Project.find()
+    items = providers.detect(project)
+    if args.json:
+        print(json.dumps({"schema": 1, "providers": items}, indent=2))
+    else:
+        for item in items:
+            state = "available" if item["available"] else "missing"
+            version = f" {item['version']}" if item.get("version") else ""
+            print(f"{item['id']:<16} {state:<9}{version}  {item.get('path') or item.get('reason', '')}")
+    return 0
+
+
+def cmd_init(args) -> int:
+    root = Path(args.path).expanduser().resolve()
+    project = Project.init(root, args.name)
+    print(f"project {project.data['name']} at {project.root}")
+    return 0
+
+
+def cmd_recipes(args) -> int:
+    project = Project.find()
+    if args.recipe and args.recipe not in ("list", "show"):
+        recipe = recipe_lib.get(args.recipe, project)
+        if args.json:
+            print(json.dumps(recipe, indent=2))
+        else:
+            print(f"{recipe['id']}  {recipe['title']}")
+            print(recipe.get("description", ""))
+            print("params: " + (", ".join(recipe.get("params", {})) or "none"))
+            print("steps:  " + " -> ".join(recipe["steps"]))
+        return 0
+    items = list(recipe_lib.load_all(project).values())
+    if args.json:
+        print(json.dumps(items, indent=2))
+    else:
+        for item in items:
+            print(f"{item['id']:<24} {item['title']}")
+    return 0
+
+
+def cmd_run(args) -> int:
+    project = _project()
+    recipe = recipe_lib.get(args.recipe, project)
+    inputs = _parse_inputs(args.input, recipe)
+    params = recipe_lib.resolve_params(recipe, _parse_sets(args.set))
+    if args.dry_run:
+        report, _, _ = execute(project, recipe, inputs, params, args.asset, dry_run=True)
+        if args.json:
+            print(json.dumps(report, indent=2))
+        else:
+            print(f"dry run: {recipe['id']}")
+            for step in report["steps"]:
+                print(f"  {step}")
+            for name, item in report["providers"].items():
+                state = "available" if item and item.get("available") else "MISSING"
+                print(f"  provider {name}: {state}")
+        return 0
+    try:
+        job, asset, _ = execute(project, recipe, inputs, params, args.asset, dry_run=False)
+    except ProviderMissing as exc:
+        return _fail(str(exc), EXIT_PROVIDER)
+    except (RunFailed, StoreError, recipe_lib.RecipeError, images.ImageError, AdapterError, GlbError, OSError) as exc:
+        return _fail(str(exc), EXIT_RUN)
+    if args.json:
+        print(json.dumps({"job": job.data, "asset": asset.manifest}, indent=2))
+    else:
+        print(f"job {job.id} {job.data['status']}")
+        print(f"asset {asset.id}")
+        for step in job.data["steps"]:
+            print(f"  {step['status']:<4} {step['name']:<20} {step.get('detail', '')}")
+    return EXIT_OK if job.data["status"] == "SUCCEEDED" else EXIT_RUN
+
+
+def cmd_status(args) -> int:
+    project = _project()
+    job = Job.latest(project) if args.last or not args.job_id else Job.load(project, args.job_id)
+    if job is None:
+        return _fail("no jobs yet", EXIT_NOT_FOUND)
+    if args.json:
+        print(json.dumps(job.data, indent=2))
+    else:
+        print(f"{job.id}  {job.data['recipe']}  {job.data['status']}")
+        for step in job.data["steps"]:
+            print(f"  {step['status']:<4} {step['name']:<20} {step.get('detail', '')}")
+        if job.data.get("error"):
+            print(f"error: {job.data['error']}")
+    return 0
+
+
+def cmd_inspect(args) -> int:
+    project = _project()
+    try:
+        asset = project.asset(args.asset)
+    except StoreError as exc:
+        return _fail(str(exc), EXIT_NOT_FOUND)
+    if args.json:
+        print(json.dumps(asset.manifest, indent=2))
+    else:
+        manifest = asset.manifest
+        print(f"{manifest['id']}  {manifest['name']}")
+        print(f"source: {manifest.get('source', {}).get('recipe') or 'none'}")
+        for item in manifest.get("inputs", []):
+            print(f"  input    {item['path']}  {human_bytes(item['bytes'])}")
+        for item in manifest.get("artifacts", []):
+            print(f"  artifact {item['role']:<8} {item['path']}  {human_bytes(item['bytes'])}")
+        for item in manifest.get("exports", []):
+            print(f"  export   {item['target']:<8} {item['path']}  {item['status']}")
+        validation = manifest.get("validation") or []
+        if validation:
+            counts = {}
+            for item in validation:
+                counts[item["status"]] = counts.get(item["status"], 0) + 1
+            print("validation: " + ", ".join(f"{key}={value}" for key, value in sorted(counts.items())))
+    return 0
+
+
+def cmd_validate(args) -> int:
+    project = _project()
+    try:
+        asset = project.asset(args.asset)
+        report = exporters.validate_asset(project, asset)
+    except (StoreError, exporters.ExportError) as exc:
+        return _fail(str(exc), EXIT_NOT_FOUND)
+    if args.json:
+        print(json.dumps(report, indent=2))
+    else:
+        for item in report["checks"]:
+            print(f"{item['status']:<10} {item['id']:<12} {item.get('artifact', '')}  {item['detail']}")
+        print("summary: " + ", ".join(f"{key}={value}" for key, value in report["summary"].items()))
+    return EXIT_VALIDATION if report["status"] == "FAIL" else 0
+
+
+def cmd_export(args) -> int:
+    project = _project()
+    try:
+        asset = project.asset(args.asset)
+        result = exporters.export(project, asset, args.target, dry_run=args.dry_run)
+    except StoreError as exc:
+        return _fail(str(exc), EXIT_NOT_FOUND)
+    except exporters.ExportError as exc:
+        return _fail(str(exc), EXIT_VALIDATION if "blocked" in str(exc) else EXIT_USAGE)
+    except (GlbError, OSError) as exc:
+        return _fail(str(exc), EXIT_VALIDATION)
+    if args.json:
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"{'dry run: ' if args.dry_run else ''}export {asset.id} -> {args.target}  {result['status']}")
+        for item in result["checks"]:
+            print(f"  {item['status']:<10} {item['id']:<22} {item['detail']}")
+        if result.get("out_dir"):
+            print(f"  written to {result['out_dir']}")
+    return EXIT_VALIDATION if result["status"] == "FAIL" else 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="assetforge", description="AI-assisted asset production, validation and export")
+    parser.add_argument("--version", action="version", version=f"assetforge {__version__}")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    doctor = sub.add_parser("doctor", help="report core and provider status")
+    doctor.add_argument("--json", action="store_true")
+    doctor.set_defaults(func=cmd_doctor)
+
+    caps = sub.add_parser("capabilities", help="list implemented and planned capabilities")
+    caps.add_argument("--json", action="store_true")
+    caps.set_defaults(func=cmd_capabilities)
+
+    prov = sub.add_parser("providers", help="detect external providers")
+    prov.add_argument("--json", action="store_true")
+    prov.set_defaults(func=cmd_providers)
+
+    init = sub.add_parser("init", help="create a project")
+    init.add_argument("path", nargs="?", default=".")
+    init.add_argument("--name")
+    init.set_defaults(func=cmd_init)
+
+    rec = sub.add_parser("recipes", help="list recipes or show one")
+    rec.add_argument("recipe", nargs="?")
+    rec.add_argument("--json", action="store_true")
+    rec.set_defaults(func=cmd_recipes)
+
+    run = sub.add_parser("run", help="run a recipe")
+    run.add_argument("recipe")
+    run.add_argument("--input", action="append", default=[], help="path or name=path")
+    run.add_argument("--set", action="append", default=[], help="parameter override key=value")
+    run.add_argument("--asset", help="asset name override")
+    run.add_argument("--dry-run", action="store_true")
+    run.add_argument("--json", action="store_true")
+    run.set_defaults(func=cmd_run)
+
+    status = sub.add_parser("status", help="show a job")
+    status.add_argument("job_id", nargs="?")
+    status.add_argument("--last", action="store_true")
+    status.add_argument("--json", action="store_true")
+    status.set_defaults(func=cmd_status)
+
+    inspect = sub.add_parser("inspect", help="show an asset manifest")
+    inspect.add_argument("asset")
+    inspect.add_argument("--json", action="store_true")
+    inspect.set_defaults(func=cmd_inspect)
+
+    validate = sub.add_parser("validate", help="validate an asset")
+    validate.add_argument("asset")
+    validate.add_argument("--json", action="store_true")
+    validate.set_defaults(func=cmd_validate)
+
+    export = sub.add_parser("export", help="package an asset for an engine")
+    export.add_argument("asset")
+    export.add_argument("--target", required=True, choices=sorted(exporters.profiles()))
+    export.add_argument("--dry-run", action="store_true")
+    export.add_argument("--json", action="store_true")
+    export.set_defaults(func=cmd_export)
+    return parser
+
+
+def main(argv=None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    try:
+        return int(args.func(args))
+    except recipe_lib.RecipeError as exc:
+        return _fail(str(exc), EXIT_USAGE)
+    except StoreError as exc:
+        return _fail(str(exc), EXIT_NOT_FOUND)
+    except KeyboardInterrupt:
+        return _fail("cancelled", EXIT_RUN)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

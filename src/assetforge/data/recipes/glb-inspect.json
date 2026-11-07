@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "id": "glb-inspect",
+  "title": "Inspect and validate a GLB",
+  "description": "Record geometry statistics and structural validation without modifying the mesh.",
+  "input": {"name": "mesh", "kind": "mesh", "required": true},
+  "params": {},
+  "steps": ["glb.inspect", "glb.validate", "asset.record"]
+}

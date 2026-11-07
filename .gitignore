@@ -1,0 +1,15 @@
+.venv/
+.venv.new/
+.venv.prev/
+.tools/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+/assets/
+/.assetforge/
+/INSTALLATION.json
+/.scratch*/
+*.log

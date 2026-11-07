@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "id": "glb-optimize",
+  "title": "Optimize a GLB conservatively",
+  "description": "Run glTF-Transform with simplification, compression, flattening and joining disabled, then validate and compare both files.",
+  "input": {"name": "mesh", "kind": "mesh", "required": true},
+  "params": {
+    "timeout": {"type": "integer", "default": 300}
+  },
+  "steps": ["glb.inspect", "glb.optimize", "glb.validate", "glb.compare", "asset.record"]
+}

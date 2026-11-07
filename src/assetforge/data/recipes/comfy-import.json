@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "id": "comfy-import",
+  "title": "Import comfy-kit output",
+  "description": "Copy the newest generated images from a comfy-kit output folder into an asset.",
+  "input": {"name": "source", "kind": "directory", "required": true},
+  "params": {
+    "limit": {"type": "integer", "default": 1},
+    "thumbnail": {"type": "integer", "default": 256}
+  },
+  "steps": ["comfykit.detect", "comfykit.import", "image.thumbnail", "asset.record"]
+}

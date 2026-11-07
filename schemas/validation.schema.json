@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/SenjuWoo/AssetForge/schemas/validation.schema.json",
+  "title": "Validation report",
+  "type": "object",
+  "required": ["schema", "checks", "summary", "status"],
+  "properties": {
+    "schema": {"const": 1},
+    "asset": {"type": "string"},
+    "file": {"type": "string"},
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "artifact": {"type": "string"},
+          "id": {"type": "string"},
+          "status": {"enum": ["PASS", "WARNING", "FAIL", "NOT_TESTED"]},
+          "detail": {"type": "string"}
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["PASS", "WARNING", "FAIL", "NOT_TESTED"],
+      "additionalProperties": {"type": "integer", "minimum": 0}
+    },
+    "status": {"enum": ["PASS", "WARNING", "FAIL"]}
+  }
+}

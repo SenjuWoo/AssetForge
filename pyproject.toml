@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "assetforge"
+version = "0.1.0"
+description = "Standalone asset production, validation and export toolkit for AI-assisted game work"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "SenjuWoo"}]
+dependencies = []
+
+[project.optional-dependencies]
+images = ["Pillow>=10"]
+dev = ["Pillow>=10", "jsonschema>=4"]
+
+[project.scripts]
+assetforge = "assetforge.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+assetforge = ["data/recipes/*.json", "data/profiles/*.json", "blender_sample.py"]

@@ -1,0 +1,33 @@
+{
+  "asset-forge": {
+    "title": "AssetForge",
+    "repo": "https://github.com/SenjuWoo/AssetForge",
+    "install": {
+      "kind": "release_zip",
+      "asset": "AssetForge-*.zip",
+      "entrypoint": "Install.ps1"
+    },
+    "update": {
+      "entrypoint": "Update.ps1"
+    },
+    "doctor": {
+      "entrypoint": ["python", "-m", "assetforge", "doctor", "--json"]
+    },
+    "markers": ["VERSION", "src/assetforge/__init__.py", "Install.ps1"],
+    "capabilities": {
+      "cli": "assetforge",
+      "mcp": false,
+      "skills": [],
+      "gui": false
+    },
+    "requires": [
+      "python 3.10+",
+      "Pillow optional",
+      "glTF-Transform optional",
+      "Blender optional",
+      "comfy-kit optional"
+    ],
+    "platforms": ["windows", "linux", "macos"],
+    "notes": "Owns asset production, validation and export. Optional providers are detected, never installed by the bundle."
+  }
+}

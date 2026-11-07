@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "id": "img2threejs-probe",
+  "title": "Probe an image with img2threejs",
+  "description": "Run the external img2threejs technical probe and store its JSON evidence.",
+  "input": {"name": "image", "kind": "image", "required": true},
+  "params": {},
+  "steps": ["img2threejs.probe", "asset.record"]
+}

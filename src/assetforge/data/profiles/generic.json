@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "id": "generic",
+  "title": "Generic glTF 2.0",
+  "format": "glb",
+  "budgets": {},
+  "notes": "No engine-specific budget. Structural validation only.",
+  "source": "AssetForge project policy"
+}

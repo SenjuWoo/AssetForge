@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Source-tree launcher for Linux/macOS. Installed users get the `assetforge` script.
+set -e
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -x "$ROOT/.venv/bin/python" ]; then
+  exec "$ROOT/.venv/bin/python" -m assetforge "$@"
+fi
+export PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m assetforge "$@"

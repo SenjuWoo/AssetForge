@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/SenjuWoo/AssetForge/schemas/asset.schema.json",
+  "title": "Asset manifest",
+  "type": "object",
+  "required": ["schema", "id", "name", "inputs", "artifacts"],
+  "properties": {
+    "schema": {"const": 1},
+    "id": {"type": "string", "minLength": 1},
+    "name": {"type": "string", "minLength": 1},
+    "created": {"type": "string"},
+    "updated": {"type": "string"},
+    "source": {
+      "type": "object",
+      "properties": {
+        "recipe": {"type": ["string", "null"]},
+        "params": {"type": "object"},
+        "finished": {"type": "string"}
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": {"type": "string"},
+          "name": {"type": "string"},
+          "kind": {"type": "string"},
+          "bytes": {"type": "integer", "minimum": 0},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "role", "sha256"],
+        "properties": {
+          "path": {"type": "string"},
+          "role": {"type": "string"},
+          "label": {"type": "string"},
+          "media_type": {"type": "string"},
+          "bytes": {"type": "integer", "minimum": 0},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "exports": {"type": "array", "items": {"type": "object"}},
+    "validation": {"type": "array", "items": {"type": "object"}},
+    "provenance": {"type": "object"},
+    "license": {"type": "object"}
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "id": "blender-sample",
+  "title": "Blender background sample",
+  "description": "Build a deterministic bevelled cube in headless Blender and export GLB.",
+  "input": {},
+  "params": {
+    "timeout": {"type": "integer", "default": 240}
+  },
+  "steps": ["blender.sample", "glb.validate", "asset.record"]
+}

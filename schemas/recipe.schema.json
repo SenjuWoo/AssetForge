@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/SenjuWoo/AssetForge/schemas/recipe.schema.json",
+  "title": "Workflow recipe",
+  "type": "object",
+  "required": ["schema", "id", "title", "steps"],
+  "properties": {
+    "schema": {"const": 1},
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,48}$"},
+    "title": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "input": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string"},
+        "kind": {"enum": ["image", "mesh", "directory", "file"]},
+        "required": {"type": "boolean"}
+      }
+    },
+    "params": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": {"enum": ["string", "integer", "boolean"]},
+          "default": {},
+          "required": {"type": "boolean"},
+          "choices": {"type": "array"}
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "image.inspect",
+          "image.convert",
+          "image.thumbnail",
+          "glb.inspect",
+          "glb.validate",
+          "glb.optimize",
+          "glb.compare",
+          "blender.sample",
+          "comfykit.detect",
+          "comfykit.generate",
+          "comfykit.import",
+          "img2threejs.probe",
+          "asset.record"
+        ]
+      }
+    }
+  }
+}

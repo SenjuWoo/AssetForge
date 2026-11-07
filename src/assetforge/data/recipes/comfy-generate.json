@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "comfy-generate",
+  "title": "Generate an image with comfy-kit",
+  "description": "Delegate one render to an installed comfy-kit and keep the resulting images in the asset.",
+  "input": {},
+  "params": {
+    "prompt": {"type": "string", "default": "", "required": true},
+    "preset": {"type": "string", "default": "Anima - Author Daily (Euler + SGM)"},
+    "model": {"type": "string", "default": ""},
+    "width": {"type": "integer", "default": 1024},
+    "height": {"type": "integer", "default": 1024},
+    "seed": {"type": "integer", "default": -1},
+    "count": {"type": "integer", "default": 1},
+    "timeout": {"type": "integer", "default": 900}
+  },
+  "steps": ["comfykit.detect", "comfykit.generate", "asset.record"]
+}

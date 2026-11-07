@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/SenjuWoo/AssetForge/schemas/job.schema.json",
+  "title": "Job record",
+  "type": "object",
+  "required": ["schema", "id", "recipe", "status", "steps"],
+  "properties": {
+    "schema": {"const": 1},
+    "id": {"type": "string"},
+    "recipe": {"type": "string"},
+    "status": {"enum": ["RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"]},
+    "started": {"type": "string"},
+    "finished": {"type": ["string", "null"]},
+    "params": {"type": "object"},
+    "asset": {"type": ["string", "null"]},
+    "sources": {"type": "object"},
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "status"],
+        "properties": {
+          "name": {"type": "string"},
+          "status": {"enum": ["OK", "FAIL", "SKIP"]},
+          "detail": {"type": "string"},
+          "outcome": {"enum": ["PASS", "WARNING", "FAIL", "NOT_TESTED"]}
+        }
+      }
+    },
+    "error": {"type": ["string", "null"]}
+  }
+}
