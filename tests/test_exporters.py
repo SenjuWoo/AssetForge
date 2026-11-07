@@ -146,6 +146,26 @@ class ExporterTests(unittest.TestCase):
             with self.assertRaises(exporters.ExportError):
                 exporters.export(project, asset, "generic")
 
+    def test_validation_failure_blocks_export(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Project.init(Path(tmp) / "project")
+            asset = project.create_asset("Blocked")
+            good = make_glb(asset.path("outputs", "good.glb"))
+            outside = make_glb(Path(tmp) / "outside.glb")
+            asset.add_artifact(good, "mesh", "source")
+            asset.set_primary("mesh", good)
+            asset.manifest["artifacts"].append({
+                "path": str(outside),
+                "role": "mesh",
+                "media_type": "model/gltf-binary",
+                "bytes": outside.stat().st_size,
+                "sha256": sha256_file(outside),
+            })
+            asset.save()
+            with self.assertRaises(exporters.ExportError) as caught:
+                exporters.export(project, asset, "generic")
+            self.assertIn("blocked by validation", str(caught.exception))
+
     def test_official_validator_is_separate_from_structural(self):
         with tempfile.TemporaryDirectory() as tmp:
             project = Project.init(Path(tmp) / "project")

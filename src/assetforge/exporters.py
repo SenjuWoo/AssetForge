@@ -108,6 +108,10 @@ def _budget(checks: list[dict], name: str, value, limit, unit: str = "") -> None
 def export(project: Project, asset: Asset, target: str, dry_run: bool = False) -> dict:
     profile = load_profile(target)
     validation = validate_asset(project, asset)
+    if validation["status"] == "FAIL":
+        failed = [item for item in validation["checks"] if item["status"] == "FAIL"]
+        detail = "; ".join(item["detail"] for item in failed[:3])
+        raise ExportError(f"export blocked by validation: {detail}")
     try:
         primary, declared = _primary_mesh(asset)
     except StoreError as exc:

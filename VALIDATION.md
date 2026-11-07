@@ -15,7 +15,7 @@ python -m unittest discover -s tests
 Result (final run after the review corrections):
 
 ```text
-Ran 64 tests in 88.728s
+Ran 65 tests in 109.575s
 OK (skipped=1)
 exit code 0
 ```
@@ -33,6 +33,7 @@ Coverage includes:
 - Job failure paths: `GlbError`, `AdapterError`, `StoreError`, `OSError`, unexpected exception; every case ends `FAILED`.
 - Input copying and provenance: artifacts relative, originals only in job `sources`.
 - Export primary selection with source and optimized artifacts in reversed manifest order.
+- Export blocked when any validation check fails, even if the primary mesh itself is valid.
 - Artifact rejection: absolute path, `../` escape, missing file and symlink escape.
 - Official validator separated from structural `GLB-014`.
 
