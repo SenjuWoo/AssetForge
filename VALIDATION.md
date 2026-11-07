@@ -1,6 +1,6 @@
 # Validation evidence
 
-Verified code commit: `3c3b05c1e0d000ee4cf1df657409aa15863dcbc4`.
+Verified code commit: `5496dea07b8f67b6cdff1190e33fab3a53241216`.
 
 Environment: Windows 11, Python 3.14.10, Node 26.13.0, Pillow 13.0.0, jsonschema 4.x, glTF-Transform 4.5.1, Khronos glTF Validator installed locally in `.tools`. The project works without any optional provider.
 
@@ -15,7 +15,7 @@ python -m unittest discover -s tests
 Result (final run after the review corrections):
 
 ```text
-Ran 75 tests in 92.374s
+Ran 75 tests in 105.103s
 OK (skipped=1)
 exit code 0
 ```
