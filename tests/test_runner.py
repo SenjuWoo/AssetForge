@@ -86,7 +86,9 @@ class RunnerFailureTests(unittest.TestCase):
             raise StoreError("artifact escaped")
 
         with mock.patch.dict(runner.HANDLERS, {"image.inspect": boom}):
-            with self.assertRaises(Exception):
+            from assetforge.store import StoreError
+
+            with self.assertRaises(StoreError):
                 runner.execute(self.project, recipe, {"image": source}, {})
         self.assertEqual(Job.latest(self.project).data["status"], "FAILED")
 

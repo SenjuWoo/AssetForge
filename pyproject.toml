@@ -23,4 +23,4 @@ assetforge = "assetforge.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-assetforge = ["data/recipes/*.json", "data/profiles/*.json", "blender_sample.py"]
+assetforge = ["data/recipes/*.json", "data/profiles/*.json", "data/*.mjs", "blender_sample.py"]

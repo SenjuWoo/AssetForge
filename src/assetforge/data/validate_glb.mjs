@@ -2,7 +2,7 @@
  * Khronos glTF Validator bridge.
  *
  * Usage: node validate_glb.mjs <gltf-validator/index.js> <model.glb>
- * The module path is explicit so the validator can live in a repo-local
+ * The module path is explicit so the validator can live in a project-local
  * .tools folder without polluting global Node packages.
  */
 import fs from "node:fs";

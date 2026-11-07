@@ -144,7 +144,7 @@ def _gltf_transform(project):
 
 def _official_validator(project):
     node = shutil.which("node")
-    wrapper = Path(__file__).resolve().parents[2] / "tools" / "validate_glb.mjs"
+    wrapper = Path(__file__).resolve().parent / "data" / "validate_glb.mjs"
     roots = [Path(__file__).resolve().parents[2]]
     if project is not None:
         roots.append(project.root)

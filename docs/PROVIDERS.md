@@ -33,7 +33,7 @@ No runtime command installs it. The optimizer runs with simplification, compress
 
 ## Khronos glTF Validator
 
-- Kind: Node package plus the `tools/validate_glb.mjs` bridge.
+- Kind: Node package plus the packaged `validate_glb.mjs` bridge.
 - Detect: `node` plus `.tools/node_modules/gltf-validator/index.js`.
 - Local developer setup:
 
