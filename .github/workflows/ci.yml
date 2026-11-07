@@ -9,11 +9,12 @@ jobs:
   test:
     name: ${{ matrix.os }} / Python ${{ matrix.python }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         os: [windows-latest, ubuntu-latest]
-        python: ["3.12", "3.13"]
+        python: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -21,6 +22,8 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Install
         run: python -m pip install -e ".[dev]"
+      - name: Validate JSON contracts
+        run: python -c "import json, pathlib; [json.loads(p.read_text(encoding='utf-8-sig')) for p in pathlib.Path('.').rglob('*.json') if '.venv' not in p.parts and '.tools' not in p.parts]"
       - name: Test suite
         run: python -m unittest discover -s tests -v
       - name: CLI smoke
@@ -29,3 +32,30 @@ jobs:
           python -m assetforge doctor --json
           python -m assetforge recipes list
           python -m assetforge capabilities --json
+      - name: End-to-end smoke
+        run: |
+          python -m assetforge init .smoke --name Smoke
+          cd .smoke
+          python -m assetforge run image-prep --input ../examples/assets/source.png --json
+          python -m assetforge run glb-inspect --input ../examples/assets/textured-scene.glb --json
+
+  package:
+    name: wheel packaging
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Build wheel
+        run: |
+          python -m pip install build
+          python -m build --wheel
+      - name: Install wheel
+        run: python -m pip install dist/*.whl
+      - name: Wheel contents and CLI
+        run: |
+          assetforge --version
+          assetforge recipes list
+          python -c "import zipfile, pathlib; w=next(pathlib.Path('dist').glob('*.whl')); z=zipfile.ZipFile(w); names=z.namelist(); assert any(n.endswith('data/recipes/img2threejs-codegen.json') for n in names); assert any(n.endswith('data/validate_glb.mjs') for n in names); print(w.name, len(names), 'entries')"

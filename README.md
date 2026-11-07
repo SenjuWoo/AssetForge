@@ -8,7 +8,7 @@ AssetForge orchestrates other owners. It does not fork Blender, ComfyUI, Graphit
 
 ## Quick start (Windows)
 
-1. Run `START-HERE.bat`. It creates a repo-local `.venv` and runs `doctor`.
+1. Run `START-HERE.bat`. It creates a repo-local `.venv`, installs Pillow for the image recipes, and runs `doctor`.
 2. Create or enter a project folder and run:
 
 ```bat
@@ -47,6 +47,18 @@ assetforge export ASSET --target roblox|godot|generic [--dry-run] [--json]
 
 Exit codes are stable: `0` success, `2` usage/recipe error, `3` missing project/asset/job, `4` provider unavailable, `5` validation or budget failure, `6` run failure.
 
+## Recommended texture workflow (comfy-kit)
+
+For free local texture generation, the recommended companion is **comfy-kit**. It owns the SwarmUI/ComfyUI installation, models, presets and MCP configuration; AssetForge only delegates a render and keeps the result inside the asset.
+
+```bat
+assetforge.cmd run comfy-generate --set "prompt=seamless weathered steel, top-down, tileable" --set width=1024 --set height=1024
+assetforge.cmd run texture-pack --input occlusion=ao.png --input roughness=rough.png --input metallic=metal.png
+assetforge.cmd export ASSET --target godot
+```
+
+`comfy-import` also accepts an existing comfy-kit output folder. If comfy-kit is not installed, `comfy-generate` exits with code `4` and a clear provider message; AssetForge never installs models or changes comfy-kit configuration.
+
 ## Built-in recipes
 
 | Recipe | Purpose |
@@ -63,6 +75,8 @@ Exit codes are stable: `0` success, `2` usage/recipe error, `3` missing project/
 | `img2threejs-codegen` | Generate an editable Three.js factory from an ObjectSculptSpec through upstream img2threejs. |
 
 Every recipe writes a job record under `.assetforge/jobs/` with per-step status, errors and tool versions. Assets keep copied inputs, a JSON manifest, relative artifact paths and provenance. A manifest-defined primary artifact decides what gets exported.
+
+`img2threejs-codegen` output is TypeScript source, not a mesh or texture. It remains an editable intermediate artifact: it is not compiled, rendered or exported by AssetForge. Compilation, visual fidelity and game-ready conversion are unverified and must be handled by the owning workflow.
 
 ## Capability status
 
@@ -97,8 +111,8 @@ AssetForge detects providers without installing or reconfiguring them.
 | glTF-Transform | GLB optimization | `glb-optimize` exits with code `4` |
 | Khronos glTF Validator | Official conformance check | Recorded as `NOT_TESTED` |
 | Blender | Background sample/export | `blender-sample` exits with code `4` |
-| comfy-kit | Image generation | `comfy-generate` exits with code `4` |
-| img2threejs | Technical image probe | `img2threejs-probe` exits with code `4` |
+| comfy-kit | Free local texture generation (recommended companion) | `comfy-generate` exits with code `4` |
+| img2threejs | Technical image probe and spec-to-Three.js codegen | `img2threejs-probe` / `img2threejs-codegen` exit with code `4` |
 
 Detection paths and environment variables are documented in [docs/PROVIDERS.md](docs/PROVIDERS.md).
 
@@ -120,6 +134,14 @@ project/
 
 Artifact paths in `asset.json` are project-relative and are validated against path escapes before use. Large binaries never live inside JSON. Original input locations are kept only in the job's provenance record.
 
+## Security boundaries
+
+- Recipes are declarative JSON. They can only name implemented step kinds; they cannot inject shell commands or arbitrary code.
+- External tools run through structured argument lists with explicit working directories and timeouts. AssetForge does not install them silently.
+- Asset inputs are copied into the project. Artifact paths are rejected if absolute, missing or outside the project, including `..` and symlink escapes.
+- Validation and export never claim an engine import was tested. `engine_import` is always `NOT_TESTED` until a real editor run is recorded.
+- AssetForge does not upload assets to Roblox, Godot or any account, and never stores credentials.
+
 ## Adding to the Ultimate AI Starter Bundle
 
 The bundle detects an installed AssetForge through the companion registry and routes asset work to it. AssetForge keeps ownership of installation, updates, diagnostics, dependencies and releases. The proposed registry entry and the exact contract are in [docs/UABS-INTEGRATION.md](docs/UABS-INTEGRATION.md) and `integration/COMPANIONS.asset-forge.json`.
@@ -135,6 +157,7 @@ No bundle files are modified by this repository.
 - [Bundle integration](docs/UABS-INTEGRATION.md)
 - [Third-party notices](docs/THIRD-PARTY-NOTICES.md)
 - [Plan](PLAN.md) / [State](STATE.md) / [Validation evidence](VALIDATION.md)
+- [Roadmap](ROADMAP.md) / [Release checklist](RELEASE.md)
 
 ## License
 

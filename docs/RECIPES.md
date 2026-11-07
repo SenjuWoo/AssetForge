@@ -105,6 +105,8 @@ assetforge run comfy-generate --set "prompt=weathered steel texture, top-down"
 
 Output is written inside the asset. The owner's presets and models are not changed. If the owner's default model is invalid, pass `--set model=<model-name>`.
 
+**Recommended for free local texture work:** comfy-kit owns installation, models and presets; AssetForge delegates the render, then `texture-pack` can combine the generated maps into an ORM texture. AssetForge never installs or redistributes models.
+
 ## `comfy-import`
 
 Copy the newest images from a comfy-kit output folder into an asset.

@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0"
 if not exist ".venv\Scripts\python.exe" (
   echo First run: creating the local Python environment...
-  powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Install.ps1"
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Install.ps1" -WithImages
   if errorlevel 1 (
     echo.
     echo Installation failed. Nothing outside this folder was changed.

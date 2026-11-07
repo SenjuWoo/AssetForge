@@ -12,7 +12,7 @@ AssetForge is MIT-licensed. It does not vendor third-party source, binaries, dat
 | Khronos glTF Validator (optional) | Apache-2.0 | Official conformance report |
 | Blender (optional, external) | GPL-2.0-or-later | Background sample export |
 | comfy-kit (optional, external) | MIT | Delegated image generation |
-| img2threejs (optional, external) | Apache-2.0 | Technical image probe |
+| img2threejs (optional, external) | Apache-2.0 | Technical image probe and deterministic spec-to-Three.js code generation |
 
 `jsonschema` is used only by tests when available; it is not a runtime dependency.
 

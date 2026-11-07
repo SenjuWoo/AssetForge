@@ -76,7 +76,12 @@ def validate_asset(project: Project, asset: Asset) -> dict:
     meshes = [item for item in asset.manifest.get("artifacts", []) if item.get("role") == "mesh" or item.get("path", "").lower().endswith(".glb")]
     image_items = _image_artifacts(asset)
     if not meshes and not image_items:
-        checks.append({"artifact": None, "id": "ASSET-001", "status": "FAIL", "detail": "asset has no mesh or image artifact"})
+        checks.append({
+            "artifact": None,
+            "id": "ASSET-001",
+            "status": "FAIL",
+            "detail": "asset has no mesh or image artifact; source-only artifacts such as Three.js TypeScript remain editable intermediates and are not exported",
+        })
     for item in meshes:
         try:
             path = asset.resolve_artifact(item["path"])

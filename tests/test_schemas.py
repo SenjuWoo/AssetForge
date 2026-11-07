@@ -31,13 +31,24 @@ class SchemaTests(unittest.TestCase):
                 jsonschema.Draft202012Validator.check_schema(schema)
 
     def test_version_file_matches_package(self):
+        import re
+
         from assetforge import __version__
 
         self.assertEqual((ROOT / "VERSION").read_text(encoding="utf-8").strip(), __version__)
+        pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        self.assertEqual(re.search(r'^version = "([^"]+)"', pyproject, re.M).group(1), __version__)
+        changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        self.assertEqual(re.search(r"^## ([0-9]+\.[0-9]+\.[0-9]+)", changelog, re.M).group(1), __version__)
 
     def test_public_files_have_no_machine_paths(self):
         forbidden = [str(Path.home()).replace("\\", "/"), "C:/Users/", "Z:/Backup/"]
-        for name in ("README.md", "docs/ARCHITECTURE.md", "docs/UPSTREAM-EVALUATIONS.md", "docs/UABS-INTEGRATION.md"):
+        for name in (
+            "README.md", "ROADMAP.md", "RELEASE.md", "RELEASE-NOTES.md",
+            "docs/ARCHITECTURE.md", "docs/PROVIDERS.md", "docs/RECIPES.md",
+            "docs/THIRD-PARTY-NOTICES.md", "docs/UPSTREAM-EVALUATIONS.md",
+            "docs/UABS-INTEGRATION.md",
+        ):
             path = ROOT / name
             if not path.exists():
                 continue

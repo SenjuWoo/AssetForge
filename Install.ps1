@@ -57,7 +57,14 @@ if (Test-Path -LiteralPath $venv) {
     }
     Rename-Item -LiteralPath $venv -NewName '.venv.prev'
 }
-Rename-Item -LiteralPath $stage -NewName '.venv'
+try {
+    Rename-Item -LiteralPath $stage -NewName '.venv'
+} catch {
+    if ((Test-Path -LiteralPath $previous) -and -not (Test-Path -LiteralPath $venv)) {
+        Rename-Item -LiteralPath $previous -NewName '.venv'
+    }
+    throw 'Could not activate the staged environment; the previous environment was restored.'
+}
 
 $state = [ordered]@{
     version     = $Version

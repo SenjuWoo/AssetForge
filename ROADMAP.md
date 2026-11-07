@@ -1,0 +1,50 @@
+# Roadmap
+
+AssetForge is built around one priority: a genuine reference-image → 3D → engine workflow. Everything else supports that path.
+
+## Priority 0 — release gate
+
+- Keep the standalone CLI, installer, schemas and tests green.
+- Publish `0.1.0` only after the exact commit passes local checks and hosted CI.
+- Keep every optional provider optional and independently installed.
+
+## Priority 1 — reference image to 3D to engine
+
+1. **img2threejs image-to-spec**: run the upstream intake, texture and material analysis, then produce a reviewed ObjectSculptSpec. Status: planned; agent review gates are required.
+2. **Spec-to-Three.js codegen**: implemented and verified. The TypeScript remains an editable intermediate.
+3. **Render/visual review**: compile and render the generated factory and capture comparison evidence. Status: planned.
+4. **GLB conversion**: convert the reviewed procedural result into a portable mesh, validate it and export. Status: planned; feature loss must be reported, not hidden.
+5. **Real engine import**: test the exported package in Roblox Studio and Godot, and record evidence. Status: not tested.
+
+## Priority 2 — Blender integration
+
+- Verify detection against a real Blender installation (the development machine currently exposes only a wrapper).
+- Confirm version support, run the deterministic background sample and export GLB.
+- Add a controlled scene-processing path for existing assets.
+
+## Priority 3 — texture and material depth
+
+- **comfy-kit is the recommended free local texture generator.** It owns SwarmUI/ComfyUI, models and presets; AssetForge delegates generation and imports only the result.
+- Add Material Maker interchange for procedural PBR graphs where a stable contract exists.
+- Add texture compression and channel validation only when an official backend is verified.
+
+## Priority 4 — simulation, editing and animation
+
+- Teardown: optional mechanical simulation and presentation output, separate from game-engine meshes.
+- Graphite: documented manual/interchange workflow; no invented headless CLI.
+- Rigging validation and UniRig after the core mesh path is stable.
+
+## Priority 5 — distribution and agent surface
+
+- Additional export profiles (Unity, Unreal, web, Skyrim) through the exporter contract.
+- Optional MCP server over the same service layer.
+- Optional remote GPU execution; never a core requirement.
+
+## Explicitly not done
+
+- img2threejs image-to-spec reconstruction and visual approval.
+- Actual Blender execution.
+- Teardown builds, Graphite automation and real engine imports.
+- AI 3D generation, rigging, MCP and batch/remote GPU support.
+
+Those items stay marked as planned or unverified until executed with recorded evidence.
