@@ -68,10 +68,13 @@ gh run watch <run-id> --repo SenjuWoo/AssetForge
 # 3. Apply topics and confirm the repository state.
 gh repo edit SenjuWoo/AssetForge --add-topic ai-agents,asset-pipeline,blender,game-development,glb,gltf,godot,img2threejs,roblox,texture,threejs,python
 
-# 4. Tag and publish only after CI is green.
+# 4. Tag, build the runtime archive, then publish only after CI is green.
 git tag -a v0.1.0 -m "AssetForge 0.1.0"
 git push origin v0.1.0
-gh release create v0.1.0 --repo SenjuWoo/AssetForge --title "AssetForge 0.1.0 — standalone asset toolkit (development release)" --notes-file RELEASE-NOTES.md
+git archive --format=zip --prefix=AssetForge-0.1.0/ -o AssetForge-0.1.0.zip v0.1.0 \
+  VERSION CHANGELOG.md LICENSE README.md ROADMAP.md RELEASE-NOTES.md pyproject.toml \
+  START-HERE.bat Install.ps1 Update.ps1 assetforge.cmd assetforge src schemas docs examples integration
+gh release create v0.1.0 --repo SenjuWoo/AssetForge --title "AssetForge 0.1.0 — standalone asset toolkit (development release)" --notes-file RELEASE-NOTES.md AssetForge-0.1.0.zip
 ```
 
 Do not claim publication until the repository, hosted CI and release exist. The optional Ultimate AI Starter Bundle companion entry is a separate follow-up; it is not required for the standalone release.
