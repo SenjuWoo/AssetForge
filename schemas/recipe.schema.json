@@ -17,6 +17,16 @@
         "required": {"type": "boolean"}
       }
     },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "kind": {"enum": ["image", "mesh", "directory", "file"]},
+          "required": {"type": "boolean"}
+        }
+      }
+    },
     "params": {
       "type": "object",
       "additionalProperties": {
@@ -38,6 +48,8 @@
           "image.inspect",
           "image.convert",
           "image.thumbnail",
+          "image.pack_orm",
+          "image.atlas",
           "glb.inspect",
           "glb.validate",
           "glb.optimize",

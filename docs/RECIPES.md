@@ -20,6 +20,35 @@ assetforge run image-prep --input source.png --set width=512 --set format=webp
 
 Alpha is preserved for PNG/WebP. JPEG output flattens alpha onto white and records a warning.
 
+## `texture-pack`
+
+Combine three grayscale maps into one RGB texture: R=occlusion, G=roughness, B=metallic. If a map differs in size it is resized to the occlusion map and the job reports a warning.
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `thumbnail` | integer | `256` |
+
+```bash
+assetforge run texture-pack \
+  --input occlusion=ao.png \
+  --input roughness=rough.png \
+  --input metallic=metal.png
+```
+
+## `sprite-atlas`
+
+Pack every image in a folder (sorted by filename, up to 64) into a grid. `atlas.png` is the deliverable and `atlas.json` records the cell size, padding, columns and frame rectangles. Alpha is preserved.
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `columns` | integer | `4` |
+| `padding` | integer | `2` |
+| `thumbnail` | integer | `256` |
+
+```bash
+assetforge run sprite-atlas --input path/to/frames --set columns=4
+```
+
 ## `glb-inspect`
 
 Record geometry statistics and structural checks. The source mesh becomes the primary deliverable.

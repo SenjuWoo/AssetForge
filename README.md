@@ -52,6 +52,8 @@ Exit codes are stable: `0` success, `2` usage/recipe error, `3` missing project/
 | Recipe | Purpose |
 | --- | --- |
 | `image-prep` | Inspect, resize/re-encode and thumbnail a raster image. |
+| `texture-pack` | Pack occlusion, roughness and metallic maps into an RGB ORM texture. |
+| `sprite-atlas` | Pack a folder of images into a grid atlas with JSON frame metadata. |
 | `glb-inspect` | Record geometry statistics and structural conformance. |
 | `glb-optimize` | Conservative glTF-Transform pass: no simplification, compression, flattening or joining. |
 | `blender-sample` | Headless Blender bevelled-cube export. Requires Blender. |
@@ -67,6 +69,8 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | --- | --- | --- |
 | CLI, projects, jobs, manifests | VERIFIED | Full test suite |
 | Image processing | VERIFIED | Pillow; alpha and JPEG-flatten behavior tested |
+| PBR channel packing | VERIFIED | R=occlusion, G=roughness, B=metallic; mismatched sizes resized and warned |
+| Sprite atlases | VERIFIED | Deterministic grid, alpha preserved, JSON frame rectangles |
 | GLB inspection | VERIFIED | Standard-library container and accessor reader |
 | Structural GLB validation | VERIFIED | Not a conformance claim |
 | Khronos glTF validation | VERIFIED when installed | Optional Node package in `.tools`; otherwise `NOT_TESTED` |

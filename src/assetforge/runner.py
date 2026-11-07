@@ -141,6 +141,45 @@ def _image_thumbnail(ctx: Context) -> dict:
     return {"status": "PASS", "detail": f"{result['width']}x{result['height']}"}
 
 
+def _image_pack_orm(ctx: Context) -> dict:
+    paths = [ctx.input(name) for name in ("occlusion", "roughness", "metallic")]
+    target = ctx.asset.path("outputs", f"{ctx.asset.id}-orm.png")
+    result = images.pack_orm(*paths, target)
+    ctx.outputs["image"] = target
+    ctx.artifact(target, "texture", "orm")
+    ctx.asset.set_primary("image", target)
+    detail = f"ORM {result['width']}x{result['height']} {human_bytes(result['bytes'])}"
+    if result["warnings"]:
+        detail += f"; {'; '.join(result['warnings'])}"
+    return {"status": "WARNING" if result["warnings"] else "PASS", "detail": detail}
+
+
+def _image_atlas(ctx: Context) -> dict:
+    source = ctx.input("source")
+    if not source.is_dir():
+        raise RunFailed(f"atlas input is not a directory: {source}")
+    files = sorted(
+        path for path in source.iterdir()
+        if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES
+    )[:64]
+    if not files:
+        raise RunFailed(f"atlas input has no images: {source}")
+    target = ctx.asset.path("outputs", "atlas.png")
+    metadata = ctx.asset.path("outputs", "atlas.json")
+    result = images.make_atlas(
+        files,
+        target,
+        metadata,
+        columns=int(ctx.params.get("columns") or 4),
+        padding=int(ctx.params.get("padding") or 2),
+    )
+    ctx.outputs["image"] = target
+    ctx.artifact(target, "texture", "atlas")
+    ctx.artifact(metadata, "report", "atlas-metadata")
+    ctx.asset.set_primary("image", target)
+    return {"status": "PASS", "detail": f"{len(files)} frames, {result['width']}x{result['height']}"}
+
+
 def _glb_inspect(ctx: Context) -> dict:
     source = ctx.mesh()
     ctx.outputs["source_mesh"] = source
@@ -321,6 +360,8 @@ HANDLERS = {
     "image.inspect": _image_inspect,
     "image.convert": _image_convert,
     "image.thumbnail": _image_thumbnail,
+    "image.pack_orm": _image_pack_orm,
+    "image.atlas": _image_atlas,
     "glb.inspect": _glb_inspect,
     "glb.validate": _glb_validate,
     "glb.optimize": _glb_optimize,
@@ -339,6 +380,9 @@ def _check_inputs(recipe: dict, inputs: dict[str, Path]) -> None:
     if spec.get("required"):
         name = spec.get("name", "input")
         if name not in inputs:
+            raise RecipeError(f"recipe {recipe['id']} requires --input {name}=<path>")
+    for name, item in (recipe.get("inputs") or {}).items():
+        if item.get("required") and name not in inputs:
             raise RecipeError(f"recipe {recipe['id']} requires --input {name}=<path>")
     for name, path in inputs.items():
         if not Path(path).exists():

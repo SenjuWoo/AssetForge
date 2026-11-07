@@ -135,6 +135,94 @@ def thumbnail(source: Path, target: Path, size: int = 256) -> dict:
     return inspect_image(target)
 
 
+def pack_orm(occlusion: Path, roughness: Path, metallic: Path, target: Path) -> dict:
+    """Pack three grayscale maps into an RGB occlusion/roughness/metallic
+    texture. R=occlusion, G=roughness, B=metallic."""
+    from PIL import Image
+
+    base = open_image(occlusion)
+    size = base.size
+    channels = []
+    sources = []
+    warnings = []
+    for role, path in (("occlusion", occlusion), ("roughness", roughness), ("metallic", metallic)):
+        image = open_image(path)
+        if image.size != size:
+            warnings.append(f"{role} was {image.width}x{image.height}, resized to {size[0]}x{size[1]}")
+            image = image.resize(size, Image.Resampling.LANCZOS)
+        channels.append(image.convert("L"))
+        sources.append({"role": role, "name": Path(path).name})
+    merged = Image.merge("RGB", tuple(channels))
+    target = Path(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temp = target.with_name(target.name + ".part")
+    try:
+        merged.save(temp, format="PNG", optimize=True)
+        temp.replace(target)
+    except Exception as exc:
+        if temp.exists():
+            temp.unlink()
+        raise ImageError(f"cannot write ORM texture {target}: {exc}") from exc
+    result = inspect_image(target)
+    result.update({
+        "channels": {"r": "occlusion", "g": "roughness", "b": "metallic"},
+        "sources": sources,
+        "warnings": warnings,
+    })
+    return result
+
+
+def make_atlas(sources: list[Path], target: Path, metadata: Path, columns: int = 4, padding: int = 2) -> dict:
+    """Pack images into a fixed grid and write frame metadata. Cell size is the
+    largest source image; frames record their original dimensions."""
+    from PIL import Image
+
+    paths = [Path(item) for item in sources]
+    if not paths:
+        raise ImageError("atlas needs at least one image")
+    if len(paths) > 64:
+        raise ImageError("atlas is limited to 64 images")
+    images = [open_image(path) for path in paths]
+    cell_w = max(image.width for image in images)
+    cell_h = max(image.height for image in images)
+    cols = max(1, min(int(columns), len(paths)))
+    rows = (len(paths) + cols - 1) // cols
+    width = padding + cols * (cell_w + padding)
+    height = padding + rows * (cell_h + padding)
+    canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    frames = []
+    for index, (path, image) in enumerate(zip(paths, images)):
+        x = padding + (index % cols) * (cell_w + padding)
+        y = padding + (index // cols) * (cell_h + padding)
+        canvas.alpha_composite(image.convert("RGBA"), (x, y))
+        frames.append({"name": path.name, "x": x, "y": y, "w": image.width, "h": image.height})
+    target, metadata = Path(target), Path(metadata)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temp = target.with_name(target.name + ".part")
+    try:
+        canvas.save(temp, format="PNG", optimize=True)
+        temp.replace(target)
+    except Exception as exc:
+        if temp.exists():
+            temp.unlink()
+        raise ImageError(f"cannot write atlas {target}: {exc}") from exc
+    write_json(metadata, {
+        "schema": 1,
+        "image": target.name,
+        "width": width,
+        "height": height,
+        "cell": [cell_w, cell_h],
+        "columns": cols,
+        "rows": rows,
+        "padding": padding,
+        "frames": frames,
+    })
+    result = inspect_image(target)
+    result["frame_count"] = len(frames)
+    result["metadata"] = metadata.name
+    return result
+
+
 def compare_images(first: Path, second: Path) -> dict:
     first_path, second_path = Path(first), Path(second)
     a = open_image(first_path).convert("RGBA")

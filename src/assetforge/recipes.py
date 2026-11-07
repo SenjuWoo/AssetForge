@@ -15,6 +15,8 @@ STEP_NAMES = {
     "image.inspect",
     "image.convert",
     "image.thumbnail",
+    "image.pack_orm",
+    "image.atlas",
     "glb.inspect",
     "glb.validate",
     "glb.optimize",
@@ -64,6 +66,12 @@ def _validate(recipe: dict, source: str) -> dict:
         if choices is not None and not isinstance(choices, list):
             raise RecipeError(f"{source}: param {name!r} choices must be a list")
     recipe.setdefault("input", {})
+    named = recipe.get("inputs") or {}
+    if not isinstance(named, dict):
+        raise RecipeError(f"{source}: inputs must be an object")
+    for name, spec in named.items():
+        if not isinstance(spec, dict) or spec.get("kind") not in ("image", "directory", "file", "mesh"):
+            raise RecipeError(f"{source}: input {name!r} has unsupported kind")
     recipe.setdefault("params", {})
     return recipe
 

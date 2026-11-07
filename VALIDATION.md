@@ -15,7 +15,7 @@ python -m unittest discover -s tests
 Result (final run after the review corrections):
 
 ```text
-Ran 66 tests in 91.282s
+Ran 68 tests in 113.054s
 OK (skipped=1)
 exit code 0
 ```
@@ -27,6 +27,7 @@ Coverage includes:
 - GLB header, length, accessor bounds, degenerate triangles, missing normals, scale bounds, unresolved images.
 - Textured multi-node fixture: 2 nodes, 2 meshes, 2 materials, 1 embedded texture, 2 triangles.
 - Image inspection, resize, WebP conversion, alpha handling, JPEG flatten warning, comparison.
+- PBR channel packing with per-channel pixel verification; atlas grid, frame metadata and alpha handling.
 - Project/asset/job storage, schema validation and asset lookup.
 - Recipe loading, unknown-step rejection, project overrides and typed parameters.
 - CLI end-to-end: init, recipes, image-prep, glb-inspect, validate, export, status, dry run, exit codes.
@@ -94,7 +95,8 @@ Observed: job `SUCCEEDED`; upstream probe JSON stored as a report; result `techn
 
 - `Install.ps1` created a repo-local `.venv`, ran `doctor`, exited `0`.
 - `assetforge.cmd --version` printed `assetforge 0.1.0`; `doctor --json` exited `0`.
-- Wheel build: `assetforge-0.1.0-py3-none-any.whl`, 43,978 bytes, SHA-256 `947fa2baf2d93437b2aa1e34c3a243f703be40feaa7d5c12c17564b16d01d2f8`.
+- Wheel build: `assetforge-0.1.0-py3-none-any.whl`, 46,459 bytes, SHA-256 `cb4376bd0d19b02978e741dc0afbac6dacae155a5c6e207f62a02624fe9ff9a1`.
+- Wheel installed into a clean environment; `assetforge --version` returned 0.1.0; `texture-pack` and `sprite-atlas` both returned job status `SUCCEEDED`; the packaged bridge passed the Khronos validator with `0 error(s), 0 warning(s)` in a project path containing spaces.
 - Wheel installed into a clean environment; `assetforge --version` returned 0.1.0, `glb-inspect` ran against the textured fixture, `validate` returned `PASS` with `PASS=11, FAIL=0, NOT_TESTED=2` (official validator unavailable in that isolated environment, plus no rig data).
 - Packaged validator bridge verified from that installed wheel in a project path containing spaces:
   - before installing the validator into the project's `.tools`, `GLB-014` was `NOT_TESTED`;

@@ -1,7 +1,7 @@
 # State
 
 - **Version:** 0.1.0
-- **Milestone:** Phase 0 + Phase 1 MVP complete; Phase 2 not started
+- **Milestone:** Phase 0 + Phase 1 MVP complete; Phase 2 image layer started (PBR packing, sprite atlas)
 - **Active task:** none — repository is at a verified checkpoint
 - **Current revision:** `4b9e27ea986dbf6f0ca3897276448d42674cb69f` (verified code commit)
 - **Last known-good:** `4b9e27ea986dbf6f0ca3897276448d42674cb69f`
@@ -15,6 +15,7 @@
 - Explicit primary artifact selection for export.
 - Job finalization on `AdapterError`, `GlbError`, `StoreError`, `OSError` and unexpected exceptions.
 - Pillow image pipeline; GLB inspection and structural validation; optional Khronos validation.
+- PBR channel packing (occlusion/roughness/metallic to RGB ORM) and deterministic sprite atlases with JSON frame metadata.
 - Conservative glTF-Transform optimization with before/after comparison.
 - Roblox/Godot/generic export packaging with engine import marked `NOT_TESTED`.
 - External adapters: Blender (implemented, unavailable), comfy-kit generate/import (verified), img2threejs probe (verified).
@@ -36,6 +37,8 @@ python -m unittest discover -s tests -v
 python -m assetforge doctor --json
 python -m assetforge recipes list
 python -m assetforge run glb-optimize --input examples/assets/textured-scene.glb
+python -m assetforge run texture-pack --input occlusion=ao.png --input roughness=rough.png --input metallic=metal.png
+python -m assetforge run sprite-atlas --input path/to/frames --set columns=4
 ```
 
 Installer:
@@ -47,7 +50,7 @@ assetforge.cmd doctor
 
 ## Next action
 
-Commit this verified checkpoint. Do not publish or add providers until the operator asks. When publication is authorized: create `SenjuWoo/AssetForge`, push `main`, confirm CI on the exact commit, then publish a release archive containing `Install.ps1`, `Update.ps1`, `VERSION`, `src/`, `pyproject.toml`, docs and `LICENSE`.
+Commit this verified checkpoint. Next engineering task: P2-01 Material Maker interchange or P2-02 editor workflow, after confirming the standalone core stays green. Do not publish or add providers until the operator asks. When publication is authorized: create `SenjuWoo/AssetForge`, push `main`, confirm CI on the exact commit, then publish a release archive containing `Install.ps1`, `Update.ps1`, `VERSION`, `src/`, `pyproject.toml`, docs and `LICENSE`.
 
 ## Integration status
 

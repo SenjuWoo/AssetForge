@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "id": "sprite-atlas",
+  "title": "Pack a folder of images into a sprite atlas",
+  "description": "Packs up to 64 images into a deterministic grid, writes atlas.json with frame rectangles, and preserves alpha. Cell size is the largest source image.",
+  "input": {"name": "source", "kind": "directory", "required": true},
+  "params": {
+    "columns": {"type": "integer", "default": 4},
+    "padding": {"type": "integer", "default": 2},
+    "thumbnail": {"type": "integer", "default": 256}
+  },
+  "steps": ["image.atlas", "image.thumbnail", "asset.record"]
+}

@@ -125,5 +125,42 @@ class CliTests(unittest.TestCase):
         self.assertEqual(mesh_file["sha256"], sha256_file(primary_path))
 
 
+    def test_texture_pack_and_sprite_atlas(self):
+        from PIL import Image
+
+        workspace = Path(self.tmp.name)
+        maps = {}
+        for name, value in (("occlusion", 64), ("roughness", 128), ("metallic", 255)):
+            path = workspace / f"{name}.png"
+            Image.new("L", (32, 32), value).save(path)
+            maps[name] = path
+        result = run_cli([
+            "run", "texture-pack",
+            "--input", f"occlusion={maps['occlusion']}",
+            "--input", f"roughness={maps['roughness']}",
+            "--input", f"metallic={maps['metallic']}",
+            "--json",
+        ], self.root)
+        report = self._json(result)
+        self.assertEqual(report["job"]["status"], "SUCCEEDED")
+        self.assertTrue(any(item["label"] == "orm" for item in report["asset"]["artifacts"]))
+        self.assertTrue(report["asset"]["primary"]["image"].endswith("-orm.png"))
+
+        frames = workspace / "frames"
+        frames.mkdir()
+        for index, color in enumerate([(255, 0, 0, 255), (0, 255, 0, 255), (0, 0, 255, 255), (255, 255, 0, 255)]):
+            Image.new("RGBA", (16, 16), color).save(frames / f"{index}.png")
+        result = run_cli(["run", "sprite-atlas", "--input", str(frames), "--set", "columns=2", "--json"], self.root)
+        report = self._json(result)
+        self.assertEqual(report["job"]["status"], "SUCCEEDED")
+        atlas = next(item for item in report["asset"]["artifacts"] if item["label"] == "atlas")
+        metadata = next(item for item in report["asset"]["artifacts"] if item["label"] == "atlas-metadata")
+        with Image.open(self.root / atlas["path"]) as image:
+            self.assertEqual(image.size, (38, 38))
+        data = json.loads((self.root / metadata["path"]).read_text(encoding="utf-8-sig"))
+        self.assertEqual(data["columns"], 2)
+        self.assertEqual(len(data["frames"]), 4)
+
+
 if __name__ == "__main__":
     unittest.main()

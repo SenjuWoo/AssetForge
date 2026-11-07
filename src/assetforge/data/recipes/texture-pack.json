@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "id": "texture-pack",
+  "title": "Pack occlusion, roughness and metallic maps into one ORM texture",
+  "description": "Combines three grayscale maps into an RGB texture: R=occlusion, G=roughness, B=metallic. Maps of different sizes are resized to the occlusion map and reported as a warning.",
+  "inputs": {
+    "occlusion": {"kind": "image", "required": true},
+    "roughness": {"kind": "image", "required": true},
+    "metallic": {"kind": "image", "required": true}
+  },
+  "params": {
+    "thumbnail": {"type": "integer", "default": 256}
+  },
+  "steps": ["image.pack_orm", "image.thumbnail", "asset.record"]
+}

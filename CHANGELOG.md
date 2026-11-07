@@ -9,6 +9,8 @@ Initial standalone release candidate.
 - Project-local assets with copied inputs, provenance, relative artifact paths and path-escape rejection.
 - Explicit primary deliverable, so export never depends on artifact order.
 - Image inspection, resize, re-encode, alpha handling and thumbnails through Pillow.
+- PBR channel packing: occlusion/roughness/metallic into one RGB ORM texture.
+- Sprite atlas generation with a deterministic grid and JSON frame metadata.
 - GLB inspection and structural validation using the standard library.
 - Optional Khronos glTF Validator bridge with a clear `NOT_TESTED` result when absent.
 - Conservative glTF-Transform optimization with structure comparison.

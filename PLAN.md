@@ -45,7 +45,8 @@ Status values are strict: **VERIFIED** (executed with evidence), **IMPLEMENTED /
 | --- | --- | --- |
 | P2-01 | Material Maker / PBR material interchange | PLANNED |
 | P2-02 | Krita/Inkscape manual-editor workflows | PLANNED |
-| P2-03 | Sprite sheets and texture atlases | PLANNED |
+| P2-03 | Sprite sheets and texture atlases | VERIFIED (image pipeline; editor integration pending) |
+| P2-04 | ORM material channel packing | VERIFIED |
 | P3-01 | TripoSR image-to-3D provider, isolated environment | PLANNED |
 | P3-02 | Rigging validation interfaces and UniRig adapter | PLANNED |
 | P3-03 | teardown simulation/presentation module | PLANNED |
@@ -55,4 +56,4 @@ Status values are strict: **VERIFIED** (executed with evidence), **IMPLEMENTED /
 
 ## Next executable task
 
-Publish the local repository only when the operator explicitly asks, then run the CI workflow on the remote. The next engineering task after that is P2-01 or P4-02, not another provider before the current foundations stay green.
+Publish the local repository only when the operator explicitly asks, then run the CI workflow on the remote. The next engineering task is P2-01 Material Maker interchange or P2-02 editor workflow, not another provider before the current foundations stay green.
