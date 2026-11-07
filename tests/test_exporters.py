@@ -76,7 +76,7 @@ class ExporterTests(unittest.TestCase):
                 self.assertEqual(record["kind"], "texture")
                 self.assertEqual(record["engine_import"], "NOT_TESTED")
                 notes = (out / "IMPORT.md").read_text(encoding="utf-8")
-                expected = {"roblox": "no mesh", "godot": "no `.glb`", "generic": "orm output as linear"}[target]
+                expected = {"roblox": "no mesh", "godot": "no `.glb`", "generic": "linear data"}[target]
                 self.assertIn(expected, notes.lower())
                 if jsonschema:
                     schema = json.loads((ROOT / "schemas" / "export.schema.json").read_text(encoding="utf-8"))

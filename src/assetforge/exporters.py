@@ -286,7 +286,7 @@ def _import_notes(profile: dict, record: dict) -> str:
         else:
             lines += [
                 "1. Load the PNG in an image viewer or material authoring tool.",
-                "2. Treat ORM output as linear data, not sRGB color; keep base color separate.",
+                "2. ORM maps are linear data, not sRGB color; base color stays separate.",
             ]
     elif profile["id"] == "roblox":
         lines += [
