@@ -1,6 +1,6 @@
 # Validation evidence
 
-Verified code commit: `3f095db38bf03ca9ffe70f6ab16dc99edaabcc3d`.
+Verified code commit: `0689919e2af1d06f3adaf380cf4e8be07ae01ca1`.
 
 Environment: Windows 11, Python 3.14.10, Node 26.13.0, Pillow 13.0.0, jsonschema 4.x, glTF-Transform 4.5.1, Khronos glTF Validator installed locally in `.tools`. The project works without any optional provider.
 
@@ -15,7 +15,7 @@ python -m unittest discover -s tests
 Result (final run after the review corrections):
 
 ```text
-Ran 74 tests in 91.614s
+Ran 75 tests in 88.220s
 OK (skipped=1)
 exit code 0
 ```
@@ -28,8 +28,7 @@ Coverage includes:
 - Textured multi-node fixture: 2 nodes, 2 meshes, 2 materials, 1 embedded texture, 2 triangles.
 - Image inspection, resize, WebP conversion, alpha handling, JPEG flatten warning, comparison.
 - PBR channel packing with per-channel pixel verification; atlas grid, frame metadata and alpha handling.
-- Atlas 65-frame rejection, copied frame provenance, negative padding/zero columns, side and pixel limit rejection.
-- Texture-only export for generic, Godot and Roblox packages, including JSON export records and import notes.
+- Atlas 65-frame rejection, copied frame provenance, negative padding/zero columns, side and pixel limit rejection.- Texture-only export for generic, Godot and Roblox packages, including JSON export records and import notes.
 - ORM mismatch rejection and explicit resize warning.
 - img2threejs codegen adapter contract; real upstream generator produced a 64,589-byte TypeScript factory from the upstream conformance fixture.
 - Project/asset/job storage, schema validation and asset lookup.
@@ -99,7 +98,7 @@ Observed: job `SUCCEEDED`; upstream probe JSON stored as a report; result `techn
 
 - `Install.ps1` created a repo-local `.venv`, ran `doctor`, exited `0`.
 - `assetforge.cmd --version` printed `assetforge 0.1.0`; `doctor --json` exited `0`.
-- Wheel build: `assetforge-0.1.0-py3-none-any.whl`, 48,585 bytes, SHA-256 `ff3100e874e8124ee12e8945403a5dc9c5c6d987fa10aad823f74d6c41d83cd2`.
+- Wheel build: `assetforge-0.1.0-py3-none-any.whl`, 48,587 bytes, SHA-256 `54b0b2f3299ffaa3eded1a75cc56422015617756f182c65536522097b8f19eb2`.
 - Wheel installed into a clean environment; `assetforge --version` returned 0.1.0; `texture-pack`, `sprite-atlas` and `img2threejs-codegen` returned job status `SUCCEEDED`; the packaged bridge passed the Khronos validator with `0 error(s), 0 warning(s)` in a project path containing spaces.
 - Wheel installed into a clean environment; `assetforge --version` returned 0.1.0, `glb-inspect` ran against the textured fixture, `validate` returned `PASS` with `PASS=11, FAIL=0, NOT_TESTED=2` (official validator unavailable in that isolated environment, plus no rig data).
 - Packaged validator bridge verified from that installed wheel in a project path containing spaces:

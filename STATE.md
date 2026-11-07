@@ -3,8 +3,8 @@
 - **Version:** 0.1.0
 - **Milestone:** Phase 0 + Phase 1 MVP complete; Phase 2 image layer and img2threejs codegen complete
 - **Active task:** none — repository is at a verified checkpoint
-- **Current revision:** `3f095db38bf03ca9ffe70f6ab16dc99edaabcc3d` (verified code commit)
-- **Last known-good:** `3f095db38bf03ca9ffe70f6ab16dc99edaabcc3d`
+- **Current revision:** `0689919e2af1d06f3adaf380cf4e8be07ae01ca1` (verified code commit)
+- **Last known-good:** `0689919e2af1d06f3adaf380cf4e8be07ae01ca1`
 
 ## Completed
 

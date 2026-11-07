@@ -166,6 +166,17 @@ class CliTests(unittest.TestCase):
             self.assertEqual(len(item["sha256"]), 64)
             self.assertTrue((self.root / item["input"]).exists())
 
+    def test_sprite_atlas_rejects_zero_columns(self):
+        from PIL import Image
+
+        frames = Path(self.tmp.name) / "zero-columns"
+        frames.mkdir()
+        for index in range(2):
+            Image.new("RGBA", (4, 4), (index, 0, 0, 255)).save(frames / f"{index}.png")
+        result = run_cli(["run", "sprite-atlas", "--input", str(frames), "--set", "columns=0"], self.root)
+        self.assertEqual(result.returncode, 6, result.stdout + result.stderr)
+        self.assertIn("positive integer", result.stdout + result.stderr)
+
     def test_sprite_atlas_rejects_65_frames(self):
         from PIL import Image
 

@@ -187,8 +187,8 @@ def _image_atlas(ctx: Context) -> dict:
         copied,
         target,
         metadata,
-        columns=int(ctx.params.get("columns") or 4),
-        padding=int(ctx.params.get("padding") or 2),
+        columns=int(ctx.params.get("columns", 4)),
+        padding=int(ctx.params.get("padding", 2)),
     )
     ctx.outputs["image"] = target
     ctx.artifact(target, "texture", "atlas")
