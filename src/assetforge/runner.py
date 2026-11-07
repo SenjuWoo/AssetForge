@@ -144,7 +144,7 @@ def _image_thumbnail(ctx: Context) -> dict:
 def _image_pack_orm(ctx: Context) -> dict:
     paths = [ctx.input(name) for name in ("occlusion", "roughness", "metallic")]
     target = ctx.asset.path("outputs", f"{ctx.asset.id}-orm.png")
-    result = images.pack_orm(*paths, target)
+    result = images.pack_orm(*paths, target, resize=bool(ctx.params.get("resize") or False))
     ctx.outputs["image"] = target
     ctx.artifact(target, "texture", "orm")
     ctx.asset.set_primary("image", target)
@@ -161,13 +161,30 @@ def _image_atlas(ctx: Context) -> dict:
     files = sorted(
         path for path in source.iterdir()
         if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES
-    )[:64]
+    )
     if not files:
         raise RunFailed(f"atlas input has no images: {source}")
+    if len(files) > images.ATLAS_MAX_FRAMES:
+        raise RunFailed(
+            f"atlas accepts at most {images.ATLAS_MAX_FRAMES} images, got {len(files)}; "
+            "split the folder into smaller batches"
+        )
+    copied = []
+    provenance = ctx.job.data.setdefault("sources", {}).setdefault("source_frames", [])
+    for path in files:
+        record = ctx.asset.add_input(path, "image")
+        copied.append(ctx.project.root / record["path"])
+        provenance.append({
+            "name": path.name,
+            "original": str(path.resolve()),
+            "sha256": record["sha256"],
+            "input": record["path"],
+        })
+    ctx.job.save()
     target = ctx.asset.path("outputs", "atlas.png")
     metadata = ctx.asset.path("outputs", "atlas.json")
     result = images.make_atlas(
-        files,
+        copied,
         target,
         metadata,
         columns=int(ctx.params.get("columns") or 4),

@@ -135,9 +135,10 @@ def thumbnail(source: Path, target: Path, size: int = 256) -> dict:
     return inspect_image(target)
 
 
-def pack_orm(occlusion: Path, roughness: Path, metallic: Path, target: Path) -> dict:
+def pack_orm(occlusion: Path, roughness: Path, metallic: Path, target: Path, resize: bool = False) -> dict:
     """Pack three grayscale maps into an RGB occlusion/roughness/metallic
-    texture. R=occlusion, G=roughness, B=metallic."""
+    texture. R=occlusion, G=roughness, B=metallic. Mismatched sizes are an
+    error unless the caller explicitly opts into resizing."""
     from PIL import Image
 
     base = open_image(occlusion)
@@ -148,6 +149,11 @@ def pack_orm(occlusion: Path, roughness: Path, metallic: Path, target: Path) -> 
     for role, path in (("occlusion", occlusion), ("roughness", roughness), ("metallic", metallic)):
         image = open_image(path)
         if image.size != size:
+            if not resize:
+                raise ImageError(
+                    f"{role} is {image.width}x{image.height} but occlusion is {size[0]}x{size[1]}; "
+                    "pass --set resize=true to resize explicitly"
+                )
             warnings.append(f"{role} was {image.width}x{image.height}, resized to {size[0]}x{size[1]}")
             image = image.resize(size, Image.Resampling.LANCZOS)
         channels.append(image.convert("L"))
@@ -172,23 +178,51 @@ def pack_orm(occlusion: Path, roughness: Path, metallic: Path, target: Path) -> 
     return result
 
 
+ATLAS_MAX_FRAMES = 64
+ATLAS_MAX_SIDE = 8192
+ATLAS_MAX_PIXELS = 33_554_432
+ATLAS_MEMORY_BUDGET = 512 * 1024 * 1024
+
+
 def make_atlas(sources: list[Path], target: Path, metadata: Path, columns: int = 4, padding: int = 2) -> dict:
     """Pack images into a fixed grid and write frame metadata. Cell size is the
-    largest source image; frames record their original dimensions."""
+    largest source image; frames record their original dimensions. Rejects
+    excessive frame counts and dimensions before allocating the canvas."""
     from PIL import Image
 
     paths = [Path(item) for item in sources]
     if not paths:
         raise ImageError("atlas needs at least one image")
-    if len(paths) > 64:
-        raise ImageError("atlas is limited to 64 images")
+    if len(paths) > ATLAS_MAX_FRAMES:
+        raise ImageError(
+            f"atlas accepts at most {ATLAS_MAX_FRAMES} images, got {len(paths)}; "
+            "split the folder into smaller batches"
+        )
+    if not isinstance(columns, int) or columns < 1:
+        raise ImageError("atlas columns must be a positive integer")
+    if not isinstance(padding, int) or padding < 0:
+        raise ImageError("atlas padding must be zero or greater")
     images = [open_image(path) for path in paths]
     cell_w = max(image.width for image in images)
     cell_h = max(image.height for image in images)
-    cols = max(1, min(int(columns), len(paths)))
+    cols = min(columns, len(paths))
     rows = (len(paths) + cols - 1) // cols
     width = padding + cols * (cell_w + padding)
     height = padding + rows * (cell_h + padding)
+    if width > ATLAS_MAX_SIDE or height > ATLAS_MAX_SIDE:
+        raise ImageError(
+            f"atlas would be {width}x{height}, above the {ATLAS_MAX_SIDE}px side limit; "
+            "reduce frame size, columns or padding"
+        )
+    pixels = width * height
+    if pixels > ATLAS_MAX_PIXELS:
+        raise ImageError(
+            f"atlas would be {width}x{height} ({pixels} pixels), above the {ATLAS_MAX_PIXELS} pixel limit; "
+            "split the folder or reduce frame size"
+        )
+    source_bytes = sum(image.width * image.height * 4 for image in images)
+    if pixels * 4 + source_bytes > ATLAS_MEMORY_BUDGET:
+        raise ImageError("atlas would exceed the configured memory budget; split the folder or reduce frame size")
     canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     frames = []
     for index, (path, image) in enumerate(zip(paths, images)):

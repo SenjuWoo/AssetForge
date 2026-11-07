@@ -15,7 +15,9 @@
 - Explicit primary artifact selection for export.
 - Job finalization on `AdapterError`, `GlbError`, `StoreError`, `OSError` and unexpected exceptions.
 - Pillow image pipeline; GLB inspection and structural validation; optional Khronos validation.
-- PBR channel packing (occlusion/roughness/metallic to RGB ORM) and deterministic sprite atlases with JSON frame metadata.
+- PBR channel packing (occlusion/roughness/metallic to RGB ORM) with explicit resize consent.
+- Deterministic sprite atlases with project-owned frame copies, job provenance and bounded output size.
+- Texture-only export packages for generic, Godot and Roblox profiles.
 - Conservative glTF-Transform optimization with before/after comparison.
 - Roblox/Godot/generic export packaging with engine import marked `NOT_TESTED`.
 - External adapters: Blender (implemented, unavailable), comfy-kit generate/import (verified), img2threejs probe (verified).

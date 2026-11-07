@@ -160,6 +160,22 @@ class CliTests(unittest.TestCase):
         data = json.loads((self.root / metadata["path"]).read_text(encoding="utf-8-sig"))
         self.assertEqual(data["columns"], 2)
         self.assertEqual(len(data["frames"]), 4)
+        self.assertEqual(len(report["job"]["sources"]["source_frames"]), 4)
+        self.assertEqual(len(report["asset"]["inputs"]), 4)
+        for item in report["job"]["sources"]["source_frames"]:
+            self.assertEqual(len(item["sha256"]), 64)
+            self.assertTrue((self.root / item["input"]).exists())
+
+    def test_sprite_atlas_rejects_65_frames(self):
+        from PIL import Image
+
+        frames = Path(self.tmp.name) / "too-many"
+        frames.mkdir()
+        for index in range(65):
+            Image.new("RGBA", (4, 4), (index, 0, 0, 255)).save(frames / f"{index:03d}.png")
+        result = run_cli(["run", "sprite-atlas", "--input", str(frames)], self.root)
+        self.assertEqual(result.returncode, 6, result.stdout + result.stderr)
+        self.assertIn("at most 64", result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

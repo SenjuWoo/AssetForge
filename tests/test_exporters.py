@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from helpers import ROOT, make_glb
+from helpers import ROOT, make_glb, make_png
 
 sys.path.insert(0, str(ROOT / "src"))
 
@@ -52,6 +52,35 @@ class ExporterTests(unittest.TestCase):
                 jsonschema.validate(record, schema)
             reloaded = project.asset(asset.id)
             self.assertEqual(reloaded.manifest["exports"][0]["target"], "generic")
+
+    def _texture_asset(self, tmp: Path):
+        project = Project.init(tmp / "texture-project", "Texture Export Test")
+        asset = project.create_asset("Texture", "texture-pack", {})
+        png = make_png(tmp / "orm.png")
+        record = asset.add_input(png, "image")
+        inside = project.root / record["path"]
+        asset.add_artifact(inside, "texture", "orm")
+        asset.set_primary("image", inside)
+        return project, asset
+
+    def test_texture_only_export_for_three_targets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project, asset = self._texture_asset(Path(tmp))
+            for target in ("generic", "godot", "roblox"):
+                result = exporters.export(project, asset, target)
+                self.assertEqual(result["kind"], "texture")
+                self.assertFalse(any(item["path"].endswith(".glb") for item in result["files"]))
+                self.assertTrue(any(item["path"].endswith(".png") for item in result["files"]))
+                out = Path(result["out_dir"])
+                record = json.loads((out / "export.json").read_text(encoding="utf-8"))
+                self.assertEqual(record["kind"], "texture")
+                self.assertEqual(record["engine_import"], "NOT_TESTED")
+                notes = (out / "IMPORT.md").read_text(encoding="utf-8")
+                expected = {"roblox": "no mesh", "godot": "no `.glb`", "generic": "orm output as linear"}[target]
+                self.assertIn(expected, notes.lower())
+                if jsonschema:
+                    schema = json.loads((ROOT / "schemas" / "export.schema.json").read_text(encoding="utf-8"))
+                    jsonschema.validate(record, schema)
 
     def test_dry_run_writes_no_export(self):
         with tempfile.TemporaryDirectory() as tmp:

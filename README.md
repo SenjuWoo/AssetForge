@@ -69,8 +69,9 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | --- | --- | --- |
 | CLI, projects, jobs, manifests | VERIFIED | Full test suite |
 | Image processing | VERIFIED | Pillow; alpha and JPEG-flatten behavior tested |
-| PBR channel packing | VERIFIED | R=occlusion, G=roughness, B=metallic; mismatched sizes resized and warned |
-| Sprite atlases | VERIFIED | Deterministic grid, alpha preserved, JSON frame rectangles |
+| PBR channel packing | VERIFIED | R=occlusion, G=roughness, B=metallic; mismatched sizes fail unless resize is explicitly enabled |
+| Sprite atlases | VERIFIED | Deterministic grid, frames copied into the asset, JSON frame rectangles |
+| Texture-only export | VERIFIED packaging | Generic/Godot/Roblox packages contain PNGs and no mesh; engine import `NOT_TESTED` |
 | GLB inspection | VERIFIED | Standard-library container and accessor reader |
 | Structural GLB validation | VERIFIED | Not a conformance claim |
 | Khronos glTF validation | VERIFIED when installed | Optional Node package in `.tools`; otherwise `NOT_TESTED` |
@@ -79,7 +80,7 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | comfy-kit generation | VERIFIED | Exercised against a running comfy-kit; generation is delegated |
 | img2threejs probe | VERIFIED | Technical probe only; reconstruction remains agent-driven |
 | img2threejs reconstruction | PLANNED | Upstream workflow is not automated here |
-| Roblox / Godot / generic export | VERIFIED packaging | No engine import was run; always `NOT_TESTED` |
+| Roblox / Godot / generic export | VERIFIED packaging | Mesh and texture-only packages; no engine import was run, always `NOT_TESTED` |
 | AI 3D providers, rigging, MCP, teardown, Graphite | PLANNED | Not implemented yet |
 
 `VERIFIED` means the behaviour was executed with recorded evidence. `IMPLEMENTED / UNVERIFIED` means code exists but the real integration was not exercised. A successful export is not proof that an asset works inside the target engine.

@@ -9,6 +9,7 @@
     "target": {"type": "string"},
     "title": {"type": "string"},
     "asset": {"type": "string"},
+    "kind": {"enum": ["mesh", "texture"]},
     "created": {"type": "string"},
     "status": {"enum": ["PASS", "WARNING", "FAIL"]},
     "checks": {"type": "array", "items": {"type": "object"}},

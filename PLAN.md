@@ -38,6 +38,9 @@ Status values are strict: **VERIFIED** (executed with evidence), **IMPLEMENTED /
 | R-05 | Representative GLB with multiple nodes, materials and a texture | VERIFIED | `make_textured_glb`; optimization preserves counts |
 | R-06 | Do not modify the bundle or comfy-kit; do not delete the candidate checkouts | VERIFIED | only documentation and external read-only execution |
 | R-07 | Input-copy/setup failures must not leave orphaned assets or `RUNNING` jobs | VERIFIED | job is created before copying; copy failure marks job and asset `FAILED`; focused test |
+| R-08 | Sprite atlas must not truncate frames; copy sources, record hashes, bound resources | VERIFIED | 65-frame rejection test; frame copies and job provenance asserted; side/pixel/padding/column limits tested |
+| R-09 | Export image-only assets without a GLB | VERIFIED | Generic, Godot and Roblox texture packages; no engine import claimed |
+| R-10 | ORM mismatch must be explicit, with channel/color guidance | VERIFIED | mismatch fails with `resize=true` guidance; opt-in resize warns; docs state linear-data mapping |
 
 ## Phase 2+ — planned
 

@@ -15,7 +15,7 @@ python -m unittest discover -s tests
 Result (final run after the review corrections):
 
 ```text
-Ran 68 tests in 98.805s
+Ran 72 tests in 91.260s
 OK (skipped=1)
 exit code 0
 ```
@@ -28,6 +28,9 @@ Coverage includes:
 - Textured multi-node fixture: 2 nodes, 2 meshes, 2 materials, 1 embedded texture, 2 triangles.
 - Image inspection, resize, WebP conversion, alpha handling, JPEG flatten warning, comparison.
 - PBR channel packing with per-channel pixel verification; atlas grid, frame metadata and alpha handling.
+- Atlas 65-frame rejection, copied frame provenance, negative padding/zero columns, side and pixel limit rejection.
+- Texture-only export for generic, Godot and Roblox packages, including JSON export records and import notes.
+- ORM mismatch rejection and explicit resize warning.
 - Project/asset/job storage, schema validation and asset lookup.
 - Recipe loading, unknown-step rejection, project overrides and typed parameters.
 - CLI end-to-end: init, recipes, image-prep, glb-inspect, validate, export, status, dry run, exit codes.

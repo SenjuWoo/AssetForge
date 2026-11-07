@@ -51,11 +51,32 @@ def _primary_mesh(asset: Asset) -> tuple[Path, bool]:
     raise ExportError("asset has no GLB artifact to export")
 
 
+def _image_artifacts(asset: Asset) -> list[dict]:
+    return [item for item in asset.manifest.get("artifacts", []) if item.get("media_type", "").startswith("image/")]
+
+
+def _primary_image(asset: Asset) -> tuple[Path, bool]:
+    """Return the declared texture deliverable, falling back to a deterministic
+    label order only when no primary image is recorded."""
+    declared = (asset.manifest.get("primary") or {}).get("image")
+    if declared:
+        return asset.resolve_artifact(declared), True
+    candidates = _image_artifacts(asset)
+    for label in ("orm", "atlas", "deliverable", "source"):
+        for item in candidates:
+            if item.get("label") == label:
+                return asset.resolve_artifact(item["path"]), False
+    if candidates:
+        return asset.resolve_artifact(candidates[0]["path"]), False
+    raise ExportError("asset has no image artifact to export")
+
+
 def validate_asset(project: Project, asset: Asset) -> dict:
     checks: list[dict] = []
     meshes = [item for item in asset.manifest.get("artifacts", []) if item.get("role") == "mesh" or item.get("path", "").lower().endswith(".glb")]
-    if not meshes:
-        checks.append({"artifact": None, "id": "ASSET-001", "status": "FAIL", "detail": "asset has no GLB artifact"})
+    image_items = _image_artifacts(asset)
+    if not meshes and not image_items:
+        checks.append({"artifact": None, "id": "ASSET-001", "status": "FAIL", "detail": "asset has no mesh or image artifact"})
     for item in meshes:
         try:
             path = asset.resolve_artifact(item["path"])
@@ -68,19 +89,18 @@ def validate_asset(project: Project, asset: Asset) -> dict:
                 check = official.check(project, path)
             checks.append({"artifact": item["path"], **check})
 
-    for item in asset.manifest.get("artifacts", []):
-        if item.get("media_type", "").startswith("image/"):
-            try:
-                path = asset.resolve_artifact(item["path"])
-                info = images.inspect_image(path)
-                checks.append({
-                    "artifact": item["path"],
-                    "id": "IMG-001",
-                    "status": "PASS",
-                    "detail": f"{info['format']} {info['width']}x{info['height']} {info['mode']}",
-                })
-            except Exception as exc:
-                checks.append({"artifact": item.get("path"), "id": "IMG-001", "status": "FAIL", "detail": str(exc)})
+    for item in image_items:
+        try:
+            path = asset.resolve_artifact(item["path"])
+            info = images.inspect_image(path)
+            checks.append({
+                "artifact": item["path"],
+                "id": "IMG-001",
+                "status": "PASS",
+                "detail": f"{info['format']} {info['width']}x{info['height']} {info['mode']}",
+            })
+        except Exception as exc:
+            checks.append({"artifact": item.get("path"), "id": "IMG-001", "status": "FAIL", "detail": str(exc)})
 
     summary = {status: 0 for status in ("PASS", "WARNING", "FAIL", "NOT_TESTED")}
     for item in checks:
@@ -112,33 +132,54 @@ def export(project: Project, asset: Asset, target: str, dry_run: bool = False) -
         failed = [item for item in validation["checks"] if item["status"] == "FAIL"]
         detail = "; ".join(item["detail"] for item in failed[:3])
         raise ExportError(f"export blocked by validation: {detail}")
-    try:
-        primary, declared = _primary_mesh(asset)
-    except StoreError as exc:
-        raise ExportError(f"cannot resolve the primary mesh: {exc}") from exc
-    stats = inspect_glb(primary)
-    checks = [
-        {"id": "FORMAT-001", "status": "PASS", "detail": f"glTF binary, {stats['bytes']} bytes"},
-        {
-            "id": "PRIMARY-001",
-            "status": "PASS" if declared else "WARNING",
-            "detail": asset.manifest.get("primary", {}).get("mesh") or "manifest has no primary; deterministic label fallback used",
-        },
-    ]
+
+    mesh_items = [item for item in asset.manifest.get("artifacts", []) if item.get("role") == "mesh" or item.get("path", "").lower().endswith(".glb")]
+    image_items = _image_artifacts(asset)
+    kind = "mesh" if mesh_items else "texture"
     budgets = profile.get("budgets") or {}
-    _budget(checks, "triangles", stats["triangles"], budgets.get("triangles"))
-    _budget(checks, "vertices", stats["vertices"], budgets.get("vertices"))
-    _budget(checks, "textures", stats["images"], budgets.get("textures"))
+
+    if kind == "mesh":
+        try:
+            primary, declared = _primary_mesh(asset)
+        except StoreError as exc:
+            raise ExportError(f"cannot resolve the primary mesh: {exc}") from exc
+        stats = inspect_glb(primary)
+        checks = [
+            {"id": "FORMAT-001", "status": "PASS", "detail": f"glTF binary, {stats['bytes']} bytes"},
+            {
+                "id": "PRIMARY-001",
+                "status": "PASS" if declared else "WARNING",
+                "detail": asset.manifest.get("primary", {}).get("mesh") or "manifest has no primary; deterministic label fallback used",
+            },
+        ]
+        _budget(checks, "triangles", stats["triangles"], budgets.get("triangles"))
+        _budget(checks, "vertices", stats["vertices"], budgets.get("vertices"))
+        _budget(checks, "textures", stats["images"], budgets.get("textures"))
+    else:
+        try:
+            primary, declared = _primary_image(asset)
+        except StoreError as exc:
+            raise ExportError(f"cannot resolve the primary image: {exc}") from exc
+        info = images.inspect_image(primary)
+        checks = [
+            {"id": "FORMAT-002", "status": "PASS", "detail": f"{info['format']} image, {info['width']}x{info['height']}, {info['bytes']} bytes"},
+            {
+                "id": "PRIMARY-001",
+                "status": "PASS" if declared else "WARNING",
+                "detail": asset.manifest.get("primary", {}).get("image") or "manifest has no primary image; deterministic label fallback used",
+            },
+        ]
+        for name in ("triangles", "vertices", "textures"):
+            checks.append({"id": f"BUDGET-{name.upper()}", "status": "NOT_TESTED", "detail": "texture-only asset has no mesh budget"})
 
     texture_limit = int(budgets.get("texture_size") or 0)
-    image_artifacts = [item for item in asset.manifest.get("artifacts", []) if item.get("media_type", "").startswith("image/")]
     if not texture_limit:
         checks.append({"id": "BUDGET-TEXTURE_SIZE", "status": "NOT_TESTED", "detail": "no texture size budget"})
-    elif not image_artifacts:
+    elif not image_items:
         checks.append({"id": "BUDGET-TEXTURE_SIZE", "status": "NOT_TESTED", "detail": "textures are embedded; size not decoded"})
     else:
         oversize = []
-        for item in image_artifacts:
+        for item in image_items:
             try:
                 info = images.inspect_image(asset.resolve_artifact(item["path"]))
                 if max(info["width"], info["height"]) > texture_limit:
@@ -164,6 +205,7 @@ def export(project: Project, asset: Asset, target: str, dry_run: bool = False) -
     plan = {
         "target": target,
         "asset": asset.id,
+        "kind": kind,
         "profile": profile,
         "source": str(primary),
         "checks": checks,
@@ -179,16 +221,18 @@ def export(project: Project, asset: Asset, target: str, dry_run: bool = False) -
 
     out_dir = asset.path("exports", target)
     out_dir.mkdir(parents=True, exist_ok=True)
-    target_name = f"{asset.id}{primary.suffix.lower()}"
-    mesh_target = out_dir / target_name
-    shutil.copy2(primary, mesh_target)
-    files = [{
-        "path": mesh_target.name,
-        "sha256": sha256_file(mesh_target),
-        "bytes": mesh_target.stat().st_size,
-    }]
+    files = []
+    if kind == "mesh":
+        target_name = f"{asset.id}{primary.suffix.lower()}"
+        mesh_target = out_dir / target_name
+        shutil.copy2(primary, mesh_target)
+        files.append({
+            "path": mesh_target.name,
+            "sha256": sha256_file(mesh_target),
+            "bytes": mesh_target.stat().st_size,
+        })
     texture_dir = out_dir / "textures"
-    for item in image_artifacts:
+    for item in image_items:
         source = asset.resolve_artifact(item["path"])
         texture_dir.mkdir(exist_ok=True)
         copy = texture_dir / source.name
@@ -200,6 +244,7 @@ def export(project: Project, asset: Asset, target: str, dry_run: bool = False) -
         "target": target,
         "title": profile["title"],
         "asset": asset.id,
+        "kind": kind,
         "created": now_iso(),
         "status": overall,
         "checks": checks,
@@ -225,7 +270,25 @@ def _import_notes(profile: dict, record: dict) -> str:
     for item in record["files"]:
         lines.append(f"- `{item['path']}`")
     lines += ["", "## Steps", ""]
-    if profile["id"] == "roblox":
+    if record.get("kind") == "texture":
+        if profile["id"] == "roblox":
+            lines += [
+                "1. Open the Roblox Creator Dashboard or Studio's Asset Manager.",
+                "2. Upload each PNG in `textures/` as an image asset.",
+                "3. Apply the image to a material or decal; no mesh is included in this package.",
+            ]
+        elif profile["id"] == "godot":
+            lines += [
+                "1. Copy the PNG files into the Godot project.",
+                "2. Let the editor import them as textures.",
+                "3. Assign them to a material; no `.glb` is included in this package.",
+            ]
+        else:
+            lines += [
+                "1. Load the PNG in an image viewer or material authoring tool.",
+                "2. Treat ORM output as linear data, not sRGB color; keep base color separate.",
+            ]
+    elif profile["id"] == "roblox":
         lines += [
             "1. Open Roblox Studio and choose **File > Import**.",
             "2. Select the `.glb` file in this folder.",

@@ -22,11 +22,11 @@ Alpha is preserved for PNG/WebP. JPEG output flattens alpha onto white and recor
 
 ## `texture-pack`
 
-Combine three grayscale maps into one RGB texture: R=occlusion, G=roughness, B=metallic. If a map differs in size it is resized to the occlusion map and the job reports a warning.
+Combine three grayscale maps into one RGB texture: R=occlusion, G=roughness, B=metallic. Maps must share the occlusion map's dimensions; mismatches fail unless `resize` is explicitly enabled. The result is **linear data**, not sRGB color — keep base color and other color maps separate.
 
 | Parameter | Type | Default |
 | --- | --- | --- |
-| `thumbnail` | integer | `256` |
+| `resize` | boolean | `false` |
 
 ```bash
 assetforge run texture-pack \
@@ -35,19 +35,22 @@ assetforge run texture-pack \
   --input metallic=metal.png
 ```
 
+Use `--set resize=true` only when resampling every channel to the occlusion size is acceptable; the job records a warning.
+
 ## `sprite-atlas`
 
-Pack every image in a folder (sorted by filename, up to 64) into a grid. `atlas.png` is the deliverable and `atlas.json` records the cell size, padding, columns and frame rectangles. Alpha is preserved.
+Pack every image in a folder (sorted by filename, maximum 64) into a grid. Frames are copied into the asset before the atlas is built, and `atlas.json` records the cell size, padding, columns and frame rectangles plus source hashes in the job record. Alpha is preserved. The operation rejects more than 64 frames, non-positive columns, negative padding, outputs above 8192px per side, more than 33,554,432 pixels, or an estimated memory use above 512 MiB.
 
 | Parameter | Type | Default |
 | --- | --- | --- |
 | `columns` | integer | `4` |
 | `padding` | integer | `2` |
-| `thumbnail` | integer | `256` |
 
 ```bash
 assetforge run sprite-atlas --input path/to/frames --set columns=4
 ```
+
+Split larger sprite sets into multiple atlas jobs; nothing is silently dropped.
 
 ## `glb-inspect`
 
