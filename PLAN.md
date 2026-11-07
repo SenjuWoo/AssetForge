@@ -50,6 +50,7 @@ Status values are strict: **VERIFIED** (executed with evidence), **IMPLEMENTED /
 | P2-02 | Krita/Inkscape manual-editor workflows | PLANNED |
 | P2-03 | Sprite sheets and texture atlases | VERIFIED (image pipeline; editor integration pending) |
 | P2-04 | ORM material channel packing | VERIFIED |
+| P2-05 | img2threejs deterministic spec-to-Three.js codegen | VERIFIED |
 | P3-01 | TripoSR image-to-3D provider, isolated environment | PLANNED |
 | P3-02 | Rigging validation interfaces and UniRig adapter | PLANNED |
 | P3-03 | teardown simulation/presentation module | PLANNED |

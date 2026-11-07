@@ -60,6 +60,7 @@ Exit codes are stable: `0` success, `2` usage/recipe error, `3` missing project/
 | `comfy-generate` | Delegate one render to an installed comfy-kit. |
 | `comfy-import` | Copy newest images from a comfy-kit output folder. |
 | `img2threejs-probe` | Run the external img2threejs technical image probe. |
+| `img2threejs-codegen` | Generate an editable Three.js factory from an ObjectSculptSpec through upstream img2threejs. |
 
 Every recipe writes a job record under `.assetforge/jobs/` with per-step status, errors and tool versions. Assets keep copied inputs, a JSON manifest, relative artifact paths and provenance. A manifest-defined primary artifact decides what gets exported.
 
@@ -79,7 +80,8 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | Blender background export | IMPLEMENTED / UNVERIFIED | Adapter is written; Blender is not installed in this environment |
 | comfy-kit generation | VERIFIED | Exercised against a running comfy-kit; generation is delegated |
 | img2threejs probe | VERIFIED | Technical probe only; reconstruction remains agent-driven |
-| img2threejs reconstruction | PLANNED | Upstream workflow is not automated here |
+| img2threejs spec-to-Three.js codegen | VERIFIED | Upstream deterministic generator; consumes an ObjectSculptSpec, not a raw image |
+| img2threejs reconstruction | PLANNED | Image-to-spec review gates remain agent-driven |
 | Roblox / Godot / generic export | VERIFIED packaging | Mesh and texture-only packages; no engine import was run, always `NOT_TESTED` |
 | AI 3D providers, rigging, MCP, teardown, Graphite | PLANNED | Not implemented yet |
 

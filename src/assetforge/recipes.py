@@ -26,6 +26,7 @@ STEP_NAMES = {
     "comfykit.generate",
     "comfykit.import",
     "img2threejs.probe",
+    "img2threejs.codegen",
     "asset.record",
 }
 

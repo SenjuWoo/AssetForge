@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "id": "img2threejs-codegen",
+  "title": "Generate a Three.js factory from an img2threejs spec",
+  "description": "Runs the upstream deterministic ObjectSculptSpec-to-Three.js generator and stores the editable TypeScript. This consumes a spec; it does not perform image reconstruction.",
+  "input": {"name": "spec", "kind": "file", "required": true},
+  "params": {
+    "timeout": {"type": "integer", "default": 120}
+  },
+  "steps": ["img2threejs.codegen", "asset.record"]
+}

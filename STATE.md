@@ -1,7 +1,7 @@
 # State
 
 - **Version:** 0.1.0
-- **Milestone:** Phase 0 + Phase 1 MVP complete; Phase 2 image layer started (PBR packing, sprite atlas)
+- **Milestone:** Phase 0 + Phase 1 MVP complete; Phase 2 image layer and img2threejs codegen complete
 - **Active task:** none — repository is at a verified checkpoint
 - **Current revision:** `3f095db38bf03ca9ffe70f6ab16dc99edaabcc3d` (verified code commit)
 - **Last known-good:** `3f095db38bf03ca9ffe70f6ab16dc99edaabcc3d`
@@ -18,9 +18,10 @@
 - PBR channel packing (occlusion/roughness/metallic to RGB ORM) with explicit resize consent.
 - Deterministic sprite atlases with project-owned frame copies, job provenance and bounded output size.
 - Texture-only export packages for generic, Godot and Roblox profiles.
+- img2threejs deterministic spec-to-Three.js codegen through the upstream generator; reconstruction remains agent-driven.
 - Conservative glTF-Transform optimization with before/after comparison.
 - Roblox/Godot/generic export packaging with engine import marked `NOT_TESTED`.
-- External adapters: Blender (implemented, unavailable), comfy-kit generate/import (verified), img2threejs probe (verified).
+- External adapters: Blender (implemented, unavailable), comfy-kit generate/import (verified), img2threejs probe and codegen (verified).
 - Windows installer, updater, start script, local launcher; CI definition; examples; documentation.
 
 ## Outstanding defects
@@ -52,7 +53,7 @@ assetforge.cmd doctor
 
 ## Next action
 
-Commit this verified checkpoint. Next engineering task: P2-01 Material Maker interchange or P2-02 editor workflow, after confirming the standalone core stays green. Do not publish or add providers until the operator asks. When publication is authorized: create `SenjuWoo/AssetForge`, push `main`, confirm CI on the exact commit, then publish a release archive containing `Install.ps1`, `Update.ps1`, `VERSION`, `src/`, `pyproject.toml`, docs and `LICENSE`.
+Commit this verified checkpoint. Next engineering task: verify Blender against a real installation, then add the optional Teardown build adapter and Graphite interchange note. Do not publish or add providers until the operator asks. When publication is authorized: create `SenjuWoo/AssetForge`, push `main`, confirm CI on the exact commit, then publish a release archive containing `Install.ps1`, `Update.ps1`, `VERSION`, `src/`, `pyproject.toml`, docs and `LICENSE`.
 
 ## Integration status
 

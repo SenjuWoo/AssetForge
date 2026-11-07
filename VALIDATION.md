@@ -15,7 +15,7 @@ python -m unittest discover -s tests
 Result (final run after the review corrections):
 
 ```text
-Ran 72 tests in 91.260s
+Ran 74 tests in 91.614s
 OK (skipped=1)
 exit code 0
 ```
@@ -31,6 +31,7 @@ Coverage includes:
 - Atlas 65-frame rejection, copied frame provenance, negative padding/zero columns, side and pixel limit rejection.
 - Texture-only export for generic, Godot and Roblox packages, including JSON export records and import notes.
 - ORM mismatch rejection and explicit resize warning.
+- img2threejs codegen adapter contract; real upstream generator produced a 64,589-byte TypeScript factory from the upstream conformance fixture.
 - Project/asset/job storage, schema validation and asset lookup.
 - Recipe loading, unknown-step rejection, project overrides and typed parameters.
 - CLI end-to-end: init, recipes, image-prep, glb-inspect, validate, export, status, dry run, exit codes.
@@ -98,8 +99,8 @@ Observed: job `SUCCEEDED`; upstream probe JSON stored as a report; result `techn
 
 - `Install.ps1` created a repo-local `.venv`, ran `doctor`, exited `0`.
 - `assetforge.cmd --version` printed `assetforge 0.1.0`; `doctor --json` exited `0`.
-- Wheel build: `assetforge-0.1.0-py3-none-any.whl`, 46,459 bytes, SHA-256 `6f3c96b6f5f3aff48c6d662616fbe1c8fd2fab59aaf3606a6947aa7edddaa099`.
-- Wheel installed into a clean environment; `assetforge --version` returned 0.1.0; `texture-pack` and `sprite-atlas` both returned job status `SUCCEEDED`; the packaged bridge passed the Khronos validator with `0 error(s), 0 warning(s)` in a project path containing spaces.
+- Wheel build: `assetforge-0.1.0-py3-none-any.whl`, 48,585 bytes, SHA-256 `ff3100e874e8124ee12e8945403a5dc9c5c6d987fa10aad823f74d6c41d83cd2`.
+- Wheel installed into a clean environment; `assetforge --version` returned 0.1.0; `texture-pack`, `sprite-atlas` and `img2threejs-codegen` returned job status `SUCCEEDED`; the packaged bridge passed the Khronos validator with `0 error(s), 0 warning(s)` in a project path containing spaces.
 - Wheel installed into a clean environment; `assetforge --version` returned 0.1.0, `glb-inspect` ran against the textured fixture, `validate` returned `PASS` with `PASS=11, FAIL=0, NOT_TESTED=2` (official validator unavailable in that isolated environment, plus no rig data).
 - Packaged validator bridge verified from that installed wheel in a project path containing spaces:
   - before installing the validator into the project's `.tools`, `GLB-014` was `NOT_TESTED`;

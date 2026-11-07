@@ -4,11 +4,11 @@ Checked against upstream repository metadata on **2026-11-07**. Licenses marked 
 
 | Project | License | Status | Decision |
 | --- | --- | --- | --- |
-| [img2threejs](https://github.com/img2threejs/img2threejs) | Apache-2.0 | Active, inspected | Optional **technical probe** adapter only. Its core produces procedural Three.js source under an agent workflow; that is not a portable game-ready mesh and is not automated here. |
+| [img2threejs](https://github.com/img2threejs/img2threejs) | Apache-2.0 | Active, inspected | Optional **technical probe** and **deterministic spec-to-Three.js codegen** adapters. Its core produces procedural Three.js source under an agent workflow; that is not a portable game-ready mesh. Image-to-spec reconstruction and review gates remain agent-driven. |
 | [teardown](https://github.com/elvarofficial/teardown) | MIT | Active, inspected | Specialized simulation/presentation module, **planned**. Its offline HTML/video output stays separate from engine mesh export. |
 | [image-js](https://github.com/image-js/image-js) | MIT | Active | Not integrated. Pillow covers the MVP image operations; image-js remains a Node-side option. |
 | [Graphite](https://github.com/GraphiteEditor/Graphite) | Apache-2.0 | Alpha, active | **Planned** manual/interchange integration. No verified headless automation contract; no invented CLI. |
-| [Blender](https://www.blender.org/) | GPL-2.0-or-later (Blender Foundation) | Installed separately | Optional background adapter. Runs as an external process; AssetForge does not link or redistribute Blender. |
+| [Blender](https://www.blender.org/) | GPL-2.0-or-later (Blender Foundation) | Optional external | Background adapter implemented; no real Blender executable was available here, so execution is unverified. Runs as an external process; AssetForge does not link or redistribute Blender. |
 | [glTF-Transform](https://github.com/donmccurdy/glTF-Transform) | MIT | Active | **Integrated** for conservative GLB optimization. |
 | [meshoptimizer](https://github.com/zeux/meshoptimizer) | MIT | Active | Used through glTF-Transform; no separate integration. |
 | [glTF-Validator](https://github.com/KhronosGroup/glTF-Validator) | Apache-2.0 | Active | **Integrated** as an optional Khronos conformance check. |
@@ -46,4 +46,4 @@ Checked against upstream repository metadata on **2026-11-07**. Licenses marked 
 
 ## Candidate checkout status
 
-The external `img2threejs` and `teardown` candidate checkouts were inspected, not copied. Their capabilities and limits are documented above. They are not vendored, modified or deleted by AssetForge. The img2threejs probe is wired through an external-path adapter; full reconstruction remains planned.
+The external `img2threejs` and `teardown` candidate checkouts were inspected, not copied. Their capabilities and limits are documented above. They are not vendored, modified or deleted by AssetForge. The img2threejs probe and deterministic code generator are wired through external-path adapters; image-to-spec reconstruction remains agent-driven. Teardown and Graphite remain planned.

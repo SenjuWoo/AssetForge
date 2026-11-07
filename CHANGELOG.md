@@ -18,6 +18,7 @@ Initial standalone release candidate.
 - Blender background adapter (implemented, unverified without Blender).
 - comfy-kit generation and import adapters; generation is delegated and never installs models.
 - img2threejs technical probe adapter; full reconstruction remains a planned agent workflow.
+- img2threejs deterministic spec-to-Three.js code generation, preserving the editable TypeScript factory.
 - Roblox, Godot and generic export packaging with configurable budgets and explicit `NOT_TESTED` engine-import status.
 - Windows installer with staged environment and rollback; update and start scripts.
 - Unit, contract, failure-path and end-to-end tests, including a textured multi-node GLB fixture.

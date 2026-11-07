@@ -133,6 +133,7 @@ def cmd_capabilities(args) -> int:
         {"id": "blender-export", "status": "IMPLEMENTED", "provider": "blender", "available": now["blender"]["available"]},
         {"id": "comfy-kit-generation", "status": "IMPLEMENTED", "provider": "comfy-kit", "available": now["comfy-kit"]["available"]},
         {"id": "img2threejs-probe", "status": "IMPLEMENTED", "provider": "img2threejs", "available": now["img2threejs"]["available"]},
+        {"id": "img2threejs-codegen", "status": "IMPLEMENTED", "provider": "img2threejs", "available": now["img2threejs"]["available"]},
         {"id": "img2threejs-reconstruction", "status": "PLANNED", "provider": "img2threejs", "available": False},
         {"id": "export-roblox", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED"},
         {"id": "export-godot", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED"},

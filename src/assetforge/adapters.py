@@ -108,3 +108,22 @@ def img2threejs_probe(root: Path, image: Path, out_json: Path, timeout: float = 
     except ValueError as exc:
         raise AdapterError(f"img2threejs probe output is not JSON: {exc}") from exc
     return data
+
+
+def img2threejs_codegen(root: Path, spec: Path, out_path: Path, timeout: float = 120) -> dict:
+    """Run the upstream deterministic spec-to-Three.js generator. This consumes
+    an ObjectSculptSpec; it does not perform image reconstruction."""
+    script = root / "forge" / "stage3_build" / "generate_threejs_factory.py"
+    if not script.exists():
+        raise AdapterError(f"img2threejs code generator is missing: {script}")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    command = [sys.executable, str(script), str(spec), "--out", str(out_path)]
+    result = run(command, timeout=timeout, cwd=root)
+    result["command"] = command
+    if result.get("timed_out"):
+        raise AdapterError(f"img2threejs codegen timed out after {timeout:g}s")
+    if result["returncode"] != 0:
+        raise AdapterError(f"img2threejs codegen exited {result['returncode']}: {(result['stderr'] or result['stdout'])[-800:]}")
+    if not out_path.exists() or out_path.stat().st_size < 500:
+        raise AdapterError("img2threejs codegen reported success but wrote no usable TypeScript")
+    return result

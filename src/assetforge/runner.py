@@ -363,6 +363,15 @@ def _img2threejs_probe(ctx: Context) -> dict:
     return {"status": status, "detail": f"technicalSuitability={suitability}; {len(data.get('warnings') or [])} warning(s)"}
 
 
+def _img2threejs_codegen(ctx: Context) -> dict:
+    provider = _provider(ctx, "img2threejs")
+    spec = ctx.input("spec")
+    target = ctx.asset.path("outputs", f"{Path(spec).stem}.ts")
+    adapters.img2threejs_codegen(Path(provider["path"]), spec, target, timeout=float(ctx.params.get("timeout") or 120))
+    ctx.artifact(target, "source", "threejs-factory")
+    return {"status": "PASS", "detail": f"generated {human_bytes(target.stat().st_size)} of TypeScript"}
+
+
 def _asset_record(ctx: Context) -> dict:
     ctx.asset.manifest["provenance"]["versions"] = providers.tool_versions(ctx.project)
     ctx.asset.manifest["provenance"]["seed"] = ctx.params.get("seed")
@@ -388,6 +397,7 @@ HANDLERS = {
     "comfykit.generate": _comfykit_generate,
     "comfykit.import": _comfykit_import,
     "img2threejs.probe": _img2threejs_probe,
+    "img2threejs.codegen": _img2threejs_codegen,
     "asset.record": _asset_record,
 }
 
@@ -417,6 +427,8 @@ def plan(recipe: dict, inputs: dict[str, Path], params: dict, project: Project |
         elif step.startswith("comfykit."):
             needs.append("comfy-kit")
         elif step == "img2threejs.probe":
+            needs.append("img2threejs")
+        elif step == "img2threejs.codegen":
             needs.append("img2threejs")
     return {
         "recipe": recipe["id"],

@@ -128,6 +128,20 @@ assetforge run img2threejs-probe --input reference.png
 
 This is a probe, not reconstruction. It answers technical suitability questions and does not create a 3D model.
 
+## `img2threejs-codegen`
+
+Run the upstream deterministic ObjectSculptSpec-to-Three.js generator and store the editable TypeScript factory. This consumes a spec; it does not perform image reconstruction or visual review.
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `timeout` | integer | `120` |
+
+```bash
+assetforge run img2threejs-codegen --input object-sculpt-spec.json
+```
+
+Requires an installed img2threejs owner with `forge/stage3_build/generate_threejs_factory.py`. Missing provider exits `4`; a generator failure is a failed job, not a partial success.
+
 ## Custom recipes
 
 ```json
