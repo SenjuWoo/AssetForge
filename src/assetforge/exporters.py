@@ -1,8 +1,8 @@
 """Validation reports and engine export packaging.
 
-Export means: copy the validated GLB plus loose textures into a target folder,
-write a machine-readable record and import notes. It never claims the asset was
-imported into an engine; that check is always NOT_TESTED here.
+Export means: copy the validated mesh or texture deliverables into a target
+folder, write a machine-readable record and import notes. It never claims the
+asset was imported into an engine; that check is always NOT_TESTED here.
 """
 
 from __future__ import annotations

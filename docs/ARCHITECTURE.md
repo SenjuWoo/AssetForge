@@ -89,7 +89,7 @@ The exporter:
 1. validates every mesh and image artifact;
 2. resolves the manifest's primary mesh, with a deterministic label fallback for older manifests;
 3. applies profile budgets (project policy, not engine law);
-4. copies the primary GLB and loose textures;
+4. copies the primary GLB or, for texture-only assets, the image deliverables;
 5. writes `export.json` and `IMPORT.md`;
 6. records the export in the asset manifest;
 7. reports `ENGINE-IMPORT: NOT_TESTED`.

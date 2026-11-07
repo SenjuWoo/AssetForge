@@ -1,6 +1,6 @@
 # Validation evidence
 
-Verified code commit: `0689919e2af1d06f3adaf380cf4e8be07ae01ca1`.
+Verified code commit: `6168061ccc8f396e5489ee6ea032833fa9b7a5d6`.
 
 Environment: Windows 11, Python 3.14.10, Node 26.13.0, Pillow 13.0.0, jsonschema 4.x, glTF-Transform 4.5.1, Khronos glTF Validator installed locally in `.tools`. The project works without any optional provider.
 
@@ -28,7 +28,8 @@ Coverage includes:
 - Textured multi-node fixture: 2 nodes, 2 meshes, 2 materials, 1 embedded texture, 2 triangles.
 - Image inspection, resize, WebP conversion, alpha handling, JPEG flatten warning, comparison.
 - PBR channel packing with per-channel pixel verification; atlas grid, frame metadata and alpha handling.
-- Atlas 65-frame rejection, copied frame provenance, negative padding/zero columns, side and pixel limit rejection.- Texture-only export for generic, Godot and Roblox packages, including JSON export records and import notes.
+- Atlas 65-frame rejection, copied frame provenance, negative padding/zero columns, side and pixel limit rejection.
+- Texture-only export for generic, Godot and Roblox packages, including JSON export records and import notes.
 - ORM mismatch rejection and explicit resize warning.
 - img2threejs codegen adapter contract; real upstream generator produced a 64,589-byte TypeScript factory from the upstream conformance fixture.
 - Project/asset/job storage, schema validation and asset lookup.
