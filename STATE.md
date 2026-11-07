@@ -1,8 +1,8 @@
 # State
 
 - **Version:** 0.1.0
-- **Milestone:** Phase 0 + Phase 1 MVP complete; Phase 2 image layer and img2threejs codegen complete
-- **Active task:** none — repository is at a verified checkpoint
+- **Milestone:** Phase 0 + Phase 1 MVP complete; Phase 2 image layer and img2threejs codegen complete; 0.1.0 release preparation complete
+- **Active task:** awaiting operator confirmation to create/push `SenjuWoo/AssetForge`
 - **Current revision:** `55a8f69de1ddcdcba4c718373e8f276d19bd1faf` (verified code commit)
 - **Last known-good:** `55a8f69de1ddcdcba4c718373e8f276d19bd1faf`
 
@@ -23,6 +23,9 @@
 - Roblox/Godot/generic export packaging with engine import marked `NOT_TESTED`.
 - External adapters: Blender (implemented, unavailable), comfy-kit generate/import (verified), img2threejs probe and codegen (verified).
 - Windows installer, updater, start script, local launcher; CI definition; examples; documentation.
+- Release metadata, roadmap, release notes and publication checklist prepared for `0.1.0`.
+- Clean install from committed source verified with and without optional providers.
+- comfy-kit documented as the recommended free local texture-generation companion.
 
 ## Outstanding defects
 
@@ -53,10 +56,10 @@ assetforge.cmd doctor
 
 ## Next action
 
-Commit this verified checkpoint. Next engineering task: verify Blender against a real installation, then add the optional Teardown build adapter and Graphite interchange note. Do not publish or add providers until the operator asks. When publication is authorized: create `SenjuWoo/AssetForge`, push `main`, confirm CI on the exact commit, then publish a release archive containing `Install.ps1`, `Update.ps1`, `VERSION`, `src/`, `pyproject.toml`, docs and `LICENSE`.
+Commit this release-preparation checkpoint. Publication is blocked only on operator confirmation. Then follow `RELEASE.md`: create `SenjuWoo/AssetForge`, push `main`, wait for hosted CI on the exact commit, tag `v0.1.0` and publish the release. Do not claim publication before the repository, remote CI and release exist. After publication, the next engineering task is a genuine reference-image-to-3D-to-engine workflow (see `ROADMAP.md`), not more provider breadth.
 
 ## Integration status
 
 - Ultimate AI Starter Bundle: proposal only; no bundle file modified.
-- comfy-kit: read-only delegation, verified generation and import; no owner files modified.
+- comfy-kit: recommended free local texture-generation companion; read-only delegation, verified generation and import; no owner files modified.
 - img2threejs/teardown candidate checkouts: inspected and documented; not vendored, modified or deleted.

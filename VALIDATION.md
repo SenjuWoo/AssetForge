@@ -107,6 +107,19 @@ Observed: job `SUCCEEDED`; upstream probe JSON stored as a report; result `techn
   - after installing `gltf-validator`, the installed bridge was detected and `GLB-014` returned `PASS` with `0 error(s), 0 warning(s)`;
   - the bridge path itself contained spaces and was invoked by argument list, not shell interpolation.
 
+## Clean install from committed source
+
+A fresh clone of the committed source was installed into a new virtual environment with `pip install ".[images]"`.
+
+- `assetforge --version` → `assetforge 0.1.0`; recipe discovery listed all built-in recipes.
+- `doctor --json` exited `0` (`DEGRADED` only because the clone root had no project).
+- `image-prep` from `examples/assets/source.png` → `SUCCEEDED`.
+- `texture-pack` → `SUCCEEDED`; `export` to generic, Godot and Roblox → `PASS`, `kind=texture`, `engine_import=NOT_TESTED`.
+- `glb-inspect` → `SUCCEEDED`; `validate` with no validator → `GLB-014=NOT_TESTED`.
+- `glb-optimize` without the Node package → exit `4`; `blender-sample` without real Blender → exit `4`.
+- After linking project-local `.tools`, `gltf-transform` and `gltf-validator` were detected: `glb-optimize` → `SUCCEEDED`, official `GLB-014` → `PASS` with 0 errors and 0 warnings.
+- `Install.ps1` and `Install.ps1 -WithImages` both completed; `assetforge.cmd --version` printed 0.1.0.
+
 ## Not verified
 
 | Item | Why |
@@ -114,6 +127,7 @@ Observed: job `SUCCEEDED`; upstream probe JSON stored as a report; result `techn
 | Blender background export | Blender is not installed here. The detected `blender` command launches Hermes, so the provider correctly reports no Blender version. |
 | Roblox Studio import | No Studio session was run. File-format support is documented; runtime/visual compatibility is `NOT_TESTED`. |
 | Godot import | No editor session was run. |
-| img2threejs reconstruction | Upstream workflow is agent-driven; only the technical probe is automated. |
+| img2threejs image-to-spec reconstruction | Upstream workflow is agent-driven; only the technical probe and deterministic spec-to-Three.js codegen are automated. |
+| img2threejs compilation/render/fidelity | Generated TypeScript is stored as an editable intermediate; it was not compiled, rendered or converted to a game-ready mesh. |
 | AI 3D, rigging, MCP, teardown, Graphite | Planned, not implemented. |
 | Windows symlink-escape test | Skipped without symlink privilege; policy logic is covered by absolute/`../`/missing tests and runs on Linux CI. |
