@@ -3,8 +3,8 @@
 - **Version:** 0.1.0
 - **Milestone:** Phase 0 + Phase 1 MVP complete; Phase 2 not started
 - **Active task:** none — repository is at a verified checkpoint
-- **Current revision:** pending initial commit (update after commit)
-- **Last known-good:** this checkout
+- **Current revision:** `6d21945c05b8a634f940f3d511c375582d478185` (verified code commit)
+- **Last known-good:** `6d21945c05b8a634f940f3d511c375582d478185`
 
 ## Completed
 
