@@ -1,6 +1,6 @@
 # Validation evidence
 
-Verified code commit: `0d0a65da4456c29908af49d407d10a830f36c7b8`.
+Verified code commit: `4b9e27ea986dbf6f0ca3897276448d42674cb69f`.
 
 Environment: Windows 11, Python 3.14.10, Node 26.13.0, Pillow 13.0.0, jsonschema 4.x, glTF-Transform 4.5.1, Khronos glTF Validator installed locally in `.tools`. The project works without any optional provider.
 
