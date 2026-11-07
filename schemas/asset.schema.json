@@ -8,6 +8,7 @@
     "schema": {"const": 1},
     "id": {"type": "string", "minLength": 1},
     "name": {"type": "string", "minLength": 1},
+    "status": {"enum": ["INCOMPLETE", "COMPLETE", "FAILED"]},
     "created": {"type": "string"},
     "updated": {"type": "string"},
     "source": {

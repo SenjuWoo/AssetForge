@@ -37,6 +37,7 @@ Status values are strict: **VERIFIED** (executed with evidence), **IMPLEMENTED /
 | R-04 | Reject absolute, `../`, missing and symlink artifact paths | VERIFIED | `tests/test_exporters.py`; symlink test skipped on Windows without symlink privilege |
 | R-05 | Representative GLB with multiple nodes, materials and a texture | VERIFIED | `make_textured_glb`; optimization preserves counts |
 | R-06 | Do not modify the bundle or comfy-kit; do not delete the candidate checkouts | VERIFIED | only documentation and external read-only execution |
+| R-07 | Input-copy/setup failures must not leave orphaned assets or `RUNNING` jobs | VERIFIED | job is created before copying; copy failure marks job and asset `FAILED`; focused test |
 
 ## Phase 2+ — planned
 

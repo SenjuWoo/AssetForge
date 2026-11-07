@@ -62,6 +62,7 @@ class RunnerFailureTests(unittest.TestCase):
         source = make_png(Path(self.tmp.name) / "outside.png")
         recipe = recipes.get("image-prep", self.project)
         job, asset, _ = runner.execute(self.project, recipe, {"image": source}, {})
+        self.assertEqual(asset.manifest["status"], "COMPLETE")
         record = asset.manifest["inputs"][0]
         self.assertFalse(Path(record["path"]).is_absolute())
         self.assertTrue((self.project.root / record["path"]).is_file())
@@ -91,6 +92,20 @@ class RunnerFailureTests(unittest.TestCase):
             with self.assertRaises(StoreError):
                 runner.execute(self.project, recipe, {"image": source}, {})
         self.assertEqual(Job.latest(self.project).data["status"], "FAILED")
+
+    def test_input_copy_failure_marks_asset_and_job_failed(self):
+        source = make_png(Path(self.tmp.name) / "source.png")
+        recipe = recipes.get("image-prep", self.project)
+        with mock.patch("assetforge.store.Asset.add_input", side_effect=OSError("copy denied")):
+            with self.assertRaises(OSError):
+                runner.execute(self.project, recipe, {"image": source}, {})
+        job = Job.latest(self.project)
+        self.assertIsNotNone(job)
+        self.assertEqual(job.data["status"], "FAILED")
+        self.assertIn("copy denied", job.data["error"])
+        asset = self.project.assets()[0]
+        self.assertEqual(asset.manifest["status"], "FAILED")
+        self.assertEqual(asset.manifest["inputs"], [])
 
     def test_oserror_marks_job_failed(self):
         source = make_png(Path(self.tmp.name) / "source.png")

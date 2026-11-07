@@ -252,7 +252,7 @@ def cmd_inspect(args) -> int:
         print(json.dumps(asset.manifest, indent=2))
     else:
         manifest = asset.manifest
-        print(f"{manifest['id']}  {manifest['name']}")
+        print(f"{manifest['id']}  {manifest['name']}  [{manifest.get('status', 'UNKNOWN')}]")
         print(f"source: {manifest.get('source', {}).get('recipe') or 'none'}")
         for item in manifest.get("inputs", []):
             print(f"  input    {item['path']}  {human_bytes(item['bytes'])}")

@@ -34,6 +34,15 @@ def _provider(ctx, provider_id: str) -> dict:
     return item
 
 
+def _mark_failed(asset: Asset) -> None:
+    try:
+        asset.manifest["status"] = "FAILED"
+        asset.save()
+    except Exception:
+        # A failed status write must not hide the original job failure.
+        pass
+
+
 class Context:
     def __init__(self, project: Project, asset: Asset, job: Job, recipe: dict, inputs: dict[str, Path], params: dict, copied: dict[str, Path] | None = None):
         self.project = project
@@ -41,7 +50,7 @@ class Context:
         self.job = job
         self.recipe = recipe
         self.inputs = inputs
-        self.copied = copied or {}
+        self.copied = copied if copied is not None else {}
         self.params = params
         self.outputs: dict = {}
         self.validation: list[dict] = []
@@ -370,13 +379,20 @@ def execute(project: Project, recipe: dict, inputs: dict[str, Path], params: dic
     for input_name, path in inputs.items():
         kind = "directory" if Path(path).is_dir() else "image" if Path(path).suffix.lower() in IMAGE_SUFFIXES else "mesh" if Path(path).suffix.lower() in MESH_SUFFIXES else "file"
         sources[input_name] = {"original": str(Path(path).resolve()), "kind": kind}
-        if kind == "directory":
-            continue
-        record = asset.add_input(path, kind)
-        copied[input_name] = project.root / record["path"]
-    job = Job.create(project, recipe["id"], params, asset.id, sources)
+    try:
+        job = Job.create(project, recipe["id"], params, asset.id, sources)
+    except Exception:
+        # The folder was just created by this call; remove it rather than leave
+        # an asset with no job.
+        shutil.rmtree(asset.folder, ignore_errors=True)
+        raise
     ctx = Context(project, asset, job, recipe, inputs, params, copied)
     try:
+        for input_name, path in inputs.items():
+            if sources[input_name]["kind"] == "directory":
+                continue
+            record = asset.add_input(path, sources[input_name]["kind"])
+            copied[input_name] = project.root / record["path"]
         for step in recipe["steps"]:
             handler = HANDLERS.get(step)
             if handler is None:
@@ -386,10 +402,13 @@ def execute(project: Project, recipe: dict, inputs: dict[str, Path], params: dic
             job.step(step, "OK" if status in ("PASS", "WARNING", "NOT_TESTED") else "FAIL", result.get("detail", ""), outcome=status)
             if status == "FAIL":
                 raise RunFailed(f"{step} failed: {result.get('detail', '')}")
+        asset.manifest["status"] = "COMPLETE"
+        asset.save()
         job.finish("SUCCEEDED")
         return job, asset, ctx
     except (RunFailed, StoreError, RecipeError, images.ImageError, adapters.AdapterError, GlbError, OSError) as exc:
         message = str(exc) or type(exc).__name__
+        _mark_failed(asset)
         job.step("failed", "FAIL", message)
         job.finish("FAILED", message)
         raise
@@ -398,6 +417,7 @@ def execute(project: Project, recipe: dict, inputs: dict[str, Path], params: dic
         # still finish FAILED with the real type and message instead of hanging
         # in RUNNING.
         message = f"unexpected {type(exc).__name__}: {exc}"
+        _mark_failed(asset)
         job.step("failed", "FAIL", message)
         job.finish("FAILED", message)
         raise RunFailed(message) from exc

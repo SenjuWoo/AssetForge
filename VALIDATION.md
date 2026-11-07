@@ -15,7 +15,7 @@ python -m unittest discover -s tests
 Result (final run after the review corrections):
 
 ```text
-Ran 65 tests in 109.575s
+Ran 66 tests in 91.282s
 OK (skipped=1)
 exit code 0
 ```
@@ -31,6 +31,7 @@ Coverage includes:
 - Recipe loading, unknown-step rejection, project overrides and typed parameters.
 - CLI end-to-end: init, recipes, image-prep, glb-inspect, validate, export, status, dry run, exit codes.
 - Job failure paths: `GlbError`, `AdapterError`, `StoreError`, `OSError`, unexpected exception; every case ends `FAILED`.
+- Input-copy failure after job creation marks both job and asset `FAILED`, with no orphan left `RUNNING`.
 - Input copying and provenance: artifacts relative, originals only in job `sources`.
 - Export primary selection with source and optimized artifacts in reversed manifest order.
 - Export blocked when any validation check fails, even if the primary mesh itself is valid.
@@ -93,8 +94,12 @@ Observed: job `SUCCEEDED`; upstream probe JSON stored as a report; result `techn
 
 - `Install.ps1` created a repo-local `.venv`, ran `doctor`, exited `0`.
 - `assetforge.cmd --version` printed `assetforge 0.1.0`; `doctor --json` exited `0`.
-- Wheel build: `assetforge-0.1.0-py3-none-any.whl`, 43,056 bytes, SHA-256 `6936b744dbcbf810915300b33975ffe401ef4ed00207dfe63a62fdfcaa2039ad`.
+- Wheel build: `assetforge-0.1.0-py3-none-any.whl`, 43,978 bytes, SHA-256 `947fa2baf2d93437b2aa1e34c3a243f703be40feaa7d5c12c17564b16d01d2f8`.
 - Wheel installed into a clean environment; `assetforge --version` returned 0.1.0, `glb-inspect` ran against the textured fixture, `validate` returned `PASS` with `PASS=11, FAIL=0, NOT_TESTED=2` (official validator unavailable in that isolated environment, plus no rig data).
+- Packaged validator bridge verified from that installed wheel in a project path containing spaces:
+  - before installing the validator into the project's `.tools`, `GLB-014` was `NOT_TESTED`;
+  - after installing `gltf-validator`, the installed bridge was detected and `GLB-014` returned `PASS` with `0 error(s), 0 warning(s)`;
+  - the bridge path itself contained spaces and was invoked by argument list, not shell interpolation.
 
 ## Not verified
 

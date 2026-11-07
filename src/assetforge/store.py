@@ -214,6 +214,7 @@ class Project:
             "name": name,
             "created": now_iso(),
             "updated": now_iso(),
+            "status": "INCOMPLETE",
             "source": {"recipe": recipe, "params": params or {}},
             "inputs": [],
             "artifacts": [],

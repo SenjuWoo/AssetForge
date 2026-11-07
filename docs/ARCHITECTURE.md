@@ -35,7 +35,7 @@ CLI input
 
 `asset.json` schema version 1 keeps:
 
-- identity: `id`, `name`, timestamps;
+- identity: `id`, `name`, `status` (`INCOMPLETE`, `COMPLETE`, `FAILED`), timestamps;
 - `source`: recipe id and resolved parameters;
 - `inputs`: copied paths, kind, size and SHA-256;
 - `artifacts`: relative path, role, media type, size and SHA-256;
@@ -60,6 +60,8 @@ RUNNING -> SUCCEEDED
 ```
 
 Every handler result becomes a step record with `OK`, `FAIL`, `SKIP` and an outcome of `PASS`, `WARNING`, `FAIL` or `NOT_TESTED`.
+
+The runner creates the job before copying inputs. A copy failure is therefore captured as a failed job and marks the asset `FAILED`; it cannot leave an asset with no job or a job stuck in `RUNNING`.
 
 The runner catches:
 

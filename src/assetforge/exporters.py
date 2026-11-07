@@ -140,7 +140,7 @@ def export(project: Project, asset: Asset, target: str, dry_run: bool = False) -
         oversize = []
         for item in image_artifacts:
             try:
-                info = images.inspect_image(project.root / item["path"])
+                info = images.inspect_image(asset.resolve_artifact(item["path"]))
                 if max(info["width"], info["height"]) > texture_limit:
                     oversize.append(f"{Path(item['path']).name} {info['width']}x{info['height']}")
             except Exception:
