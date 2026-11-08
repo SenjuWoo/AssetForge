@@ -45,7 +45,7 @@ class BlenderSkillsTests(unittest.TestCase):
                 with mock.patch.dict(os.environ, {"BLENDER_SKILLS_ROOT": str(candidate)}):
                     found, reason = blenderskills.locate()
                 self.assertEqual(reason, "")
-                self.assertEqual(found[1], root / "skills")
+                self.assertEqual(found[1], (root / "skills").resolve())
                 items = blenderskills.catalog(found[1])
                 self.assertEqual(len(items), 3)
                 self.assertEqual(items[0]["name"], "blender-asset-qa")
@@ -62,7 +62,7 @@ class BlenderSkillsTests(unittest.TestCase):
                 os.environ.pop("BLENDER_SKILLS_ROOT", None)
                 found, reason = blenderskills.locate(project)
             self.assertEqual(reason, "")
-            self.assertEqual(found[1], root / "skills")
+            self.assertEqual(found[1], (root / "skills").resolve())
 
     def test_route_materials(self):
         with tempfile.TemporaryDirectory() as tmp:
