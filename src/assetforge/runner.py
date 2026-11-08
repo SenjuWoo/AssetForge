@@ -301,6 +301,201 @@ def _blender_sample(ctx: Context) -> dict:
     return {"status": "PASS", "detail": f"Blender {provider.get('version')}; {stats['triangles']} tris"}
 
 
+def _blender_skills(ctx: Context) -> tuple[dict, dict, Path]:
+    skills = _provider(ctx, "blender-skills")
+    blender = _provider(ctx, "blender")
+    skills_dir = Path((skills.get("details") or {}).get("skills_dir") or "")
+    if not skills_dir.is_dir():
+        raise RunFailed(f"blender-skills catalog is missing: {skills_dir}")
+    return skills, blender, skills_dir
+
+
+def _blender_blend(ctx: Context) -> Path:
+    blend = ctx.outputs.get("blend")
+    if blend is None:
+        blend = ctx.input("blend")
+    blend = Path(blend)
+    if not blend.is_file():
+        raise RunFailed(f"Blender source file is missing: {blend}")
+    return blend
+
+
+def _blender_skills_build(ctx: Context) -> dict:
+    skills, blender, _ = _blender_skills(ctx)
+    script = Path(__file__).resolve().parent / "data" / "blender" / "procedural_crate.py"
+    target = ctx.asset.path("outputs", "blender-asset.blend")
+    data, _ = adapters.blender_skills_exec(
+        skills, blender, script, ["--out", str(target)],
+        timeout=float(ctx.params.get("timeout") or 300), cwd=ctx.project.root,
+    )
+    if not target.is_file() or target.stat().st_size < 1000:
+        raise RunFailed("blender-skills build reported success but wrote no .blend")
+    ctx.outputs["blend"] = target
+    ctx.artifact(target, "source", "blend")
+    return {"status": "PASS", "detail": f"{data.get('polygons', 0)} polygons; {target.name}"}
+
+
+def _blender_skills_material(ctx: Context) -> dict:
+    skills, blender, skills_dir = _blender_skills(ctx)
+    built = _blender_blend(ctx)
+    # Keep the build stage immutable: material edits get their own .blend so the
+    # recorded hash for the build artifact never goes stale.
+    blend = ctx.asset.path("outputs", "blender-asset-material.blend")
+    shutil.copy2(built, blend)
+    script = skills_dir / "blender-pbr-materials" / "scripts" / "build_pbr_material.py"
+    preset = str(ctx.params.get("preset") or "wood")
+    data, _ = adapters.blender_skills_exec(
+        skills, blender, script,
+        ["--name", "M_BlenderAsset", "--preset", preset, "--objects", "SM_Crate", "--save", str(blend)],
+        blend=blend, timeout=float(ctx.params.get("timeout") or 300), cwd=ctx.project.root,
+    )
+    assigned = data.get("assigned") or []
+    if "SM_Crate" not in assigned:
+        raise RunFailed(f"blender-skills did not assign the material: {data}")
+    ctx.outputs["blend"] = blend
+    ctx.artifact(blend, "source", "blend-material")
+    ctx.report("blender-material.json", data)
+    return {"status": "PASS", "detail": f"{data.get('material')} preset={preset}"}
+
+
+def _blender_qa_gate(data: dict, warning_note: str) -> tuple[bool, str]:
+    """A QA pass is not a clean pass while warnings are unacknowledged."""
+    objects = data.get("objects") or {}
+    triangles = sum(int(item.get("tris") or 0) for item in objects.values() if isinstance(item, dict))
+    errors = data.get("errors") or []
+    warnings = data.get("warnings") or []
+    accepted = bool(warnings and warning_note)
+    passed = bool(data.get("pass")) and not errors and (not warnings or accepted)
+    detail = f"{triangles} tris; ground_z={data.get('ground_z')}; {len(errors)} error(s), {len(warnings)} warning(s)"
+    if warnings and not accepted:
+        detail += "; warnings need a fix or --set warning_note=<reason>"
+    return passed, detail
+
+
+def _blender_visual_review(visual_review: str, approval_note: str) -> tuple[str, str]:
+    if visual_review not in ("pending", "approved"):
+        raise RunFailed("visual_review must be pending or approved")
+    if visual_review == "approved":
+        if not approval_note:
+            raise RunFailed("visual_review=approved requires approval_note describing the inspection")
+        return "PASS", f"visual review approved: {approval_note}"
+    return "NOT_TESTED", "review sheets generated; visual inspection pending"
+
+
+def _blender_skills_qa(ctx: Context) -> dict:
+    skills, blender, skills_dir = _blender_skills(ctx)
+    blend = _blender_blend(ctx)
+    object_name = str(ctx.params.get("object") or "SM_Crate")
+    warning_note = str(ctx.params.get("warning_note") or "").strip()
+    visual_review = str(ctx.params.get("visual_review") or "pending")
+    approval_note = str(ctx.params.get("approval_note") or "").strip()
+    visual_status, visual_detail = _blender_visual_review(visual_review, approval_note)
+
+    qa_script = skills_dir / "blender-asset-qa" / "scripts" / "qa_check.py"
+    args = ["--profile", "game", "--objects", object_name]
+    data, _ = adapters.blender_skills_exec(
+        skills, blender, qa_script, args, blend=blend,
+        timeout=float(ctx.params.get("timeout") or 300), cwd=ctx.project.root,
+    )
+    qa_report = ctx.report("blender-qa.json", data)
+    passed, detail = _blender_qa_gate(data, warning_note)
+    errors = data.get("errors") or []
+    warnings = data.get("warnings") or []
+    warnings_accepted = bool(warnings and warning_note)
+    triangles = sum(int(item.get("tris") or 0) for item in (data.get("objects") or {}).values() if isinstance(item, dict))
+    ctx.validation.append({
+        "artifact": blend.name,
+        "id": "BLENDER-QA",
+        "status": "PASS" if passed else "FAIL",
+        "detail": detail,
+    })
+
+    reviews = []
+    review_script = skills_dir / "blender-asset-qa" / "scripts" / "review_shots.py"
+    for mode in ("random", "wire"):
+        target = ctx.asset.path("previews", f"blender-qa-{mode}.png")
+        adapters.blender_skills_exec(
+            skills, blender, review_script,
+            ["--out", str(target), "--mode", mode, "--res", "512", "--objects", object_name],
+            blend=blend, timeout=float(ctx.params.get("timeout") or 300), cwd=ctx.project.root,
+        )
+        if not target.is_file() or target.stat().st_size < 1000:
+            raise RunFailed(f"blender-asset-qa wrote no {mode} review sheet")
+        ctx.artifact(target, "preview", f"blender-qa-{mode}")
+        reviews.append({"mode": mode, "path": ctx.asset.relative(target)})
+
+    ctx.validation.append({
+        "artifact": blend.name,
+        "id": "BLENDER-QA-RENDER",
+        "status": "PASS",
+        "detail": "random and wire review sheets generated; rendering is not visual approval",
+    })
+    ctx.validation.append({
+        "artifact": blend.name,
+        "id": "BLENDER-QA-VISUAL",
+        "status": visual_status,
+        "detail": visual_detail,
+    })
+
+    details = skills.get("details") or {}
+    ctx.asset.manifest.setdefault("provenance", {})["blender_skills"] = {
+        "version": skills.get("version"),
+        "revision": details.get("revision"),
+        "skills": details.get("skills"),
+        "qa": {
+            "pass": passed,
+            "triangles": triangles,
+            "ground_z": data.get("ground_z"),
+            "errors": errors,
+            "warnings": warnings,
+            "warnings_accepted": warnings_accepted,
+            "warning_note": warning_note if warnings else "",
+            "report": qa_report.name,
+        },
+        "visual_review": {
+            "status": visual_review,
+            "note": approval_note if visual_review == "approved" else "",
+            "recorded": now_iso() if visual_review == "approved" else None,
+        },
+        "reviews": reviews,
+    }
+    ctx.asset.save()
+    if errors:
+        raise RunFailed(f"blender-asset-qa gate failed: {errors[0]}")
+    if warnings and not warnings_accepted:
+        raise RunFailed(
+            f"blender-asset-qa reported {len(warnings)} warning(s); fix them or "
+            "pass --set warning_note=<reason for accepting>"
+        )
+    if not passed:
+        raise RunFailed("blender-asset-qa reported failure without error or warning details")
+    return {
+        "status": "PASS",
+        "detail": f"{triangles} tris; QA {len(warnings)} warning(s); 2 review sheets; visual {visual_review}",
+    }
+
+
+
+def _blender_skills_export(ctx: Context) -> dict:
+    skills, blender, skills_dir = _blender_skills(ctx)
+    blend = _blender_blend(ctx)
+    target = ctx.asset.path("outputs", "blender-asset.glb")
+    script = skills_dir / "blender-export-pipelines" / "scripts" / "export_asset.py"
+    data, _ = adapters.blender_skills_exec(
+        skills, blender, script,
+        ["--preset", "gltf", "--objects", "SM_Crate", "--out", str(target)],
+        blend=blend, timeout=float(ctx.params.get("timeout") or 300), cwd=ctx.project.root,
+    )
+    if not target.is_file() or target.stat().st_size < 100:
+        raise RunFailed(f"blender-skills export wrote no GLB: {data}")
+    stats = inspect_glb(target)
+    ctx.outputs["mesh"] = target
+    ctx.artifact(target, "mesh", "deliverable")
+    ctx.asset.set_primary("mesh", target)
+    return {"status": "PASS", "detail": f"{stats['triangles']} tris; {human_bytes(target.stat().st_size)}"}
+
+
+
 def _comfykit_check(ctx: Context) -> dict:
     provider = _provider(ctx, "comfy-kit")
     details = provider.get("details") or {}
@@ -393,6 +588,10 @@ HANDLERS = {
     "glb.optimize": _glb_optimize,
     "glb.compare": _glb_compare,
     "blender.sample": _blender_sample,
+    "blender.skills.build": _blender_skills_build,
+    "blender.skills.material": _blender_skills_material,
+    "blender.skills.qa": _blender_skills_qa,
+    "blender.skills.export": _blender_skills_export,
     "comfykit.detect": _comfykit_check,
     "comfykit.generate": _comfykit_generate,
     "comfykit.import": _comfykit_import,
@@ -424,6 +623,8 @@ def plan(recipe: dict, inputs: dict[str, Path], params: dict, project: Project |
             needs.append("gltf-transform")
         elif step == "blender.sample":
             needs.append("blender")
+        elif step.startswith("blender.skills."):
+            needs.extend(["blender-skills", "blender"])
         elif step.startswith("comfykit."):
             needs.append("comfy-kit")
         elif step == "img2threejs.probe":

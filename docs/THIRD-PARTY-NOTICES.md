@@ -10,7 +10,8 @@ AssetForge is MIT-licensed. It does not vendor third-party source, binaries, dat
 | Pillow (optional) | HPND / PIL license | Image inspection and conversion |
 | glTF-Transform (optional) | MIT | Conservative GLB optimization |
 | Khronos glTF Validator (optional) | Apache-2.0 | Official conformance report |
-| Blender (optional, external) | GPL-2.0-or-later | Background sample export |
+| Blender (optional, external) | GPL-2.0-or-later | Background execution and export |
+| blender-skills (optional, external) | MIT (Copyright (c) 2026 EL4CTEO) | Blender skill catalog, materials, QA and export workflows |
 | comfy-kit (optional, external) | MIT | Delegated image generation |
 | img2threejs (optional, external) | Apache-2.0 | Technical image probe and deterministic spec-to-Three.js code generation |
 
@@ -18,7 +19,7 @@ AssetForge is MIT-licensed. It does not vendor third-party source, binaries, dat
 
 ## External owners
 
-Blender, comfy-kit, img2threejs, SwarmUI and ComfyUI remain independently maintained and are not distributed by AssetForge. Their licenses, model licenses and terms apply to their own installations and outputs.
+Blender, blender-skills, comfy-kit, img2threejs, SwarmUI and ComfyUI remain independently maintained and are not distributed by AssetForge. Their licenses, model licenses and terms apply to their own installations and outputs. The tested blender-skills revision is recorded in `docs/PROVIDERS.md`; its MIT copyright notice is preserved here and in that provider document.
 
 Model weights are never downloaded, bundled or redistributed. Users are responsible for the licenses of models, assets and references they supply.
 

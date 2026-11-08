@@ -2,7 +2,7 @@
 
 Verified code commit: `5496dea07b8f67b6cdff1190e33fab3a53241216`.
 
-Environment: Windows 11, Python 3.14.10, Node 26.13.0, Pillow 13.0.0, jsonschema 4.x, glTF-Transform 4.5.1, Khronos glTF Validator installed locally in `.tools`. The project works without any optional provider.
+Environment: Windows 11, Python 3.14.10, Node 26.13.0, Pillow 13.0.0, jsonschema 4.x, glTF-Transform 4.5.1, Khronos glTF Validator installed locally in `.tools`, Blender 5.2.3 LTS (Steam). The project works without any optional provider.
 
 ## Test suite
 
@@ -15,12 +15,14 @@ python -m unittest discover -s tests
 Result (final run after the review corrections):
 
 ```text
-Ran 75 tests in 105.103s
-OK (skipped=1)
+Ran 91 tests in 87.196s
+OK (skipped=2)
 exit code 0
 ```
 
-The skipped test is `test_symlink_escape_is_rejected`: this Windows account does not hold the symlink-creation privilege. The test runs on Linux CI.
+Without the optional Blender providers the suite runs with the integration tests and absent-provider skip: `Ran 89 tests in 164.991s`, `OK (skipped=3)`, exit `0`. That run exercises the absent-provider behavior and the standalone image/GLB/export paths.
+
+The two skips on the real-Blender Windows run are `test_symlink_escape_is_rejected` (no symlink privilege) and `test_missing_provider_exit_code` (Blender is available, so the absent-provider CLI case cannot be produced on this host). The symlink path runs on Linux CI; the Blender-absent path runs in CI environments without Blender. The real Blender integration tests run when both providers are available and skip cleanly otherwise.
 
 Coverage includes:
 
@@ -42,6 +44,10 @@ Coverage includes:
 - Export blocked when any validation check fails, even if the primary mesh itself is valid.
 - Artifact rejection: absolute path, `../` escape, missing file and symlink escape.
 - Official validator separated from structural `GLB-014`.
+- Blender QA gate: clean pass, unacknowledged warning failure, acknowledged warning pass, error failure, malformed `pass=false` without details, visual-pending and visual-approval-with-note paths.
+- Full Blender pipeline: every recorded artifact size and SHA-256 matches the final file, including the immutable build/material `.blend` stages.
+- Project portability: copying the completed project preserves artifact resolution, and `asset.json` contains no absolute project or machine path.
+- Export excludes QA preview images from texture folders.
 
 ## Official validator
 
@@ -95,12 +101,39 @@ assetforge run img2threejs-probe --input <reference.png>
 
 Observed: job `SUCCEEDED`; upstream probe JSON stored as a report; result `technicalSuitability=conditional`. This is a technical probe, not 3D reconstruction.
 
+## Blender-skills integration
+
+Upstream: [EL4CTEO/blender-skills](https://github.com/EL4CTEO/blender-skills) at revision `389f28addc79b87b28764898e38e7bf408d14b77` (v1.2.0), MIT.
+
+- `python tools/validate_skills.py` → `OK`; 28 skill directories, all descriptions and token budgets valid.
+- `BLENDER_EXE=<Steam blender> python tools/run_tests.py` → **69 passed, 0 failed, 0 skipped** in real Blender 5.2.3 LTS.
+- `assetforge providers --json` detected Blender 5.2.3 and blender-skills 1.2.0 at the tested revision.
+- `assetforge blender-skills --json` listed **28** skills; `--route materials` returned `blender-pbr-materials` and `blender-texturing`.
+- `assetforge run blender-sample --json` → `SUCCEEDED`; 108 triangles, real Blender 5.2.3, GLB validated.
+- `assetforge run blender-pipeline --json` → `SUCCEEDED`:
+  - source `.blend` 88,638 bytes; material `.blend` 90,552 bytes, recorded separately so the build hash stays valid;
+  - 108 triangles;
+  - upstream `blender-asset-qa`: `pass=true`, `ground_z=0.0`, 0 errors, 0 warnings;
+  - random and wire review sheets written (567,926 and 679,113 bytes) and visually inspected; no floating parts, z-fighting or topology defects;
+  - `BLENDER-QA-RENDER=PASS` explicitly distinguishes rendering from `BLENDER-QA-VISUAL`; the default is `NOT_TESTED`, and this run used `visual_review=approved` with a recorded `approval_note`;
+  - GLB exported by upstream `blender-export-pipelines` at 8,856 bytes;
+  - optimized GLB 6,980 bytes;
+  - `GLB-014 PASS`, official validator 0 errors/0 warnings;
+  - provenance records upstream revision, version, QA numbers, project-relative review paths and the visual-review decision.
+- `assetforge run blender-qa --input blend=<asset.blend> --json` → `SUCCEEDED`; 3 artifacts and `BLENDER-QA=PASS` on an existing `.blend`.
+- A deliberately lifted crate produced an upstream grounding warning. Since no `warning_note` was supplied, the job ended `FAILED` with the acceptance instruction; the warning was preserved, not silently converted to a clean pass.
+- Export from the same asset to Roblox, Godot and generic → `PASS`, `kind=mesh`, `engine_import=NOT_TESTED`; only the optimized GLB is packaged. QA previews are not copied into texture folders (regression test added).
+
 ## Installer and packaging
 
-- `Install.ps1` created a repo-local `.venv`, ran `doctor`, exited `0`.
-- `assetforge.cmd --version` printed `assetforge 0.1.0`; `doctor --json` exited `0`.
-- Wheel build: `assetforge-0.1.0-py3-none-any.whl`, 49,377 bytes, SHA-256 `f0ac68b57a0072740196c40a60062a85bdbf719e257f3ac1090b1910a62f9758`.
-- Wheel installed into a clean environment; `assetforge --version` returned 0.1.0; `texture-pack`, `sprite-atlas` and `img2threejs-codegen` returned job status `SUCCEEDED`; the packaged bridge passed the Khronos validator with `0 error(s), 0 warning(s)` in a project path containing spaces.
+- `Install.ps1` created a repo-local `.venv`, ran `doctor`, exited `0` at the 0.1.0 checkpoint.
+- `assetforge.cmd --version` printed `assetforge 0.1.0` at that checkpoint.
+- 0.2.0 source distribution built successfully and includes the same package data; its hash is reported in the handoff rather than embedded in a file it contains.
+- 0.2.0 wheel: `assetforge-0.2.0-py3-none-any.whl`, 58,026 bytes, SHA-256 `0ad989e002475b6d017e42993fa385630ea851e5f89275cc2cce94650bf6612e`.
+- The 0.2.0 wheel contains `data/blender/procedural_crate.py`, both Blender recipes and the Khronos bridge.
+- Installed the 0.2.0 wheel into a clean virtual environment: `assetforge --version` → `0.2.0`; both Blender recipes listed; `blender-pipeline` → `SUCCEEDED`, 9 artifacts, `BLENDER-QA=PASS`, `BLENDER-QA-RENDER=PASS`, `BLENDER-QA-VISUAL=NOT_TESTED` by default.
+- Verified all 9 recorded artifact sizes and SHA-256 values against disk and confirmed no absolute project path appears in `asset.json`.
+- Previous 0.1.0 wheel evidence: `assetforge-0.1.0-py3-none-any.whl`, 57,942 bytes, SHA-256 `c7cb404b4c7882ff66553f26ef59e40d3033215e438eeae07e3c54af9d12f5a4`.
 - Wheel installed into a clean environment; `assetforge --version` returned 0.1.0, `glb-inspect` ran against the textured fixture, `validate` returned `PASS` with `PASS=11, FAIL=0, NOT_TESTED=2` (official validator unavailable in that isolated environment, plus no rig data).
 - Packaged validator bridge verified from that installed wheel in a project path containing spaces:
   - before installing the validator into the project's `.tools`, `GLB-014` was `NOT_TESTED`;
@@ -111,7 +144,7 @@ Observed: job `SUCCEEDED`; upstream probe JSON stored as a report; result `techn
 
 A fresh clone of the committed source was installed into a new virtual environment with `pip install ".[images]"`.
 
-- `assetforge --version` → `assetforge 0.1.0`; recipe discovery listed all built-in recipes.
+- `assetforge --version` → `assetforge 0.1.0`; recipe discovery listed the built-in recipes present at that checkpoint.
 - `doctor --json` exited `0` (`DEGRADED` only because the clone root had no project).
 - `image-prep` from `examples/assets/source.png` → `SUCCEEDED`.
 - `texture-pack` → `SUCCEEDED`; `export` to generic, Godot and Roblox → `PASS`, `kind=texture`, `engine_import=NOT_TESTED`.
@@ -124,7 +157,6 @@ A fresh clone of the committed source was installed into a new virtual environme
 
 | Item | Why |
 | --- | --- |
-| Blender background export | Blender is not installed here. The detected `blender` command launches Hermes, so the provider correctly reports no Blender version. |
 | Roblox Studio import | No Studio session was run. File-format support is documented; runtime/visual compatibility is `NOT_TESTED`. |
 | Godot import | No editor session was run. |
 | img2threejs image-to-spec reconstruction | Upstream workflow is agent-driven; only the technical probe and deterministic spec-to-Three.js codegen are automated. |

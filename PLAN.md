@@ -21,7 +21,7 @@ Status values are strict: **VERIFIED** (executed with evidence), **IMPLEMENTED /
 | P1-03 | Optional Khronos glTF validation | P1-02 | VERIFIED when installed | official report on fixtures | `GLB-014` official `PASS` |
 | P1-04 | Conservative GLB optimization | P1-02 | VERIFIED | single-node and textured multi-node E2E | `tests/test_cli.py`; structure preserved |
 | P1-05 | Roblox, Godot, generic export packaging | P1-04 | VERIFIED packaging / engine import NOT_TESTED | export records and hashes | `tests/test_exporters.py`, CLI E2E |
-| P1-06 | Blender background adapter | F0-01 | IMPLEMENTED / UNVERIFIED | provider absent; clean exit `4` | `blender-sample` failure test |
+| P1-06 | Blender background adapter | F0-01 | VERIFIED | real Blender 5.2.3 smoke and upstream pipeline | `blender-sample` job `SUCCEEDED`; `blender-pipeline` 108 tris |
 | P1-07 | img2threejs technical probe | F0-01 | VERIFIED probe / reconstruction PLANNED | real external probe run | `img2threejs-probe` job `SUCCEEDED` |
 | P1-08 | comfy-kit generation and import | F0-01 | VERIFIED | real generation and import | `comfy-generate` and `comfy-import` jobs `SUCCEEDED` |
 | P1-09 | Bundle companion proposal | F0-05 | VERIFIED documentation / not applied | fragment + contract review | `integration/COMPANIONS.asset-forge.json` |
@@ -51,6 +51,9 @@ Status values are strict: **VERIFIED** (executed with evidence), **IMPLEMENTED /
 | P2-03 | Sprite sheets and texture atlases | VERIFIED (image pipeline; editor integration pending) |
 | P2-04 | ORM material channel packing | VERIFIED |
 | P2-05 | img2threejs deterministic spec-to-Three.js codegen | VERIFIED |
+| P2-06 | blender-skills provider, catalog and routing | VERIFIED |
+| P2-07 | Blender pipeline with mandatory QA gate and review evidence | VERIFIED |
+| P2-08 | Imported `.blend` QA recipe | VERIFIED |
 | P3-01 | TripoSR image-to-3D provider, isolated environment | PLANNED |
 | P3-02 | Rigging validation interfaces and UniRig adapter | PLANNED |
 | P3-03 | teardown simulation/presentation module | PLANNED |
@@ -60,4 +63,4 @@ Status values are strict: **VERIFIED** (executed with evidence), **IMPLEMENTED /
 
 ## Next executable task
 
-Publish the local repository only when the operator explicitly asks, then run the CI workflow on the remote. The next engineering task is P2-01 Material Maker interchange or P2-02 editor workflow, not another provider before the current foundations stay green.
+The standalone `v0.1.0` release is published and the Blender integration is local and verified. Before the next release, run the full CI on the exact integration commit and publish only after it passes. The next engineering priority is the reference-image-to-3D-to-engine workflow in `ROADMAP.md`, not another provider.

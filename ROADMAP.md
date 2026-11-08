@@ -18,9 +18,11 @@ AssetForge is built around one priority: a genuine reference-image → 3D → en
 
 ## Priority 2 — Blender integration
 
-- Verify detection against a real Blender installation (the development machine currently exposes only a wrapper).
-- Confirm version support, run the deterministic background sample and export GLB.
-- Add a controlled scene-processing path for existing assets.
+**Done:** real Blender 5.2.3 detection, headless execution, `blender-skills` catalog/routing, procedural build, PBR material, mandatory `blender-asset-qa` gate, random/wire review evidence, GLB export, optimization and validation. Tested upstream revision `389f28a`; 69 upstream tests and the AssetForge end-to-end pipeline passed.
+
+- Add controlled processing for imported `.blend` scenes (the QA-only recipe is available now).
+- Expand skill routing into repeatable recipes for rigging, animation and baking after the first pipeline is stable.
+- Keep Blender MCP optional; the verified path is headless.
 
 ## Priority 3 — texture and material depth
 
@@ -43,7 +45,6 @@ AssetForge is built around one priority: a genuine reference-image → 3D → en
 ## Explicitly not done
 
 - img2threejs image-to-spec reconstruction and visual approval.
-- Actual Blender execution.
 - Teardown builds, Graphite automation and real engine imports.
 - AI 3D generation, rigging, MCP and batch/remote GPU support.
 

@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 from . import __version__, exporters, images, providers
+from . import blenderskills
 from . import recipes as recipe_lib
 from .adapters import AdapterError
 from .glb import GlbError
@@ -131,6 +132,8 @@ def cmd_capabilities(args) -> int:
         {"id": "glb-validate-official", "status": "IMPLEMENTED", "provider": "gltf-validator", "available": now["gltf-validator"]["available"]},
         {"id": "glb-optimize", "status": "IMPLEMENTED", "provider": "gltf-transform", "available": now["gltf-transform"]["available"]},
         {"id": "blender-export", "status": "IMPLEMENTED", "provider": "blender", "available": now["blender"]["available"]},
+        {"id": "blender-skills", "status": "IMPLEMENTED", "provider": "blender-skills", "available": now["blender-skills"]["available"]},
+        {"id": "blender-asset-qa", "status": "IMPLEMENTED", "provider": "blender-skills", "available": now["blender-skills"]["available"]},
         {"id": "comfy-kit-generation", "status": "IMPLEMENTED", "provider": "comfy-kit", "available": now["comfy-kit"]["available"]},
         {"id": "img2threejs-probe", "status": "IMPLEMENTED", "provider": "img2threejs", "available": now["img2threejs"]["available"]},
         {"id": "img2threejs-codegen", "status": "IMPLEMENTED", "provider": "img2threejs", "available": now["img2threejs"]["available"]},
@@ -164,6 +167,41 @@ def cmd_providers(args) -> int:
             version = f" {item['version']}" if item.get("version") else ""
             print(f"{item['id']:<16} {state:<9}{version}  {item.get('path') or item.get('reason', '')}")
     return 0
+
+
+def cmd_blender_skills(args) -> int:
+    project = Project.find()
+    provider = providers.get("blender-skills", project)
+    if not provider.get("available"):
+        if args.json:
+            print(json.dumps({
+                "schema": 1,
+                "provider": provider,
+                "skills": [],
+                "routes": sorted(blenderskills.ROUTES),
+            }, indent=2))
+        else:
+            print(f"blender-skills unavailable: {provider.get('reason')}", file=sys.stderr)
+        return EXIT_PROVIDER
+    details = provider.get("details") or {}
+    catalog = blenderskills.catalog(Path(details["skills_dir"]))
+    selected = blenderskills.route(args.route, catalog) if args.route else catalog
+    payload = {
+        "schema": 1,
+        "provider": provider,
+        "route": args.route,
+        "skills": selected,
+        "routes": blenderskills.ROUTES,
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        for item in selected:
+            version = f" {item['version']}" if item.get("version") else ""
+            print(f"{item['name']:<34}{version:<10}{item['description']}")
+        print(f"{len(catalog)} skill(s); tested upstream revision in docs/PROVIDERS.md")
+    return 0
+
 
 
 def cmd_init(args) -> int:
@@ -324,6 +362,11 @@ def build_parser() -> argparse.ArgumentParser:
     prov = sub.add_parser("providers", help="detect external providers")
     prov.add_argument("--json", action="store_true")
     prov.set_defaults(func=cmd_providers)
+
+    bskills = sub.add_parser("blender-skills", help="list or route blender-skills workflows")
+    bskills.add_argument("--route", choices=sorted(blenderskills.ROUTES))
+    bskills.add_argument("--json", action="store_true")
+    bskills.set_defaults(func=cmd_blender_skills)
 
     init = sub.add_parser("init", help="create a project")
     init.add_argument("path", nargs="?", default=".")

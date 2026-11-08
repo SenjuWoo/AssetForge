@@ -4,6 +4,7 @@ runs it with a timeout, and verifies the output it claims to have produced.
 
 from __future__ import annotations
 
+import json
 import shutil
 import sys
 from pathlib import Path
@@ -127,3 +128,59 @@ def img2threejs_codegen(root: Path, spec: Path, out_path: Path, timeout: float =
     if not out_path.exists() or out_path.stat().st_size < 500:
         raise AdapterError("img2threejs codegen reported success but wrote no usable TypeScript")
     return result
+
+
+def _json_tail(text: str) -> dict:
+    """The upstream runner prints one JSON object; trim accidental banner noise."""
+    text = (text or "").strip()
+    if not text:
+        raise AdapterError("blender-skills wrote no JSON result")
+    try:
+        data = json.loads(text)
+    except ValueError:
+        data = None
+        for line in reversed(text.splitlines()):
+            try:
+                data = json.loads(line)
+                break
+            except ValueError:
+                continue
+        if data is None:
+            raise AdapterError(f"blender-skills returned non-JSON output: {text[-500:]}")
+    if not isinstance(data, dict):
+        raise AdapterError("blender-skills returned a non-object JSON result")
+    return data
+
+
+def blender_skills_exec(provider: dict, blender: dict, script: Path, args: list[str],
+                        blend: Path | None = None, timeout: float = 600,
+                        cwd: Path | str | None = None) -> tuple[dict, dict]:
+    """Run one upstream skill script through blender-core's headless launcher.
+
+    The owner keeps the skill scripts and Blender discovery; AssetForge supplies
+    the executable it already verified and parses the JSON contract.
+    """
+    script = Path(script)
+    if not script.is_file():
+        raise AdapterError(f"blender-skills script is missing: {script}")
+    details = provider.get("details") or {}
+    runner = Path(details.get("skills_dir") or "") / "blender-core" / "scripts" / "run_in_blender.py"
+    if not runner.is_file():
+        raise AdapterError(f"blender-skills headless runner is missing: {runner}")
+    command = [sys.executable, str(runner)]
+    if blend:
+        command += ["--blend", str(blend)]
+    command += [str(script), "--"] + [str(item) for item in args]
+    result = run(command, timeout=timeout, cwd=cwd, env={"BLENDER_EXE": str(blender["path"])})
+    result["command"] = command
+    if result.get("timed_out"):
+        raise AdapterError(f"blender-skills script timed out after {timeout:g}s")
+    if result["returncode"] != 0:
+        raise AdapterError(
+            f"blender-skills script exited {result['returncode']}: "
+            f"{(result['stderr'] or result['stdout'])[-800:]}"
+        )
+    data = _json_tail(result.get("stdout", ""))
+    if data.get("ok") is False:
+        raise AdapterError(f"blender-skills script failed: {data.get('error') or data}")
+    return data, result

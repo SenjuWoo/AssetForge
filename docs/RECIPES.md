@@ -76,13 +76,53 @@ Requires the glTF-Transform provider. Missing provider exits `4`.
 
 ## `blender-sample`
 
-Build a deterministic bevelled cube in headless Blender and export GLB.
+Build a deterministic bevelled cube in headless Blender and export GLB. This is a small provider smoke test, not the QA-gated production pipeline.
 
 | Parameter | Type | Default |
 | --- | --- | --- |
 | `timeout` | integer | `240` |
 
 Requires Blender. Missing provider exits `4`.
+
+## `blender-pipeline`
+
+Build a procedural crate, apply an upstream `blender-pbr-materials` preset, run the mandatory `blender-asset-qa` gate, write random and wire review sheets, export GLB through `blender-export-pipelines`, optimize with glTF-Transform and validate.
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `preset` | string | `wood` |
+| `warning_note` | string | empty (warnings fail the gate) |
+| `visual_review` | `pending`, `approved` | `pending` |
+| `approval_note` | string | empty (required when approved) |
+| `timeout` | integer | `600` |
+
+```bash
+assetforge run blender-pipeline
+assetforge run blender-pipeline --set visual_review=approved --set "approval_note=Inspected random and wire sheets"
+assetforge export ASSET --target godot
+```
+
+Requires Blender, `blender-skills` and glTF-Transform. A QA error fails the job. Warnings fail unless `warning_note` records why each is acceptable. Review sheets are generated as `BLENDER-QA-RENDER`; `BLENDER-QA-VISUAL` is `NOT_TESTED` until plain visual review is explicitly approved. The pipeline exports 108 triangles in the tested revision and records QA numbers plus project-relative review paths in the asset.
+
+## `blender-qa`
+
+Run `blender-asset-qa` and review shots against an existing `.blend`. Use this as a gate for assets produced by other Blender workflows.
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `object` | string | empty (all visible meshes) |
+| `warning_note` | string | empty (warnings fail the gate) |
+| `visual_review` | `pending`, `approved` | `pending` |
+| `approval_note` | string | empty (required when approved) |
+| `timeout` | integer | `300` |
+
+```bash
+assetforge run blender-qa --input blend=asset.blend --set object=SM_Crate
+assetforge run blender-qa --input blend=asset.blend --set visual_review=approved --set "approval_note=..."
+```
+
+Any QA error fails the job. Warnings require `warning_note`. Review sheets are written even when QA fails, so the failure is inspectable. This recipe records reports and previews only; it does not export a mesh.
+
 
 ## `comfy-generate`
 

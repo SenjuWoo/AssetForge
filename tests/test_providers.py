@@ -57,6 +57,7 @@ class ProviderTests(unittest.TestCase):
             shim = Path(tmp) / "blender.cmd"
             shim.write_text("@echo off\r\necho Blender 4.2.0\r\n", encoding="utf-8")
             old = os.environ.get("BLENDER")
+            old_exe = os.environ.pop("BLENDER_EXE", None)
             os.environ["BLENDER"] = str(shim)
             try:
                 item = providers.get("blender")
@@ -65,6 +66,8 @@ class ProviderTests(unittest.TestCase):
                     os.environ.pop("BLENDER", None)
                 else:
                     os.environ["BLENDER"] = old
+                if old_exe is not None:
+                    os.environ["BLENDER_EXE"] = old_exe
             self.assertTrue(item["available"])
             self.assertEqual(item["version"], "4.2.0")
 

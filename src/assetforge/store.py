@@ -62,6 +62,10 @@ class Asset:
         except ValueError as exc:
             raise StoreError(f"path is outside the project: {path}") from exc
 
+    def relative(self, path: Path) -> str:
+        """Canonical project-relative path for portable manifests."""
+        return self._relative(path)
+
     def resolve_artifact(self, value) -> Path:
         """Resolve a manifest path, rejecting absolute paths, escapes and
         missing files. Every consumer of an artifact path goes through this."""

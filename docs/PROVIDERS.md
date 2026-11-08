@@ -46,10 +46,57 @@ When absent, validation reports `GLB-014 NOT_TESTED`; when present, the official
 ## Blender
 
 - Kind: external application, background mode.
-- Detect: `BLENDER`, `PATH`, or a standard Blender Foundation install folder.
-- The probe runs `--version` and requires a `Blender x.y` version string. A shim that starts some other program is reported as unavailable rather than accepted.
-- Used by: `blender-sample`.
+- Detect: `BLENDER_EXE`, legacy `BLENDER`, `PATH`, Blender Foundation install folders, or the Steam install at `C:/Program Files (x86)/Steam/steamapps/common/Blender/blender.exe`.
+- The probe runs `--version` and requires a `Blender x.y` version string. A shim that starts some other program is reported as unavailable rather than accepted. Candidate paths are tried in order, so a broken PATH shim does not hide a real install.
+- Used by: `blender-sample` and all `blender.skills.*` steps.
 - Blender is GPL software and remains independently installed and maintained.
+
+## blender-skills
+
+- Kind: optional external skill owner.
+- Upstream: [EL4CTEO/blender-skills](https://github.com/EL4CTEO/blender-skills), MIT License, Copyright (c) 2026 EL4CTEO.
+- Tested revision: `389f28addc79b87b28764898e38e7bf408d14b77` (v1.2.0), with Blender 5.2.3 LTS on Windows. Upstream `validate_skills.py` passed and its 69 headless tests passed with Blender.
+- Detect: `BLENDER_SKILLS_ROOT`, project `integrations.blender_skills`, `~/blender-skills`, `~/.claude/skills`, or `~/.agents/skills`. Both a checkout (`<root>/skills/<name>/SKILL.md`) and an installed folder (`<root>/<name>/SKILL.md`) are accepted. Required markers are `blender-core` and `blender-asset-qa`.
+- All 28 discovered skills are exposed in the catalog. The verified pipeline executes four upstream skills: `blender-core` (headless runner), `blender-pbr-materials`, `blender-asset-qa` and `blender-export-pipelines`. Other routes are cataloged, not claimed as executed.
+- AssetForge reports the detected commit when the root is a Git checkout. It never installs, updates or rewrites upstream skills.
+- Catalog and routing:
+
+```bash
+assetforge blender-skills --json
+assetforge blender-skills --route materials
+```
+
+Routes cover core, scene, modeling, sculpting, UV, texturing, materials, baking, rigging, animation, optimization, export, QA, rendering, lighting, simulation, clothing, hair, facial, NPR, weather, video, addon, pipeline and recipes. The JSON includes each skill's `SKILL.md`, scripts and absolute path for the agent.
+
+- Execution: all skill scripts go through upstream `blender-core/scripts/run_in_blender.py` with `BLENDER_EXE` set to the executable AssetForge verified. No Blender MCP server is required; the integration is headless.
+- Recipes: `blender-pipeline` and `blender-qa`.
+- QA gate: `blender-asset-qa/scripts/qa_check.py` runs on the generated `.blend` before delivery. Any reported error fails the job. Warnings must be fixed or explicitly accepted with `warning_note`; zero warnings is the verified path. `review_shots.py` writes random and wire contact sheets. A generated sheet is recorded as `BLENDER-QA-RENDER PASS`, while `BLENDER-QA-VISUAL` remains `NOT_TESTED` until `visual_review=approved` and a recorded `approval_note` are supplied. QA numeric results and project-relative review paths are stored in the asset provenance.
+- Current pipeline result: 108 triangles, 0 QA errors, 0 warnings, GLB exported, optimized and validated with `GLB-014 PASS` when the Khronos validator is installed.
+
+### Hermes Agent compatibility
+
+The skills use standard `SKILL.md` frontmatter and are compatible with Hermes's external skill directories. AssetForge exposes them without copying them. To also load them natively in Hermes, add the directory to `~/.hermes/config.yaml` or the active profile config:
+
+```yaml
+skills:
+  external_dirs:
+    - ${BLENDER_SKILLS_ROOT}/skills
+```
+
+Then restart the Hermes session. External dirs are scanned alongside the local profile; project skills still take precedence. Do not add the directory if you do not want the 28 skills in the agent's skill index. AssetForge does not edit Hermes configuration.
+
+### Install blender-skills
+
+Use the upstream installer; AssetForge does not duplicate it:
+
+```bash
+git clone https://github.com/EL4CTEO/blender-skills
+./blender-skills/install/install.sh          # macOS / Linux
+.\blender-skills\install\install.ps1          # Windows
+```
+
+Then set `BLENDER_SKILLS_ROOT` to the checkout or to the installed skills directory (`~/.agents/skills` or `~/.claude/skills`).
+
 
 ## comfy-kit
 

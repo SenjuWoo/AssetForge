@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "id": "blender-pipeline",
+  "title": "Blender skills asset pipeline",
+  "description": "Build a procedural crate with blender-skills, apply a PBR material, run the mandatory blender-asset-qa gate with review sheets, export GLB, optimize and validate it.",
+  "input": {},
+  "params": {
+    "preset": {"type": "string", "default": "wood"},
+    "warning_note": {"type": "string", "default": ""},
+    "visual_review": {"type": "string", "default": "pending", "choices": ["pending", "approved"]},
+    "approval_note": {"type": "string", "default": ""},
+    "timeout": {"type": "integer", "default": 600}
+  },
+  "steps": [
+    "blender.skills.build",
+    "blender.skills.material",
+    "blender.skills.qa",
+    "blender.skills.export",
+    "glb.optimize",
+    "glb.validate",
+    "asset.record"
+  ]
+}

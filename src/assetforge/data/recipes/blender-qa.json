@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "id": "blender-qa",
+  "title": "Blender asset QA gate",
+  "description": "Run the upstream blender-asset-qa checks and write solid/wire review sheets for an existing .blend asset.",
+  "input": {"name": "blend", "kind": "file", "required": true},
+  "params": {
+    "object": {"type": "string", "default": ""},
+    "warning_note": {"type": "string", "default": ""},
+    "visual_review": {"type": "string", "default": "pending", "choices": ["pending", "approved"]},
+    "approval_note": {"type": "string", "default": ""},
+    "timeout": {"type": "integer", "default": 300}
+  },
+  "steps": ["blender.skills.qa", "asset.record"]
+}

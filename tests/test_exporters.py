@@ -30,6 +30,16 @@ class ExporterTests(unittest.TestCase):
         asset.set_primary("mesh", inside)
         return project, asset
 
+    def test_export_excludes_review_previews_from_textures(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project, asset = self._asset(Path(tmp))
+            preview = make_png(asset.path("previews", "qa-review.png"))
+            asset.add_artifact(preview, "preview", "qa-review")
+            result = exporters.export(project, asset, "generic")
+            names = [Path(item["path"]).name for item in result["files"]]
+            self.assertNotIn("qa-review.png", names)
+            self.assertFalse(any(item["path"].startswith("textures/") for item in result["files"]))
+
     def test_validate_asset(self):
         with tempfile.TemporaryDirectory() as tmp:
             project, asset = self._asset(Path(tmp))

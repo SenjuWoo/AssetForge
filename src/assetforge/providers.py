@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 from .util import first_line, read_json, run
+from . import blenderskills
 
 MARKERS = {
     "comfy-kit": ("TOOLS/image-stack.ps1", "presets/presets.json"),
@@ -241,23 +242,32 @@ def detect(project=None) -> list[dict]:
         "capabilities": ["glb.validate.official"],
     })
 
-    blender = _env_path("BLENDER") or shutil.which("blender")
-    blender_path = Path(blender) if blender else None
-    if blender_path is None:
-        for pattern in (
-            Path("C:/Program Files/Blender Foundation").glob("Blender */blender.exe"),
-            (local / "Programs" / "Blender Foundation").glob("Blender */blender.exe"),
-        ):
-            candidate = next(iter(pattern), None)
-            if candidate:
-                blender_path = candidate
-                break
+    candidates = []
+    for value in (_env_path("BLENDER_EXE"), _env_path("BLENDER"), shutil.which("blender")):
+        if value:
+            candidate = Path(value)
+            if candidate not in candidates:
+                candidates.append(candidate)
+    for pattern in (
+        Path("C:/Program Files/Blender Foundation").glob("Blender */blender.exe"),
+        (local / "Programs" / "Blender Foundation").glob("Blender */blender.exe"),
+        Path("C:/Program Files (x86)/Steam/steamapps/common/Blender").glob("blender.exe"),
+    ):
+        for candidate in pattern:
+            if candidate not in candidates:
+                candidates.append(candidate)
+
+    blender_path = None
     blender_version = None
     blender_reason = "Blender is not installed or not on PATH"
-    if blender_path:
-        blender_version, blender_reason = _blender_version(blender_path)
-        if blender_version is None:
-            blender_path = None
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        version, reason = _blender_version(candidate)
+        if version:
+            blender_path, blender_version = candidate, version
+            break
+        blender_reason = reason
     providers.append({
         "id": "blender",
         "title": "Blender (background)",
@@ -268,6 +278,8 @@ def detect(project=None) -> list[dict]:
         "reason": "" if blender_path else blender_reason,
         "capabilities": ["blender.export_glb", "blender.headless"],
     })
+
+    providers.append(blenderskills.describe(project))
 
     comfy = find_owner(
         "comfy-kit",

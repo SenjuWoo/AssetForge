@@ -52,7 +52,12 @@ def _primary_mesh(asset: Asset) -> tuple[Path, bool]:
 
 
 def _image_artifacts(asset: Asset) -> list[dict]:
-    return [item for item in asset.manifest.get("artifacts", []) if item.get("media_type", "").startswith("image/")]
+    """Texture deliverables only. Review sheets and reports are evidence, not
+    export textures."""
+    return [
+        item for item in asset.manifest.get("artifacts", [])
+        if item.get("media_type", "").startswith("image/") and item.get("role") in ("texture", "image")
+    ]
 
 
 def _primary_image(asset: Asset) -> tuple[Path, bool]:

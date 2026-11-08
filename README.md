@@ -1,6 +1,6 @@
 # AssetForge
 
-AssetForge is a standalone, agent-friendly toolkit for producing, validating and packaging game assets. It provides a Python CLI, versioned JSON contracts and optional adapters for Blender, glTF-Transform, the Khronos glTF Validator, comfy-kit and img2threejs.
+AssetForge is a standalone, agent-friendly toolkit for producing, validating and packaging game assets. It provides a Python CLI, versioned JSON contracts and optional adapters for Blender, blender-skills, glTF-Transform, the Khronos glTF Validator, comfy-kit and img2threejs.
 
 It is designed to work on its own and can also be registered as a companion of the Ultimate AI Starter Bundle. The bundle is recommended, never required.
 
@@ -36,6 +36,7 @@ assetforge --version
 assetforge doctor [--json]
 assetforge capabilities [--json]
 assetforge providers [--json]
+assetforge blender-skills [--route NAME] [--json]
 assetforge init [path] [--name NAME]
 assetforge recipes [list | RECIPE] [--json]
 assetforge run RECIPE [--input PATH | NAME=PATH] [--set KEY=VALUE] [--dry-run] [--json]
@@ -59,6 +60,23 @@ assetforge.cmd export ASSET --target godot
 
 `comfy-import` also accepts an existing comfy-kit output folder. If comfy-kit is not installed, `comfy-generate` exits with code `4` and a clear provider message; AssetForge never installs models or changes comfy-kit configuration.
 
+## Recommended Blender workflow (blender-skills)
+
+For Blender work, the recommended provider is [EL4CTEO/blender-skills](https://github.com/EL4CTEO/blender-skills), an MIT-licensed set of 28 agent skills for modeling, UVs, PBR, baking, rigging, animation, optimization, QA and export. AssetForge exposes all 28 but the verified pipeline currently executes four of them: core runner, PBR materials, asset QA and export pipelines. AssetForge does not vendor upstream; point `BLENDER_SKILLS_ROOT` at a checkout or installed skills folder, then inspect the catalog:
+
+```bat
+assetforge.cmd blender-skills --json
+assetforge.cmd blender-skills --route materials
+assetforge.cmd run blender-pipeline
+assetforge.cmd export ASSET --target godot
+```
+
+`blender-pipeline` builds a procedural crate, applies an upstream PBR preset, runs the **mandatory** `blender-asset-qa` gate, writes random/wire review sheets, exports GLB through upstream `blender-export-pipelines`, optimizes it and validates it. A QA error or unaccepted warning fails the job before delivery. Rendering the review sheets is not visual approval: `BLENDER-QA-VISUAL` stays `NOT_TESTED` until an explicit `--set visual_review=approved --set approval_note="..."` records the inspection. `blender-qa` applies the same gate to an existing `.blend`.
+
+Blender 5.2+ is required. `BLENDER_EXE` selects the executable; detection also checks `PATH`, Blender Foundation folders and the Steam install. Blender MCP is optional and not required; every step runs headless.
+
+Upstream was tested at revision `389f28addc79b87b28764898e38e7bf408d14b77` (v1.2.0) with Blender 5.2.3. AssetForge reports the detected revision but never updates upstream automatically. Installation, Hermes `skills.external_dirs` setup, routing and the tested evidence are in [docs/PROVIDERS.md](docs/PROVIDERS.md).
+
 ## Built-in recipes
 
 | Recipe | Purpose |
@@ -69,6 +87,8 @@ assetforge.cmd export ASSET --target godot
 | `glb-inspect` | Record geometry statistics and structural conformance. |
 | `glb-optimize` | Conservative glTF-Transform pass: no simplification, compression, flattening or joining. |
 | `blender-sample` | Headless Blender bevelled-cube export. Requires Blender. |
+| `blender-pipeline` | Procedural crate → PBR material → upstream QA gate → GLB export → optimize → validate. |
+| `blender-qa` | Run upstream `blender-asset-qa` and review sheets on an existing `.blend`. |
 | `comfy-generate` | Delegate one render to an installed comfy-kit. |
 | `comfy-import` | Copy newest images from a comfy-kit output folder. |
 | `img2threejs-probe` | Run the external img2threejs technical image probe. |
@@ -91,7 +111,9 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | Structural GLB validation | VERIFIED | Not a conformance claim |
 | Khronos glTF validation | VERIFIED when installed | Optional Node package in `.tools`; otherwise `NOT_TESTED` |
 | Conservative GLB optimization | VERIFIED | glTF-Transform; source and optimized structure compared |
-| Blender background export | IMPLEMENTED / UNVERIFIED | Adapter is written; Blender is not installed in this environment |
+| Blender background export | VERIFIED | Real Blender 5.2.3; `blender-sample` and upstream export pipeline executed |
+| blender-skills catalog and routing | VERIFIED | 28 skills detected at upstream revision `389f28a`; CLI list/route tested |
+| Blender asset QA gate | VERIFIED | Upstream `blender-asset-qa`: 108 tris, 0 errors, 0 warnings; review sheets generated and explicitly approved after inspection |
 | comfy-kit generation | VERIFIED | Exercised against a running comfy-kit; generation is delegated |
 | img2threejs probe | VERIFIED | Technical probe only; reconstruction remains agent-driven |
 | img2threejs spec-to-Three.js codegen | VERIFIED | Upstream deterministic generator; consumes an ObjectSculptSpec, not a raw image |
@@ -110,7 +132,8 @@ AssetForge detects providers without installing or reconfiguring them.
 | Pillow | Image inspection and conversion | Image recipes fail with a clear message |
 | glTF-Transform | GLB optimization | `glb-optimize` exits with code `4` |
 | Khronos glTF Validator | Official conformance check | Recorded as `NOT_TESTED` |
-| Blender | Background sample/export | `blender-sample` exits with code `4` |
+| Blender | Background execution and export | `blender-sample` exits with code `4` |
+| blender-skills | Recommended Blender skills catalog, QA and export | Blender steps exit with code `4` |
 | comfy-kit | Free local texture generation (recommended companion) | `comfy-generate` exits with code `4` |
 | img2threejs | Technical image probe and spec-to-Three.js codegen | `img2threejs-probe` / `img2threejs-codegen` exit with code `4` |
 

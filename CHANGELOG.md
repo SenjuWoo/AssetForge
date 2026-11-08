@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0 — 2026-11-08
+
+- Add optional `blender-skills` provider detection with `BLENDER_SKILLS_ROOT`, project integration config and standard skill directories.
+- Add `assetforge blender-skills` catalog and route command for all 28 upstream skills.
+- Detect Blender through `BLENDER_EXE`, PATH, Blender Foundation folders and the Steam install; continue past broken shims.
+- Add `blender-pipeline`: procedural crate, upstream PBR material, mandatory `blender-asset-qa` gate, random/wire review sheets, upstream GLB export, glTF-Transform optimization and validation.
+- Add `blender-qa` for gating an existing `.blend` with the same upstream QA and review evidence.
+- Record tested blender-skills revision, QA numbers and review paths in asset provenance.
+- Exclude QA preview images from exported texture packages.
+- Document Hermes `skills.external_dirs` exposure for blender-skills.
+
 ## 0.1.0 — 2026-11-07
 
 Initial standalone release candidate.

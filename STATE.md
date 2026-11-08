@@ -1,9 +1,9 @@
 # State
 
-- **Version:** 0.1.0
-- **Milestone:** Phase 0 + Phase 1 MVP complete; Phase 2 image layer and img2threejs codegen complete; 0.1.0 release preparation complete
-- **Active task:** publishing `v0.1.0` after exact-commit hosted CI
-- **Current revision:** `5496dea07b8f67b6cdff1190e33fab3a53241216` (verified code commit)
+- **Version:** 0.2.0
+- **Milestone:** Phase 0 + Phase 1 MVP complete; Phase 2 image layer and img2threejs codegen complete; 0.1.0 published; blender-skills integration verified locally
+- **Active task:** commit the Blender integration and run hosted CI before any new release
+- **Current revision:** working tree (integration changes)
 - **Last known-good:** `5496dea07b8f67b6cdff1190e33fab3a53241216`
 
 ## Completed
@@ -21,7 +21,9 @@
 - img2threejs deterministic spec-to-Three.js codegen through the upstream generator; reconstruction remains agent-driven.
 - Conservative glTF-Transform optimization with before/after comparison.
 - Roblox/Godot/generic export packaging with engine import marked `NOT_TESTED`.
-- External adapters: Blender (implemented, unavailable), comfy-kit generate/import (verified), img2threejs probe and codegen (verified).
+- External adapters: Blender headless export (verified), blender-skills catalog/QA/export (verified), comfy-kit generate/import (verified), img2threejs probe and codegen (verified).
+- blender-skills 28-skill catalog, route CLI and Hermes external-dir documentation; tested upstream revision `389f28a`.
+- `blender-pipeline` and `blender-qa`; mandatory upstream QA gate with numeric and random/wire review evidence.
 - Windows installer, updater, start script, local launcher; CI definition; examples; documentation.
 - Release metadata, roadmap, release notes and publication checklist prepared for `0.1.0`.
 - Clean install from committed source verified with and without optional providers.
@@ -31,10 +33,11 @@
 
 None known. Open limits are evidence gaps, not known code defects:
 
-- Blender is not installed here; the `blender` command on PATH launches Hermes, so the provider correctly reports unavailable.
 - Engine imports (Roblox Studio, Godot editor) were not executed.
 - The symlink-escape regression test is skipped on Windows without symlink privilege; it runs on Linux CI.
 - comfy-kit's built-in default model was rejected by the running SwarmUI; a valid `--set model=...` produced a successful render. The adapter reports the owner error correctly.
+- blender-skills is optional; a machine without Blender or the skills still gets clean exit `4` and no changed core behavior.
+- QA review sheets were inspected by the agent; no formal human art review was recorded.
 
 ## Exact commands
 
@@ -56,10 +59,11 @@ assetforge.cmd doctor
 
 ## Next action
 
-Commit this release-preparation checkpoint. Publication is blocked only on operator confirmation. Then follow `RELEASE.md`: create `SenjuWoo/AssetForge`, push `main`, wait for hosted CI on the exact commit, tag `v0.1.0` and publish the release. Do not claim publication before the repository, remote CI and release exist. After publication, the next engineering task is a genuine reference-image-to-3D-to-engine workflow (see `ROADMAP.md`), not more provider breadth.
+Commit the Blender integration and run the full suite plus hosted CI on that exact commit. Do not publish a new release until those gates pass. The next engineering priority is a genuine reference-image-to-3D-to-engine workflow (see `ROADMAP.md`), not more provider breadth.
 
 ## Integration status
 
 - Ultimate AI Starter Bundle: proposal only; no bundle file modified.
 - comfy-kit: recommended free local texture-generation companion; read-only delegation, verified generation and import; no owner files modified.
+- blender-skills: recommended optional Blender skills provider; read-only catalog and delegation; tested revision `389f28a`; no upstream files modified.
 - img2threejs/teardown candidate checkouts: inspected and documented; not vendored, modified or deleted.
