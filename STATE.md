@@ -3,8 +3,8 @@
 - **Version:** 0.2.0
 - **Milestone:** Phase 0 + Phase 1 MVP complete; Phase 2 image layer and img2threejs codegen complete; 0.1.0 published; blender-skills integration verified locally
 - **Active task:** commit the Blender integration and run hosted CI before any new release
-- **Current revision:** working tree (integration changes)
-- **Last known-good:** `5496dea07b8f67b6cdff1190e33fab3a53241216`
+- **Current revision:** `74a93fd5b3d4ccce021287ad30b26925eccb356d` (verified Blender integration)
+- **Last known-good:** `74a93fd5b3d4ccce021287ad30b26925eccb356d`
 
 ## Completed
 
