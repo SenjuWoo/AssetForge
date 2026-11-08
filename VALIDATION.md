@@ -129,7 +129,7 @@ Upstream: [EL4CTEO/blender-skills](https://github.com/EL4CTEO/blender-skills) at
 - `Install.ps1` created a repo-local `.venv`, ran `doctor`, exited `0` at the 0.1.0 checkpoint.
 - `assetforge.cmd --version` printed `assetforge 0.1.0` at that checkpoint.
 - 0.2.0 source distribution built successfully and includes the same package data; its hash is reported in the handoff rather than embedded in a file it contains.
-- 0.2.0 wheel: `assetforge-0.2.0-py3-none-any.whl`, 58,026 bytes, SHA-256 `0ad989e002475b6d017e42993fa385630ea851e5f89275cc2cce94650bf6612e`.
+- 0.2.0 wheel built successfully; exact size and SHA-256 are reported in the handoff rather than embedded in the package evidence.
 - The 0.2.0 wheel contains `data/blender/procedural_crate.py`, both Blender recipes and the Khronos bridge.
 - Installed the 0.2.0 wheel into a clean virtual environment: `assetforge --version` → `0.2.0`; both Blender recipes listed; `blender-pipeline` → `SUCCEEDED`, 9 artifacts, `BLENDER-QA=PASS`, `BLENDER-QA-RENDER=PASS`, `BLENDER-QA-VISUAL=NOT_TESTED` by default.
 - Verified all 9 recorded artifact sizes and SHA-256 values against disk and confirmed no absolute project path appears in `asset.json`.
