@@ -74,6 +74,25 @@ assetforge run glb-optimize --input model.glb
 
 Requires the glTF-Transform provider. Missing provider exits `4`. This recipe does not decimate. A 700,000-triangle GLB stays 700,000 triangles.
 
+## `mesh-convert`
+
+Import a mesh in Blender and write one GLB, then inspect and validate it. Rigs, skin weights and animations are kept. The source is read where it lies, so an `.obj` finds its `.mtl` and a `.gltf` finds its `.bin` and textures; the project keeps a copy of the main file as provenance.
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `animations` | boolean | `true` |
+| `timeout` | integer | `900` |
+
+Formats: `.fbx`, `.obj`, `.stl`, `.ply`, `.gltf`, `.glb`, `.usd`, `.usda`, `.usdc`, `.usdz`, `.abc`, `.blend`, and `.dae` where the Blender build still has a Collada importer. The importer is looked up at run time; a format the build cannot read fails with exit `6` and the importer's own message.
+
+```bash
+assetforge probe model.fbx
+assetforge run mesh-convert --input model.fbx
+assetforge run mesh-convert --input model.fbx --set animations=false
+```
+
+Needs the Blender provider. Missing Blender exits `4`.
+
 ## `mesh-gameready`
 
 Import a GLB in Blender, collapse it under a hard triangle cap, shrink textures, validate, and compare. The written file is deleted and the job fails if it is over the cap. A 700,000-triangle sculpt does not ship. Full rules: [GAME-READY.md](GAME-READY.md).

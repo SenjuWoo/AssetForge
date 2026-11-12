@@ -67,6 +67,38 @@ def blender_gameready(provider: dict, source: Path, out_path: Path, tris: int, t
     return result
 
 
+CONVERTIBLE = (".fbx", ".obj", ".stl", ".ply", ".gltf", ".glb", ".dae", ".abc", ".usd", ".usda", ".usdc", ".usdz", ".blend")
+
+
+def blender_convert(provider: dict, source: Path, out_path: Path, animations: bool = True, timeout: float = 900) -> dict:
+    """Import any mesh format the installed Blender reads and write one GLB."""
+    script = Path(__file__).resolve().parent / "data" / "blender" / "convert.py"
+    command = [
+        provider["path"], "-b", "--factory-startup", "--python", str(script), "--",
+        "--input", str(source), "--out", str(out_path), "--animations", "1" if animations else "0",
+    ]
+    result = run(command, timeout=timeout, cwd=out_path.parent)
+    result["command"] = command
+    if result.get("timed_out"):
+        raise AdapterError(f"Blender timed out after {timeout:g}s")
+    payload = None
+    for line in reversed((result.get("stdout") or "").splitlines()):
+        if line.startswith("CONVERT "):
+            try:
+                payload = json.loads(line[len("CONVERT "):])
+            except ValueError:
+                payload = None
+            break
+    result["report"] = payload
+    if isinstance(payload, dict) and payload.get("ok") is False:
+        raise AdapterError(f"Blender could not convert {source.name}: {payload.get('error')}")
+    if result["returncode"] != 0:
+        raise AdapterError(f"Blender exited {result['returncode']}: {(result.get('stderr') or result.get('stdout') or '')[-800:]}")
+    if not out_path.exists() or out_path.stat().st_size < 20:
+        raise AdapterError("Blender reported success but no GLB was written")
+    return result
+
+
 def blender_build(provider: dict, out_path: Path, timeout: float = 240) -> dict:
     script = Path(__file__).resolve().parent / "blender_sample.py"
     command = [

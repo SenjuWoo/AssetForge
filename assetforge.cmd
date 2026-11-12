@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal DisableDelayedExpansion
 set "ROOT=%~dp0"
 if exist "%ROOT%.venv\Scripts\python.exe" (
   "%ROOT%.venv\Scripts\python.exe" -m assetforge %*

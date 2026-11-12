@@ -1,31 +1,32 @@
-# AssetForge 0.3.1 — Game-ready mesh cap
+# AssetForge 0.4.0 — Any mesh in, checked rig out
 
-A generated GLB at sculpt density does not ship. `mesh-gameready` imports it in Blender, collapses it, shrinks the textures, and fails the job if the written file is over the triangle cap.
+Point AssetForge at whatever you were handed. It now tells you what the file is, converts it if it is not a GLB, and checks the parts that break in an engine: the rig, the materials and the textures inside the file.
 
 ## Included
 
-- Default budget `game`: 20,000 triangles and a 1024 texture. That is the Roblox MeshPart ceiling and the handheld-prop ceiling used here.
-- `hero`: 30,000 triangles and a 2048 texture. Close-up only. It is not a Roblox mesh.
-- `accessory`: 4,000 triangles and a 1024 texture. A Roblox accessory worn on an avatar.
-- A 700,000-triangle sculpt is rejected. This recipe has no 50,000-triangle budget.
-- `glb-optimize` still does not simplify. `blender-optimize` and `blender-retopo-uv` still need a `.blend`.
-- Guide: `docs/GAME-READY.md`.
+- `assetforge probe PATH` looks at a file or a folder without a project and prints the recipe commands that fit, with the numbers behind the choice.
+- `mesh-convert` turns FBX, OBJ, STL, PLY, glTF, USD, Alembic and `.blend` into one validated GLB through Blender, keeping rigs, skin weights and animations.
+- Rig validation is real: joints, inverse bind matrices, skin weights and animation channels are checked for consistency.
+- Material validation: dangling material, texture and image references fail; a textured surface with no UV set is flagged.
+- Texture budgets now measure textures embedded in the GLB.
 
-## One command
+## Start here
 
 ```bat
-assetforge.cmd run mesh-gameready --input mesh=model.glb
+assetforge.cmd probe model.fbx
+assetforge.cmd run mesh-convert --input model.fbx
+assetforge.cmd export <asset> --target roblox --dry-run
 ```
 
 ## Verified
 
-- One PBR prop went from 699,878 triangles and 61.5 MB to 17,000 triangles, 21,186 vertices, 6,192,808 bytes, and three 1024 maps.
-- Official glTF validator on that file: 0 errors, 0 warnings. No skins or animations, so that check was not applicable.
-- Engine import was not run.
-- Hosted CI has no Blender, so the Blender pass skips there. It runs in the local suite when Blender is installed.
+- A rigged, animated FBX and an OBJ with its `.mtl` were converted with Blender 5.3 from a folder whose name has a space, `!`, parentheses and an accented letter. The rigged result kept 1 skin, 2 joints and a 1-second animation, passed the structural rig check, and the official glTF validator reported 0 errors.
+- The new checks are covered by fixtures built from bytes: broken inverse bind counts, missing weights, out-of-range joint indices, mismatched animation keys, dangling materials and oversized embedded textures each fail or warn as documented.
+- Hosted CI has no Blender, so the conversion tests skip there and run in the local suite.
 
 ## Boundaries
 
-- Roblox Studio, Unity, Godot, and Unreal imports were not run.
-- The cap is one prop mesh. It does not guess a full-character budget.
-- Blender is optional and independently installed.
+- A passing rig check means the data is consistent. Nothing renders the deformation.
+- `mesh-gameready` still drops animations and now says so in the job.
+- Roblox Studio, Unity, Godot and Unreal imports were not run.
+- Collada (`.dae`) depends on the Blender build; recent builds no longer ship that importer.

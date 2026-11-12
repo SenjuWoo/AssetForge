@@ -98,11 +98,20 @@ def _windows_shim(cmd):
         first = str(cmd[0]).lower()
         if first.endswith((".bat", ".cmd")):
             comspec = os.environ.get("COMSPEC", "cmd.exe")
-            # cmd.exe re-parses its command line; pass one quoted string so paths
-            # with spaces stay intact and arguments are not re-split.
+            # cmd.exe re-parses its command line. With /s it removes exactly the
+            # first and last quote, so the whole line is wrapped in one extra
+            # pair: a quoted script path followed by quoted arguments then
+            # survives intact. /v:off keeps a '!' in a path literal.
             line = subprocess.list2cmdline([str(part) for part in cmd])
-            return [comspec, "/d", "/s", "/c", line]
+            return _RawCommand([comspec, "/d", "/v:off", "/s", "/c", '"' + line + '"'])
     return [str(part) for part in cmd]
+
+
+class _RawCommand(list):
+    """An argv whose last element is already a finished cmd.exe line."""
+
+    def line(self) -> str:
+        return subprocess.list2cmdline(self[:-1]) + " " + self[-1]
 
 
 def run(cmd, timeout: float = 120, cwd: Path | str | None = None, env: dict | None = None) -> dict:
@@ -114,7 +123,8 @@ def run(cmd, timeout: float = 120, cwd: Path | str | None = None, env: dict | No
         merged.update(env)
     try:
         proc = subprocess.run(
-            argv,
+            # A list would be re-quoted by Python and corrupt the finished line.
+            argv.line() if isinstance(argv, _RawCommand) else argv,
             cwd=str(cwd) if cwd else None,
             env=merged,
             capture_output=True,

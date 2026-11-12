@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "id": "mesh-convert",
+  "title": "Convert a mesh file to GLB",
+  "description": "Import FBX, OBJ, STL, PLY, glTF, USD, Alembic or .blend in Blender and write one GLB, keeping rigs, skin weights and animations, then validate it. The source is read where it lies so files beside it (an .mtl, a .bin, textures) still resolve.",
+  "input": {"name": "source", "kind": "file", "required": true},
+  "params": {
+    "animations": {"type": "boolean", "default": true},
+    "timeout": {"type": "integer", "default": 900}
+  },
+  "steps": ["blender.convert", "glb.inspect", "glb.validate", "asset.record"]
+}

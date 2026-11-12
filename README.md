@@ -6,6 +6,15 @@ It is designed to work on its own and can also be registered as a companion of t
 
 AssetForge orchestrates other owners. It does not fork Blender, ComfyUI, Graphite, img2threejs or any other upstream application.
 
+## Start with `probe`
+
+```bat
+assetforge.cmd probe path\to\model.fbx
+assetforge.cmd probe path\to\folder
+```
+
+`probe` needs no project and writes nothing. It reports what the file is (triangles, texture sizes, rig, animations, which export budgets it fits) and prints the recipe command to run next. A mesh that is not a GLB goes through `mesh-convert` first.
+
 ## Game-ready mesh (one command)
 
 A generated GLB at sculpt density does not ship. About 700,000 triangles fails. The default budget `game` hard-fails above **20,000 triangles** and shrinks textures to **1024**. Ask for `hero` (30,000) only for a close-up that is not a Roblox mesh, or `accessory` (4,000) for a worn Roblox accessory.
@@ -47,6 +56,7 @@ assetforge doctor [--json]
 assetforge capabilities [--json]
 assetforge providers [--json]
 assetforge blender-skills [--route NAME] [--json]
+assetforge probe PATH [--json]
 assetforge init [path] [--name NAME]
 assetforge recipes [list | RECIPE] [--json]
 assetforge run RECIPE [--input PATH | NAME=PATH] [--set KEY=VALUE] [--dry-run] [--json]
@@ -104,7 +114,8 @@ The concept exploration for this prop was generated locally through the comfy-ki
 | `image-prep` | Inspect, resize/re-encode and thumbnail a raster image. |
 | `texture-pack` | Pack occlusion, roughness and metallic maps into an RGB ORM texture. |
 | `sprite-atlas` | Pack a folder of images into a grid atlas with JSON frame metadata. |
-| `glb-inspect` | Record geometry statistics and structural conformance. |
+| `mesh-convert` | FBX, OBJ, STL, PLY, glTF, USD, Alembic or `.blend` to one validated GLB through Blender; rigs and animations kept. |
+| `glb-inspect` | Record geometry, rig, material and texture statistics and structural conformance. |
 | `glb-optimize` | Conservative glTF-Transform pass: no simplification, compression, flattening or joining. |
 | `mesh-gameready` | Collapse a generated GLB under a hard triangle cap. Default `game` fails above 20,000 triangles. |
 | `blender-sample` | Headless Blender bevelled-cube export. Requires Blender. |
@@ -131,7 +142,11 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | Sprite atlases | VERIFIED | Deterministic grid, frames copied into the asset, JSON frame rectangles |
 | Texture-only export | VERIFIED packaging | Generic/Godot/Roblox packages contain PNGs and no mesh; engine import `NOT_TESTED` |
 | GLB inspection | VERIFIED | Standard-library container and accessor reader |
-| Structural GLB validation | VERIFIED | Not a conformance claim |
+| Source probe | VERIFIED | `probe` on files and folders; read-only, no project needed |
+| Structural GLB validation | VERIFIED | Container, accessors, materials, UV sets, node transforms; not a conformance claim |
+| Rig and animation validation | VERIFIED | Joints, inverse bind matrices, skin weights and animation channels are consistent; deformation is not rendered |
+| Embedded texture budgets | VERIFIED | Sizes read from PNG, JPEG, WebP and KTX2 headers inside the GLB |
+| Mesh conversion | VERIFIED | Blender 5.3: rigged animated FBX and OBJ to GLB; other formats depend on the installed Blender build |
 | Khronos glTF validation | VERIFIED when installed | Optional Node package in `.tools`; otherwise `NOT_TESTED` |
 | Conservative GLB optimization | VERIFIED | glTF-Transform; source and optimized structure compared |
 | Game-ready mesh collapse | IMPLEMENTED | `mesh-gameready` decimates a GLB in Blender and fails above the budget cap. Default is 20,000 triangles. Engine import remains `NOT_TESTED` |
@@ -144,7 +159,7 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | img2threejs spec-to-Three.js codegen | VERIFIED | Upstream deterministic generator; consumes an ObjectSculptSpec, not a raw image |
 | img2threejs reconstruction | PLANNED | Image-to-spec review gates remain agent-driven |
 | Roblox / Godot / generic export | VERIFIED packaging | Mesh and texture-only packages; no engine import was run, always `NOT_TESTED` |
-| AI 3D providers, rigging, MCP, teardown, Graphite | PLANNED | Not implemented yet |
+| AI 3D providers, rig deformation preview, MCP, teardown, Graphite | PLANNED | Not implemented yet |
 
 `VERIFIED` means the behaviour was executed with recorded evidence. `IMPLEMENTED / UNVERIFIED` means code exists but the real integration was not exercised. A successful export is not proof that an asset works inside the target engine.
 

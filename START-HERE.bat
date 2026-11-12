@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal DisableDelayedExpansion
 cd /d "%~dp0"
 if not exist ".venv\Scripts\python.exe" (
   echo First run: creating the local Python environment...
@@ -14,6 +14,7 @@ if not exist ".venv\Scripts\python.exe" (
 ".venv\Scripts\python.exe" -m assetforge doctor
 echo.
 echo Next steps:
+echo   assetforge.cmd probe path-to-model-or-folder
 echo   assetforge.cmd init .
 echo   assetforge.cmd recipes
 echo   assetforge.cmd providers

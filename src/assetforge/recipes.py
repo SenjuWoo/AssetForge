@@ -23,6 +23,7 @@ STEP_NAMES = {
     "glb.compare",
     "blender.sample",
     "blender.gameready",
+    "blender.convert",
     "blender.skills.build",
     "blender.skills.material",
     "blender.skills.qa",

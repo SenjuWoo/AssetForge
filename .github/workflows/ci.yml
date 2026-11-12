@@ -32,6 +32,8 @@ jobs:
           python -m assetforge doctor --json
           python -m assetforge recipes list
           python -m assetforge capabilities --json
+          python -m assetforge probe examples/assets --json
+          python -m assetforge probe examples/assets/enchanted-fire-sword.glb
       - name: End-to-end smoke
         run: |
           python -m assetforge init .smoke --name Smoke

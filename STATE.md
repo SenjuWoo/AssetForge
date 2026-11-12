@@ -1,13 +1,17 @@
 # State
 
-- **Version:** 0.3.1
-- **Milestone:** 0.3.1: `mesh-gameready` hard triangle cap
-- **Active task:** publish 0.3.1 from the green main commit
-- **Current revision:** 0.3.1 on main, ahead of the published `v0.3.0`
-- **Last known-good:** `9027141dc5680a29ed4d7d4745bc551a04647e72` (`main`; CI `43170035309` passed 7/7)
+- **Version:** 0.4.0
+- **Milestone:** 0.4.0: source probe, mesh conversion, rig/material/texture validation
+- **Active task:** none
+- **Current revision:** 0.4.0 on main
+- **Last known-good:** tag `v0.3.1`
 
 ## Completed
 
+- `probe` (0.4.0): read-only routing for a file or folder; prints the recipe commands that fit and the numbers behind them.
+- `mesh-convert` (0.4.0): FBX/OBJ/STL/PLY/glTF/USD/Alembic/`.blend` to GLB through Blender. On 2026-11-12 a rigged, animated FBX (1 skin, 2 joints, 1 s animation) and an OBJ with `.mtl` converted with Blender 5.3.0 from a folder named with a space, `!`, parentheses and an accented letter; official glTF validator 0 errors.
+- `GLB-013` rig/animation, `GLB-015` material/UV and `GLB-016` transform checks (0.4.0); embedded texture sizes decoded and budgeted.
+- `.cmd`/`.bat` provider launch fixed for paths with spaces and `!`.
 - `mesh-gameready` (0.3.1, local): default budget `game` fails a written GLB over 20,000 triangles. `hero` is 30,000. `accessory` is 4,000. A 700,000-triangle count is rejected. Guide: `docs/GAME-READY.md`. On 2026-11-12 a 699,878-triangle PBR GLB wrote 17,000 triangles, 21,186 vertices, 6,192,808 bytes, and three 1024 PNGs. Official glTF validator: 0 errors, 0 warnings. Engine import was not run.
 - Standalone CLI: `doctor`, `capabilities`, `providers`, `init`, `recipes`, `run`, `status`, `inspect`, `validate`, `export`.
 - Project/asset/job contracts with versioned JSON schemas.
@@ -38,6 +42,8 @@
 None known. Open limits are evidence gaps, not known code defects:
 
 - Engine imports (Roblox Studio, Godot editor) were not executed.
+- A passing rig check proves consistent data, not a correct deformation.
+- `mesh-gameready` drops animations (reported as a job warning).
 - The symlink-escape regression test is skipped on Windows without symlink privilege; it runs on Linux CI.
 - comfy-kit's built-in default model was rejected by the running SwarmUI; a valid `--set model=...` produced a successful render. The adapter reports the owner error correctly.
 - blender-skills is optional; a machine without Blender or the skills still gets clean exit `4` and no changed core behavior.
@@ -49,6 +55,7 @@ None known. Open limits are evidence gaps, not known code defects:
 python -m unittest discover -s tests -v
 python -m unittest test_blender_skill_runner -v
 python -m assetforge doctor --json
+python -m assetforge probe examples/assets
 python -m assetforge recipes list
 python -m assetforge run glb-optimize --input examples/assets/textured-scene.glb
 python -m assetforge run texture-pack --input occlusion=ao.png --input roughness=rough.png --input metallic=metal.png
@@ -64,7 +71,7 @@ assetforge.cmd doctor
 
 ## Next action
 
-Tag `v0.3.1` on the green main SHA and publish `AssetForge-0.3.1.zip`. Guide: `docs/GAME-READY.md`.
+None queued. Candidates: engine import evidence (Roblox Studio, Godot), a rendered rig deformation preview, texture compression (KTX2) as an opt-in recipe.
 
 ## Integration status
 

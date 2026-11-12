@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.0 — 2026-11-12
+
+- Add `assetforge probe PATH`: inspect a file or a folder before any project exists. It reports the facts that decide a pipeline (triangles, vertices, texture sizes, rig, animations, how the mesh sits against each export budget) and prints the exact recipe commands that fit. It writes nothing.
+- Add `mesh-convert`: FBX, OBJ, STL, PLY, glTF, USD, Alembic and `.blend` become one validated GLB through Blender. Rigs, skin weights and animations are kept. The importer is looked up in the installed Blender at run time, so a format a build cannot read fails with that importer's message.
+- Rig and animation validation (`GLB-013`) is now a real check instead of a notice: joint lists, inverse bind matrices, skinned primitives without weights, weights that name a joint past the skin, weights that do not sum to 1, animation channels that name a missing node or sampler, and key/value count mismatches. A rig that passes is consistent data; the deformation is still not rendered.
+- Add `GLB-015` (materials, textures and images resolve; a textured surface has the UV set its material asks for) and `GLB-016` (non-finite, zero-scale and mirrored node transforms).
+- Texture budgets now apply to textures embedded in a GLB. Their size is read from the PNG, JPEG, WebP or KTX2 header; before this an export reported the check as not tested and an oversized embedded texture passed.
+- `inspect` and comparison reports carry per-image sizes, the largest texture, UV set count, vertex colours, morph targets, joint counts, animation names and duration.
+- Export profiles may set a `joints` budget.
+- `mesh-gameready` now reports a warning when the source had animations, because the collapse does not carry them over.
+- Assets are named after their input file (`crate-mesh-convert-...`) instead of the recipe alone.
+- Fix: a provider launched through a `.cmd` or `.bat` file failed when its path or an argument contained a space, and a `!` in the path could be eaten by delayed expansion.
+- Add `AGENTS.md`: the short runbook for an agent that has never seen the repository.
+
 ## 0.3.1 — 2026-11-12
 
 - Add `mesh-gameready`: import a GLB in Blender, collapse it under a hard triangle cap, shrink textures, then validate and compare. The written file is deleted if it is over the cap.

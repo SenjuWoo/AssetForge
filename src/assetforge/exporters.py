@@ -165,6 +165,8 @@ def export(project: Project, asset: Asset, target: str, dry_run: bool = False) -
         _budget(checks, "triangles", stats["triangles"], budgets.get("triangles"))
         _budget(checks, "vertices", stats["vertices"], budgets.get("vertices"))
         _budget(checks, "textures", stats["images"], budgets.get("textures"))
+        if budgets.get("joints") and stats["skins"]:
+            _budget(checks, "joints", stats["rig"]["max_joints"], budgets.get("joints"))
     else:
         try:
             primary, declared = _primary_image(asset)
@@ -185,8 +187,23 @@ def export(project: Project, asset: Asset, target: str, dry_run: bool = False) -
     texture_limit = int(budgets.get("texture_size") or 0)
     if not texture_limit:
         checks.append({"id": "BUDGET-TEXTURE_SIZE", "status": "NOT_TESTED", "detail": "no texture size budget"})
+    elif not image_items and kind == "mesh" and stats.get("image_details"):
+        # The usual GLB carries its textures inside the file; measure those.
+        oversize = [
+            f"image {item['index']} {item['width']}x{item['height']}"
+            for item in stats["image_details"]
+            if item["width"] and max(item["width"], item["height"]) > texture_limit
+        ]
+        unread = sum(1 for item in stats["image_details"] if not item["width"])
+        if oversize:
+            status, detail = "FAIL", "; ".join(oversize) + f" over {texture_limit}px"
+        elif unread:
+            status, detail = "NOT_TESTED", f"{unread} embedded image(s) have an unrecognized header"
+        else:
+            status, detail = "PASS", f"{len(stats['image_details'])} embedded texture(s) <= {texture_limit}px"
+        checks.append({"id": "BUDGET-TEXTURE_SIZE", "status": status, "detail": detail})
     elif not image_items:
-        checks.append({"id": "BUDGET-TEXTURE_SIZE", "status": "NOT_TESTED", "detail": "textures are embedded; size not decoded"})
+        checks.append({"id": "BUDGET-TEXTURE_SIZE", "status": "NOT_TESTED", "detail": "asset has no textures"})
     else:
         oversize = []
         for item in image_items:

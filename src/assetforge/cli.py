@@ -15,6 +15,7 @@ from pathlib import Path
 
 from . import __version__, exporters, images, providers
 from . import blenderskills
+from . import probe as probe_lib
 from . import recipes as recipe_lib
 from .adapters import AdapterError
 from .glb import GlbError
@@ -131,6 +132,10 @@ def cmd_capabilities(args) -> int:
         {"id": "glb-validate-structural", "status": "IMPLEMENTED", "provider": "core", "available": True},
         {"id": "glb-validate-official", "status": "IMPLEMENTED", "provider": "gltf-validator", "available": now["gltf-validator"]["available"]},
         {"id": "glb-optimize", "status": "IMPLEMENTED", "provider": "gltf-transform", "available": now["gltf-transform"]["available"]},
+        {"id": "source-probe", "status": "IMPLEMENTED", "provider": "core", "available": True},
+        {"id": "glb-rig-validation", "status": "IMPLEMENTED", "provider": "core", "available": True, "note": "skin, weight and animation data consistency; deformation is not rendered"},
+        {"id": "glb-material-validation", "status": "IMPLEMENTED", "provider": "core", "available": True},
+        {"id": "mesh-convert", "status": "IMPLEMENTED", "provider": "blender", "available": now["blender"]["available"], "formats": list(probe_lib.CONVERTIBLE)},
         {"id": "mesh-gameready", "status": "IMPLEMENTED", "provider": "blender", "available": now["blender"]["available"]},
         {"id": "blender-export", "status": "IMPLEMENTED", "provider": "blender", "available": now["blender"]["available"]},
         {"id": "blender-skills", "status": "IMPLEMENTED", "provider": "blender-skills", "available": now["blender-skills"]["available"]},
@@ -143,7 +148,7 @@ def cmd_capabilities(args) -> int:
         {"id": "export-godot", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED"},
         {"id": "export-generic", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED"},
         {"id": "ai-3d-providers", "status": "PLANNED"},
-        {"id": "rigging-validation", "status": "PLANNED"},
+        {"id": "rig-deformation-preview", "status": "PLANNED"},
         {"id": "teardown-simulation", "status": "PLANNED"},
         {"id": "graphite-integration", "status": "PLANNED"},
         {"id": "mcp-server", "status": "PLANNED"},
@@ -203,6 +208,18 @@ def cmd_blender_skills(args) -> int:
         print(f"{len(catalog)} skill(s); tested upstream revision in docs/PROVIDERS.md")
     return 0
 
+
+
+def cmd_probe(args) -> int:
+    try:
+        report = probe_lib.probe(Path(args.path))
+    except FileNotFoundError as exc:
+        return _fail(f"no such file or folder: {exc}", EXIT_NOT_FOUND)
+    if args.json:
+        print(json.dumps(report, indent=2))
+    else:
+        print(probe_lib.render(report))
+    return EXIT_VALIDATION if any(item["status"] == "FAIL" for item in report["findings"]) else 0
 
 
 def cmd_init(args) -> int:
@@ -368,6 +385,11 @@ def build_parser() -> argparse.ArgumentParser:
     bskills.add_argument("--route", choices=sorted(blenderskills.ROUTES))
     bskills.add_argument("--json", action="store_true")
     bskills.set_defaults(func=cmd_blender_skills)
+
+    probe = sub.add_parser("probe", help="inspect a file or folder and name the recipes that fit (no project needed)")
+    probe.add_argument("path")
+    probe.add_argument("--json", action="store_true")
+    probe.set_defaults(func=cmd_probe)
 
     init = sub.add_parser("init", help="create a project")
     init.add_argument("path", nargs="?", default=".")

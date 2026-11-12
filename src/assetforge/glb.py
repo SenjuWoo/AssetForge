@@ -149,6 +149,380 @@ def _degenerate_triangles(doc: dict, binary: bytes):
     return bad, total, capped
 
 
+FLOAT = 5126
+SAMPLE_LIMIT = 200_000
+ANIMATION_PATHS = {"translation", "rotation", "scale", "weights"}
+TEXTURE_SLOTS = ("baseColorTexture", "metallicRoughnessTexture")
+MATERIAL_SLOTS = ("normalTexture", "occlusionTexture", "emissiveTexture")
+COMPONENT_FORMAT = {5120: "b", 5121: "B", 5122: "h", 5123: "H", 5125: "I", 5126: "f"}
+
+
+def image_size(data: bytes):
+    """Width, height and format of an encoded image, from its header only.
+
+    Covers the formats a glTF image may carry: PNG, JPEG, WebP and KTX2. Returns
+    None when the header is not one of them or is cut short.
+    """
+    try:
+        if data[:8] == b"\x89PNG\r\n\x1a\n" and data[12:16] == b"IHDR":
+            width, height = struct.unpack_from(">II", data, 16)
+            return width, height, "png"
+        if data[:2] == b"\xff\xd8":
+            offset = 2
+            while offset + 9 < len(data):
+                if data[offset] != 0xFF:
+                    offset += 1
+                    continue
+                marker = data[offset + 1]
+                if marker in (0xD8, 0x01, 0xFF) or 0xD0 <= marker <= 0xD7:
+                    offset += 1 if marker == 0xFF else 2
+                    continue
+                length = struct.unpack_from(">H", data, offset + 2)[0]
+                if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+                    height, width = struct.unpack_from(">HH", data, offset + 5)
+                    return width, height, "jpeg"
+                offset += 2 + length
+            return None
+        if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+            kind = data[12:16]
+            if kind == b"VP8X":
+                width = int.from_bytes(data[24:27], "little") + 1
+                height = int.from_bytes(data[27:30], "little") + 1
+                return width, height, "webp"
+            if kind == b"VP8L":
+                bits = struct.unpack_from("<I", data, 21)[0]
+                return (bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1, "webp"
+            if kind == b"VP8 ":
+                width, height = struct.unpack_from("<HH", data, 26)
+                return width & 0x3FFF, height & 0x3FFF, "webp"
+            return None
+        if data[:12] == b"\xabKTX 20\xbb\r\n\x1a\n":
+            width, height = struct.unpack_from("<II", data, 20)
+            return width, height, "ktx2"
+    except (struct.error, IndexError):
+        return None
+    return None
+
+
+def _view_bytes(doc: dict, binary: bytes, view_index):
+    try:
+        view = doc["bufferViews"][int(view_index)]
+    except (KeyError, TypeError, ValueError, IndexError):
+        return None
+    if view.get("buffer", 0) != 0:
+        return None
+    start = int(view.get("byteOffset", 0))
+    end = start + int(view.get("byteLength", 0))
+    if start < 0 or end > len(binary):
+        return None
+    return binary[start:end]
+
+
+def _image_details(doc: dict, binary: bytes, folder: Path) -> list[dict]:
+    """Decoded size of every image, embedded or beside the file."""
+    details = []
+    for index, image in enumerate(doc.get("images", [])):
+        item = {"index": index, "name": image.get("name"), "source": None, "bytes": None,
+                "format": None, "width": None, "height": None}
+        data = None
+        if image.get("bufferView") is not None:
+            item["source"] = "embedded"
+            data = _view_bytes(doc, binary, image["bufferView"])
+        elif str(image.get("uri") or "").startswith("data:"):
+            item["source"] = "data-uri"
+            try:
+                import base64
+
+                data = base64.b64decode(str(image["uri"]).split(",", 1)[1])
+            except (IndexError, ValueError):
+                data = None
+        elif image.get("uri"):
+            item["source"] = "external"
+            from urllib.parse import unquote
+
+            target = folder / unquote(str(image["uri"]))
+            try:
+                with open(target, "rb") as handle:
+                    data = handle.read(1 << 16)
+                item["bytes"] = target.stat().st_size
+            except OSError:
+                data = None
+        if data is not None:
+            if item["bytes"] is None:
+                item["bytes"] = len(data)
+            size = image_size(data)
+            if size:
+                item["width"], item["height"], item["format"] = size
+        details.append(item)
+    return details
+
+
+def _read_accessor(doc: dict, binary: bytes, accessor_index, limit: int = SAMPLE_LIMIT):
+    """Rows of an accessor as tuples, at most `limit` rows. None when the layout
+    is sparse, external or out of bounds; the bounds check reports those."""
+    try:
+        accessor = doc["accessors"][int(accessor_index)]
+        view = doc["bufferViews"][accessor["bufferView"]]
+    except (KeyError, TypeError, ValueError, IndexError):
+        return None
+    code = COMPONENT_FORMAT.get(accessor.get("componentType"))
+    width = TYPE_COUNT.get(accessor.get("type"))
+    if code is None or width is None or accessor.get("sparse") or view.get("buffer", 0) != 0:
+        return None
+    element = COMPONENT_SIZE[accessor["componentType"]] * width
+    stride = int(view.get("byteStride") or element)
+    start = int(view.get("byteOffset", 0)) + int(accessor.get("byteOffset", 0))
+    count = min(int(accessor.get("count", 0)), limit)
+    if start < 0 or count < 0 or start + stride * max(count - 1, 0) + element > len(binary):
+        return None
+    fmt = "<" + code * width
+    return [struct.unpack_from(fmt, binary, start + row * stride) for row in range(count)]
+
+
+def _normalized(accessor: dict, value) -> float:
+    if accessor.get("componentType") == FLOAT or not accessor.get("normalized"):
+        return float(value)
+    scale = {5121: 255.0, 5123: 65535.0, 5120: 127.0, 5122: 32767.0}.get(accessor.get("componentType"), 1.0)
+    return float(value) / scale
+
+
+def _material_textures(material: dict):
+    """Yield (slot, texture info) for every texture a material names."""
+    pbr = material.get("pbrMetallicRoughness") or {}
+    for slot in TEXTURE_SLOTS:
+        if isinstance(pbr.get(slot), dict):
+            yield slot, pbr[slot]
+    for slot in MATERIAL_SLOTS:
+        if isinstance(material.get(slot), dict):
+            yield slot, material[slot]
+    for extension in (material.get("extensions") or {}).values():
+        if isinstance(extension, dict):
+            for key, value in extension.items():
+                if key.endswith("Texture") and isinstance(value, dict) and "index" in value:
+                    yield key, value
+
+
+def _material_checks(doc: dict) -> list[dict]:
+    """Dangling material, texture and image references, and textured surfaces
+    that carry no UV set to map them with."""
+    materials = doc.get("materials", [])
+    textures = doc.get("textures", [])
+    images = doc.get("images", [])
+    dangling = []
+    no_uv = 0
+    unassigned = 0
+    for index, texture in enumerate(textures):
+        source = texture.get("source")
+        if source is None:
+            for extension in (texture.get("extensions") or {}).values():
+                if isinstance(extension, dict) and extension.get("source") is not None:
+                    source = extension["source"]
+        if source is not None and not (isinstance(source, int) and 0 <= source < len(images)):
+            dangling.append(f"texture {index} names missing image {source}")
+    for index, material in enumerate(materials):
+        for slot, info in _material_textures(material):
+            ref = info.get("index")
+            if not (isinstance(ref, int) and 0 <= ref < len(textures)):
+                dangling.append(f"material {index} {slot} names missing texture {ref}")
+    for mesh_index, mesh in enumerate(doc.get("meshes", [])):
+        for primitive in mesh.get("primitives", []):
+            ref = primitive.get("material")
+            if ref is None:
+                unassigned += 1
+                continue
+            if not (isinstance(ref, int) and 0 <= ref < len(materials)):
+                dangling.append(f"mesh {mesh_index} names missing material {ref}")
+                continue
+            attributes = primitive.get("attributes") or {}
+            for _, info in _material_textures(materials[ref]):
+                if f"TEXCOORD_{int(info.get('texCoord', 0) or 0)}" not in attributes:
+                    no_uv += 1
+                    break
+    if dangling:
+        more = f" (+{len(dangling) - 4} more)" if len(dangling) > 4 else ""
+        return [_check("GLB-015", "FAIL", "; ".join(dangling[:4]) + more)]
+    if no_uv:
+        return [_check("GLB-015", "WARNING", f"{no_uv} textured primitive(s) have no matching TEXCOORD set")]
+    if not materials:
+        return [_check("GLB-015", "NOT_TESTED", "document has no materials")]
+    detail = f"{len(materials)} material(s), {len(textures)} texture(s) resolve"
+    if unassigned:
+        detail += f"; {unassigned} primitive(s) use the default material"
+    return [_check("GLB-015", "PASS", detail)]
+
+
+def _transform_checks(doc: dict) -> list[dict]:
+    """Node transforms an engine importer commonly trips on."""
+    import math
+
+    zero = mirrored = broken = 0
+    for node in doc.get("nodes", []):
+        values = []
+        for key in ("scale", "translation", "rotation", "matrix"):
+            if isinstance(node.get(key), list):
+                values.extend(node[key])
+        if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in values):
+            broken += 1
+            continue
+        scale = node.get("scale")
+        if isinstance(scale, list) and len(scale) == 3:
+            if any(abs(v) < 1e-9 for v in scale):
+                zero += 1
+            elif scale[0] * scale[1] * scale[2] < 0:
+                mirrored += 1
+    if broken:
+        return [_check("GLB-016", "FAIL", f"{broken} node(s) carry a non-finite transform")]
+    if zero or mirrored:
+        parts = []
+        if zero:
+            parts.append(f"{zero} node(s) scaled to zero on an axis")
+        if mirrored:
+            parts.append(f"{mirrored} node(s) mirrored by a negative scale (flips triangle winding)")
+        return [_check("GLB-016", "WARNING", "; ".join(parts))]
+    return [_check("GLB-016", "PASS", f"{len(doc.get('nodes', []))} node transform(s) are finite and non-degenerate")]
+
+
+def rig_stats(doc: dict) -> dict:
+    skins = doc.get("skins", [])
+    animations = doc.get("animations", [])
+    duration = 0.0
+    for animation in animations:
+        for sampler in animation.get("samplers", []):
+            try:
+                top = doc["accessors"][int(sampler["input"])].get("max")
+            except (KeyError, TypeError, ValueError, IndexError):
+                continue
+            if isinstance(top, list) and top and isinstance(top[0], (int, float)):
+                duration = max(duration, float(top[0]))
+    return {
+        "joints": [len(skin.get("joints") or []) for skin in skins],
+        "max_joints": max((len(skin.get("joints") or []) for skin in skins), default=0),
+        "animation_names": [animation.get("name") for animation in animations],
+        "animation_channels": sum(len(animation.get("channels") or []) for animation in animations),
+        "animation_seconds": round(duration, 4),
+    }
+
+
+def _summarize(items: list[str]) -> str:
+    unique = list(dict.fromkeys(items))
+    return "; ".join(unique[:4]) + (f" (+{len(unique) - 4} more)" if len(unique) > 4 else "")
+
+
+def _rig_checks(doc: dict, binary: bytes) -> list[dict]:
+    """Structural skin and animation checks. They prove the data is consistent,
+    not that the deformation looks right: that needs an engine or a viewer."""
+    skins = doc.get("skins", [])
+    animations = doc.get("animations", [])
+    nodes = doc.get("nodes", [])
+    meshes = doc.get("meshes", [])
+    accessors = doc.get("accessors", [])
+    if not skins and not animations:
+        return [_check("GLB-013", "NOT_TESTED", "no skins or animations in this asset")]
+    fails: list[str] = []
+    warns: list[str] = []
+
+    for index, skin in enumerate(skins):
+        joints = skin.get("joints") or []
+        if not joints:
+            fails.append(f"skin {index} has no joints")
+            continue
+        if any(not (isinstance(j, int) and 0 <= j < len(nodes)) for j in joints):
+            fails.append(f"skin {index} names a joint node that does not exist")
+        if len(set(joints)) != len(joints):
+            fails.append(f"skin {index} lists a joint twice")
+        ibm = skin.get("inverseBindMatrices")
+        if ibm is None:
+            warns.append(f"skin {index} has no inverse bind matrices (identity assumed)")
+        elif not (isinstance(ibm, int) and 0 <= ibm < len(accessors)):
+            fails.append(f"skin {index} names a missing inverse bind accessor")
+        else:
+            accessor = accessors[ibm]
+            if accessor.get("type") != "MAT4" or accessor.get("componentType") != FLOAT:
+                fails.append(f"skin {index} inverse bind matrices are not float MAT4")
+            elif int(accessor.get("count", 0)) < len(joints):
+                fails.append(f"skin {index} has {len(joints)} joints but {accessor.get('count', 0)} inverse bind matrices")
+
+    skinned = 0
+    for node_index, node in enumerate(nodes):
+        mesh_ref = node.get("mesh")
+        if not (isinstance(mesh_ref, int) and 0 <= mesh_ref < len(meshes)):
+            continue
+        skin_ref = node.get("skin")
+        has_skin = isinstance(skin_ref, int) and 0 <= skin_ref < len(skins)
+        if skin_ref is not None and not has_skin:
+            fails.append(f"node {node_index} names missing skin {skin_ref}")
+            continue
+        joint_count = len(skins[skin_ref].get("joints") or []) if has_skin else 0
+        for primitive in meshes[mesh_ref].get("primitives", []):
+            attributes = primitive.get("attributes") or {}
+            has_j, has_w = "JOINTS_0" in attributes, "WEIGHTS_0" in attributes
+            if has_skin and not (has_j and has_w):
+                fails.append(f"node {node_index} is skinned but a primitive lacks JOINTS_0/WEIGHTS_0")
+                continue
+            if not has_skin:
+                if has_j or has_w:
+                    warns.append(f"node {node_index} carries skin weights but no skin")
+                continue
+            skinned += 1
+            rows = _read_accessor(doc, binary, attributes["JOINTS_0"])
+            weights = _read_accessor(doc, binary, attributes["WEIGHTS_0"])
+            if rows is None or weights is None:
+                warns.append(f"node {node_index} skin attributes could not be decoded")
+                continue
+            weight_accessor = accessors[attributes["WEIGHTS_0"]]
+            out_of_range = unnormalized = 0
+            for joint_row, weight_row in zip(rows, weights):
+                values = [_normalized(weight_accessor, v) for v in weight_row]
+                if any(w > 0 and j >= joint_count for j, w in zip(joint_row, values)):
+                    out_of_range += 1
+                if abs(sum(values) - 1.0) > 0.01:
+                    unnormalized += 1
+            if out_of_range:
+                fails.append(f"node {node_index}: {out_of_range} vertex/vertices weighted to a joint index past the skin's {joint_count} joints")
+            if unnormalized:
+                warns.append(f"node {node_index}: {unnormalized} of {len(rows)} sampled vertices have weights that do not sum to 1")
+
+    for index, animation in enumerate(animations):
+        samplers = animation.get("samplers") or []
+        channels = animation.get("channels") or []
+        if not channels:
+            warns.append(f"animation {index} has no channels")
+        for channel in channels:
+            target = channel.get("target") or {}
+            sampler_ref = channel.get("sampler")
+            if not (isinstance(sampler_ref, int) and 0 <= sampler_ref < len(samplers)):
+                fails.append(f"animation {index} channel names a missing sampler")
+                continue
+            node_ref = target.get("node")
+            if node_ref is not None and not (isinstance(node_ref, int) and 0 <= node_ref < len(nodes)):
+                fails.append(f"animation {index} targets missing node {node_ref}")
+            if target.get("path") not in ANIMATION_PATHS:
+                fails.append(f"animation {index} uses unknown path {target.get('path')!r}")
+            sampler = samplers[sampler_ref]
+            refs = (sampler.get("input"), sampler.get("output"))
+            if any(not (isinstance(r, int) and 0 <= r < len(accessors)) for r in refs):
+                fails.append(f"animation {index} sampler names a missing accessor")
+                continue
+            times, values = accessors[refs[0]], accessors[refs[1]]
+            keys = int(times.get("count", 0))
+            if keys == 0:
+                fails.append(f"animation {index} has a sampler with no keyframes")
+                continue
+            if target.get("path") != "weights":
+                per_key = 3 if sampler.get("interpolation") == "CUBICSPLINE" else 1
+                if int(values.get("count", 0)) != keys * per_key:
+                    fails.append(f"animation {index}: {keys} key time(s) but {values.get('count', 0)} value(s) for {target.get('path')}")
+
+    stats = rig_stats(doc)
+    summary = (f"{len(skins)} skin(s), up to {stats['max_joints']} joints, {skinned} skinned primitive(s), "
+               f"{len(animations)} animation(s), {stats['animation_channels']} channel(s)")
+    if fails:
+        return [_check("GLB-013", "FAIL", _summarize(fails))]
+    if warns:
+        return [_check("GLB-013", "WARNING", summary + "; " + _summarize(warns))]
+    return [_check("GLB-013", "PASS", summary + "; data is consistent, deformation not rendered")]
+
+
 def inspect_glb(path: Path) -> dict:
     doc, binary, container = _parse(path)
     primitives = 0
@@ -156,9 +530,17 @@ def inspect_glb(path: Path) -> dict:
     vertices = 0
     missing_normals = 0
     modes = set()
+    uv_sets = 0
+    vertex_colors = False
+    morph_targets = 0
+    details = _image_details(doc, binary, Path(path).parent)
     for mesh in doc.get("meshes", []):
         for primitive in mesh.get("primitives", []):
             primitives += 1
+            names = primitive.get("attributes") or {}
+            uv_sets = max(uv_sets, sum(1 for key in names if key.startswith("TEXCOORD_")))
+            vertex_colors = vertex_colors or "COLOR_0" in names
+            morph_targets = max(morph_targets, len(primitive.get("targets") or []))
             modes.add(primitive.get("mode", 4))
             triangles += _primitive_triangles(doc, primitive)
             position = (primitive.get("attributes") or {}).get("POSITION")
@@ -195,6 +577,12 @@ def inspect_glb(path: Path) -> dict:
         "missing_normals": missing_normals,
         "bbox": _bbox(doc),
         "bin_bytes": len(binary),
+        "image_details": details,
+        "max_texture_size": max((max(item["width"] or 0, item["height"] or 0) for item in details), default=0),
+        "uv_sets": uv_sets,
+        "vertex_colors": vertex_colors,
+        "morph_targets": morph_targets,
+        "rig": rig_stats(doc),
     }
 
 
@@ -359,16 +747,9 @@ def validate_glb(path: Path) -> dict:
         )
     )
 
-    if stats["skins"] or stats["animations"]:
-        checks.append(
-            _check(
-                "GLB-013",
-                "WARNING",
-                f"{stats['skins']} skin(s), {stats['animations']} animation(s): rig deformation was not exercised",
-            )
-        )
-    else:
-        checks.append(_check("GLB-013", "NOT_TESTED", "no skins or animations in this asset"))
+    checks.extend(_rig_checks(doc, binary))
+    checks.extend(_material_checks(doc))
+    checks.extend(_transform_checks(doc))
 
     checks.append(_check("GLB-014", "NOT_TESTED", "official glTF validator not run (optional provider)"))
 
@@ -391,5 +772,8 @@ def compare_glb(before: Path, after: Path) -> dict:
             "vertices": second["vertices"] - first["vertices"],
             "materials": second["materials"] - first["materials"],
             "textures": second["textures"] - first["textures"],
+            "max_texture_size": second["max_texture_size"] - first["max_texture_size"],
+            "skins": second["skins"] - first["skins"],
+            "animations": second["animations"] - first["animations"],
         },
     }

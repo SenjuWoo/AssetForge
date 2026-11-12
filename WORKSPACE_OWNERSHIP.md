@@ -3,7 +3,7 @@
 - Project root: `.` (this file's directory; one owner shared by every agent).
 - Project name: `AssetForge`.
 - Active source: `.` — the repository root is the source. No version-stamped source snapshots; Git commits and tags carry releases.
-- Versioning: SemVer. `VERSION` and `CHANGELOG.md` are the record; current version is `0.3.1`.
+- Versioning: SemVer. `VERSION` and `CHANGELOG.md` are the record; current version is `0.4.0`.
 - Repository: intended `https://github.com/SenjuWoo/AssetForge` (public, MIT). The repository has not been created or published from this workspace.
 - Publication intent: local and private until the operator explicitly asks to publish. Do not create a remote, push or publish a release from a routine development task.
 - Read-only inputs: the Ultimate AI Starter Bundle checkout, the comfy-kit checkout, and the external img2threejs/teardown candidate checkouts. This project reads them for inspection and delegation; it does not write into them.

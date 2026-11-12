@@ -37,7 +37,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Could not create the virtual environment.' }
 
 $stagePython = Join-Path $stage 'Scripts\python.exe'
 $pth = Join-Path $stage 'Lib\site-packages\assetforge-src.pth'
-Set-Content -LiteralPath $pth -Value (Join-Path $Root 'src') -Encoding ASCII
+# UTF-8 without a byte order mark: Python reads .pth files as UTF-8, and an ASCII
+# write would turn a non-English letter in the install path into '?'.
+[IO.File]::WriteAllText($pth, (Join-Path $Root 'src') + "`n", (New-Object Text.UTF8Encoding($false)))
 
 if ($WithImages) {
     & $stagePython -m pip install --disable-pip-version-check "Pillow>=10"

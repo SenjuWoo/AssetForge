@@ -11,7 +11,7 @@ from pathlib import Path
 
 from . import adapters, gameready, images, official, providers
 from .glb import GlbError, compare_glb, inspect_glb, validate_glb
-from .recipes import RecipeError
+from .recipes import RecipeError, asset_name
 from .store import Asset, Job, Project, StoreError
 from .util import human_bytes, now_iso, write_json
 
@@ -200,7 +200,7 @@ def _image_atlas(ctx: Context) -> dict:
 def _glb_inspect(ctx: Context) -> dict:
     source = ctx.mesh()
     ctx.outputs["source_mesh"] = source
-    ctx.artifact(source, "mesh", "source")
+    ctx.artifact(source, "mesh", "converted" if "convert" in ctx.outputs else "source")
     if ctx.asset.primary("mesh") is None:
         ctx.asset.set_primary("mesh", source)
     stats = inspect_glb(source)
@@ -330,12 +330,42 @@ def _blender_gameready(ctx: Context) -> dict:
         item for item in (report.get("textures") or [])
         if item.get("before") != item.get("after")
     ]
+    dropped = int((ctx.outputs.get("stats") or {}).get("animations") or 0) - stats["animations"]
+    detail = (
+        f"{stats['triangles']} tris (cap {hard_cap}, asked {target_tris}); "
+        f"texture cap {texture_cap}; {len(shrunk)} texture(s) resized"
+    )
+    if dropped > 0:
+        # Collapsing a mesh under animation is not safe to automate; be loud about it.
+        return {"status": "WARNING", "detail": detail + f"; {dropped} animation(s) were NOT carried over"}
+    return {"status": "PASS", "detail": detail}
+
+
+def _blender_convert(ctx: Context) -> dict:
+    provider = _provider(ctx, "blender")
+    name = (ctx.recipe.get("input") or {}).get("name") or "source"
+    original = ctx.inputs.get(name) or next(iter(ctx.inputs.values()), None)
+    if original is None or not Path(original).is_file():
+        raise RunFailed("mesh-convert needs one mesh file as --input")
+    original = Path(original)
+    if original.suffix.lower() not in adapters.CONVERTIBLE:
+        raise RunFailed(f"{original.suffix or 'this file'} is not a convertible mesh format; supported: {', '.join(adapters.CONVERTIBLE)}")
+    target = ctx.asset.path("outputs", f"{original.stem}.glb")
+    # Read the source where it lies: an .obj needs its .mtl, a .gltf its .bin
+    # and textures. The project keeps a copy of the main file as provenance.
+    result = adapters.blender_convert(
+        provider, original, target,
+        animations=bool(ctx.params.get("animations", True)),
+        timeout=float(ctx.params.get("timeout") or 900),
+    )
+    report = result.get("report") or {}
+    ctx.outputs["mesh"] = target
+    ctx.outputs["convert"] = report
+    ctx.report(f"{original.stem}-convert.json", {"source_format": original.suffix.lower(), **report})
     return {
         "status": "PASS",
-        "detail": (
-            f"{stats['triangles']} tris (cap {hard_cap}, asked {target_tris}); "
-            f"texture cap {texture_cap}; {len(shrunk)} texture(s) resized"
-        ),
+        "detail": (f"{original.suffix.lower()} -> glb via {report.get('importer', 'Blender')}; "
+                   f"{report.get('meshes', '?')} mesh(es), {report.get('armatures', 0)} armature(s), {report.get('actions', 0)} action(s)"),
     }
 
 
@@ -762,6 +792,7 @@ HANDLERS = {
     "glb.compare": _glb_compare,
     "blender.sample": _blender_sample,
     "blender.gameready": _blender_gameready,
+    "blender.convert": _blender_convert,
     "blender.skills.build": _blender_skills_build,
     "blender.skills.material": _blender_skills_material,
     "blender.skills.qa": _blender_skills_qa,
@@ -796,7 +827,7 @@ def plan(recipe: dict, inputs: dict[str, Path], params: dict, project: Project |
     for step in recipe["steps"]:
         if step == "glb.optimize":
             needs.append("gltf-transform")
-        elif step in ("blender.sample", "blender.gameready"):
+        elif step in ("blender.sample", "blender.gameready", "blender.convert"):
             needs.append("blender")
         elif step.startswith("blender.skills."):
             needs.extend(["blender-skills", "blender"])
@@ -822,7 +853,8 @@ def execute(project: Project, recipe: dict, inputs: dict[str, Path], params: dic
     if dry_run:
         return plan(recipe, inputs, params, project), None, None
 
-    asset = project.create_asset(name or recipe["id"], recipe["id"], params)
+    # Name the asset after what went in, so a folder of results is readable.
+    asset = project.create_asset(name or (asset_name(recipe, inputs) if inputs else recipe["id"]), recipe["id"], params)
     copied: dict[str, Path] = {}
     sources: dict[str, dict] = {}
     for input_name, path in inputs.items():
