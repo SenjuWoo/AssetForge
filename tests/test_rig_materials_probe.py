@@ -280,11 +280,16 @@ class Probe(Folder):
 class CommandShim(Folder):
     def test_cmd_script_and_arguments_survive_an_awkward_folder(self):
         script = self.dir / "echo args.cmd"
-        script.write_bytes(b"@echo off\r\necho [%~1][%~2]\r\nexit /b 7\r\n")
+        # The script proves each argument by using it: the first must name a real
+        # file, the second must be the two words. Echoing the path back would test
+        # the console code page instead of the command line.
+        script.write_bytes(b'@echo off\r\nif not exist "%~1" exit /b 3\r\nif not "%~2"=="a b" exit /b 4\r\nexit /b 7\r\n')
         target = self.dir / "in (1).glb"
+        target.write_bytes(b"x")
         result = util.run([str(script), str(target), "a b"], timeout=60)
         self.assertEqual(result["returncode"], 7, result)
-        self.assertEqual(result["stdout"].strip(), f"[{target}][a b]")
+        missing = util.run([str(script), str(self.dir / "absent.glb"), "a b"], timeout=60)
+        self.assertEqual(missing["returncode"], 3, missing)
 
 
 def _blender():
