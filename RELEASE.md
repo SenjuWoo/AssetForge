@@ -1,6 +1,6 @@
-# Release checklist — AssetForge 0.2.0
+# Release checklist — AssetForge 0.3.0
 
-Development release. The repository already exists; `v0.1.0` remains published and unchanged.
+Public stable release. `v0.2.0` remains unchanged.
 
 ## Repository metadata
 
@@ -10,39 +10,32 @@ Development release. The repository already exists; `v0.1.0` remains published a
 
 **Release title**
 
-`AssetForge 0.2.0 — Blender-skills integration (development preview)`
+`AssetForge 0.3.0 — Showcase and whitelisted Blender skill runner`
 
 ## Pre-publication checklist
 
-- [ ] Working tree is clean; `VERSION`, `pyproject.toml`, `__init__.py` and `CHANGELOG.md` agree on `0.2.0`.
-- [ ] Full local suite passes with real Blender (91 tests, 2 skipped).
-- [ ] Clean wheel installation and real pipeline pass.
-- [ ] Wheel and source distributions contain the Blender package data.
+- [ ] Working tree is clean; `VERSION`, `pyproject.toml`, `__init__.py` and `CHANGELOG.md` agree on `0.3.0`.
+- [ ] Full local suite passes with real Blender: 97 tests, 2 skipped.
+- [ ] Full local suite passes without blender-skills: 89 tests, 4 skipped.
+- [ ] Showcase GLB inspection/validation passes and the generator reproduces the committed GLB SHA-256.
+- [ ] Fresh wheel and source distributions build successfully.
 - [ ] README and `docs/PROVIDERS.md` accurately separate discovered skills from exercised skills.
-- [ ] No machine paths, credentials, local `.tools` or generated assets are tracked.
+- [ ] No machine paths, credentials, local `.tools` or generated private outputs are tracked.
 - [ ] Hosted CI is green on the exact commit.
 - [ ] Dependabot and secret-scanning alerts are clear.
 
-## Exact publication steps (operator-run)
+## Publication steps
+
+The release is published from the green `main` commit as `v0.3.0`. Build `AssetForge-0.3.0.zip` from the tagged source snapshot with:
 
 ```bash
-# 1. Confirm the release identity.
-git rev-parse HEAD
-cat VERSION
-
-# 2. Tag only the green commit and push the tag.
-git tag -a v0.2.0 -m "AssetForge 0.2.0"
-git push origin v0.2.0
-
-# 3. Build the runtime archive from the tag.
-git archive --format=zip --prefix=AssetForge-0.2.0/ -o AssetForge-0.2.0.zip v0.2.0 \
+git archive --format=zip --prefix=AssetForge-0.3.0/ -o AssetForge-0.3.0.zip v0.3.0 \
   VERSION CHANGELOG.md LICENSE README.md ROADMAP.md RELEASE-NOTES.md pyproject.toml \
   START-HERE.bat Install.ps1 Update.ps1 assetforge.cmd assetforge src schemas docs examples integration
 
-# 4. Publish as a development preview.
-gh release create v0.2.0 --repo SenjuWoo/AssetForge \
-  --title "AssetForge 0.2.0 — Blender-skills integration (development preview)" \
-  --notes-file RELEASE-NOTES.md --prerelease AssetForge-0.2.0.zip
+gh release create v0.3.0 --repo SenjuWoo/AssetForge \
+  --title "AssetForge 0.3.0 — Showcase and whitelisted Blender skill runner" \
+  --notes-file RELEASE-NOTES.md AssetForge-0.3.0.zip
 ```
 
-Verify the tag resolves to the release commit, download the asset, compare its SHA-256, extract it and run `Install.ps1`, then confirm `assetforge.cmd --version` reports `0.2.0`.
+Verify the tag resolves to the release commit, download the asset, compare its SHA-256, extract it and run `Install.ps1`, then confirm `assetforge.cmd --version` reports `0.3.0`.

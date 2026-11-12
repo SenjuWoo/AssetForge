@@ -1,10 +1,10 @@
 # State
 
-- **Version:** 0.2.0
-- **Milestone:** Phase 0 + Phase 1 MVP complete; Phase 2 image layer and img2threejs codegen complete; 0.1.0 and 0.2.0 published; blender-skills runner for optimization and retopo/UV verified locally
-- **Active task:** choose the next milestone; `main` contains unreleased skill-runner changes and no new release has been cut
-- **Current revision:** `71b6903e1193a220ec23420a0bab0ed0ed2f1be9` (`Add whitelisted Blender skill runner`)
-- **Last known-good:** `71b6903e1193a220ec23420a0bab0ed0ed2f1be9` (main; CI `43169849382` passed 7/7)
+- **Version:** 0.3.0
+- **Milestone:** 0.3.0 release candidate: low-poly showcase and whitelisted Blender skill runner are implemented and locally validated
+- **Active task:** commit, push, converge CI and publish 0.3.0
+- **Current revision:** uncommitted 0.3.0 candidate based on `9027141dc5680a29ed4d7d4745bc551a04647e72`
+- **Last known-good:** `9027141dc5680a29ed4d7d4745bc551a04647e72` (`main`; CI `43170035309` passed 7/7)
 
 ## Completed
 
@@ -26,6 +26,8 @@
 - `blender-pipeline` and `blender-qa`; mandatory upstream QA gate with numeric and random/wire review evidence.
 - Whitelisted `blender-optimize` (`mesh-stats`, `make-lods`) and `blender-retopo-uv` (`auto-retopo`, `uv-pack`, `texel-density`); immutable input `.blend`, new project-owned outputs and upstream reports in provenance.
 - Windows installer, updater, start script, local launcher; CI definition; examples; documentation.
+- Project-owned `enchanted-fire-sword.glb` showcase: artisan-style low-poly GLB, preview PNG, reproducible generator, local GLB validation and third-party-free fixture.
+
 - Release metadata, roadmap, release notes and publication checklist prepared for `0.1.0`.
 - Clean install from committed source verified with and without optional providers.
 - comfy-kit documented as the recommended free local texture-generation companion.
@@ -61,7 +63,7 @@ assetforge.cmd doctor
 
 ## Next action
 
-Choose whether to cut `0.3.0` or continue the post-release milestone first. Do not publish a release until the user asks. CI `43169849382` passed 7/7 for `71b6903e1193a220ec23420a0bab0ed0ed2f1be9`; security check found 0 Dependabot and 0 secret-scanning alerts, with code-scanning unavailable (`no analysis found`).
+Commit the 0.3.0 candidate, push `main`, wait on its CI and security alerts, tag and publish `v0.3.0` from the exact green SHA, then download and verify the published archive.
 
 ## Integration status
 

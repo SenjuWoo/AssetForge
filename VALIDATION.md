@@ -1,8 +1,8 @@
 # Validation evidence
 
-Verified code commit: `74a93fd5b3d4ccce021287ad30b26925eccb356d`.
+Verified working tree: 0.3.0 release candidate based on `9027141dc5680a29ed4d7d4745bc551a04647e72`.
 
-Environment: Windows 11, Python 3.14.10, Node 26.13.0, Pillow 13.0.0, jsonschema 4.x, glTF-Transform 4.5.1, Khronos glTF Validator installed locally in `.tools`, Blender 5.2.3 LTS (Steam). The project works without any optional provider.
+Environment: Windows 11, Python 3.14.10, Node 26.13.0, Pillow 13.0.0, jsonschema 4.x, glTF-Transform 4.5.1, Khronos glTF Validator installed locally in `.tools`, current Blender reports 5.3.0. The project works without any optional provider.
 
 ## Test suite
 
@@ -12,15 +12,15 @@ Command:
 python -m unittest discover -s tests
 ```
 
-Result (final run after the review corrections):
+Result (final 0.3.0 run):
 
 ```text
-Ran 91 tests in 87.196s
+BLENDER_SKILLS_ROOT=... python -m unittest discover -s tests
+Ran 97 tests in 374.271s
 OK (skipped=2)
-exit code 0
 ```
 
-Without the optional Blender providers the suite runs with the integration tests and absent-provider skip: `Ran 89 tests in 164.991s`, `OK (skipped=3)`, exit `0`. That run exercises the absent-provider behavior and the standalone image/GLB/export paths.
+Without the optional Blender providers, the final 0.3.0 run is `python -m unittest discover -s tests`: `Ran 89 tests in 159.878s`, `OK (skipped=4)`. That run exercises the absent-provider behavior and the standalone image/GLB/export paths.
 
 The two skips on the real-Blender Windows run are `test_symlink_escape_is_rejected` (no symlink privilege) and `test_missing_provider_exit_code` (Blender is available, so the absent-provider CLI case cannot be produced on this host). The symlink path runs on Linux CI; the Blender-absent path runs in CI environments without Blender. The real Blender integration tests run when both providers are available and skip cleanly otherwise.
 
@@ -135,6 +135,22 @@ The current machine's Blender install reports **5.3.0** (previous verification e
 - `blender-optimize` and `blender-retopo-uv` are deliberately fixed-argument runners: they expose only the documented operations and documented arguments; no arbitrary skill names, script paths or shell access.
 - `mesh-stats` budget is restricted to `mobile`, `roblox`, `web`, `vr`, `console`, `pc`; ratios and numeric inputs are validated before Blender starts. Mutation writes a new `.blend`, leaves the input unchanged and records the upstream JSON report in the asset.
 - Commit `71b6903e1193a220ec23420a0bab0ed0ed2f1be9` pushed to `main`; hosted workflow `ci` run `43169849382` passed **7/7 jobs**. Security queries: **0** open Dependabot alerts, **0** open secret-scanning alerts; code-scanning is unavailable (`no analysis found`).
+
+### Enchanted fire sword showcase — 2026-11-12
+
+- User inspected and preferred the selected artisan candidate; it is intentionally project-generated low-poly work, not a reconstructed or AAA-quality hand-sculpted model.
+- Showcase files: `examples/assets/enchanted-fire-sword.glb`, `examples/assets/enchanted-fire-sword.png` and `examples/generate-enchanted-fire-sword.py`; all are project-owned.
+- User requested iteration after review: slimmer crossguard, less bulky profile, lower glow, cleaner blade seams and a continuous neck/finial instead of a visually disconnected pommel.
+- Regenerating the GLB from the repository generator produced the same SHA-256: `2d4c4635950ba63c7409cce9fbb31a0fdbb6b7441f8a5f92ad30820f369e33db`.
+- Showcase GLB inspection/validation job `20261112T074756-5d0b68` → `SUCCEEDED`: `21,856` triangles, `26,044` vertices, `12` materials, `830,584` bytes, `PASS=12`, `WARNING=0`, `FAIL=0`, `NOT_TESTED=1` (`GLB-013`, no skin/animation).
+- Showcase GLB contains no third-party artwork or source files. The renderer/image is project-owned showcase output.
+- Attached PNG SHA-256: `5fccfbf67a57a9107b30703aafad9d8d43ab6b6674c087dc60d37745969012d6`.
+- Full suite with `BLENDER_SKILLS_ROOT` available → **97 tests, OK (2 skipped)**.
+- Full suite without blender-skills available → **89 tests, OK (4 skipped)**.
+- Fresh 0.3.0 wheel/sdist build → **PASS** (`assetforge-0.3.0`); examples remain outside the Python wheels as intended; release archive examples are added by the repository release packaging step.
+- Wheel SHA-256: `9c6f5eabdda53c1409a200ad0ba842a95baaf0ad74e388696d2dd1761dc02140`; source distribution SHA-256: `15a6df870e3ee8420c0b3daf0744d5968a11d808d90faf7c21ab9b30b4abc908`.
+- CI smoke also runs `glb-inspect` on the enchanted showcase fixture.
+- Local wheel reached `assetforge --version` → `0.3.0`; the venv resolved source imports because `PYTHONPATH` is inherited, so the wheel hash, not the local import layer, is the independent artifact evidence here.
 
 ## Installer and packaging
 

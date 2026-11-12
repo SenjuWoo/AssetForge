@@ -1,32 +1,33 @@
-# AssetForge 0.2.0 — Blender-skills integration (development preview)
+# AssetForge 0.3.0 — Showcase and whitelisted Blender skill runner
 
-Second development release. Adds an optional, verified headless Blender asset pipeline built around the upstream [blender-skills](https://github.com/EL4CTEO/blender-skills) skill pack.
+Adds a project-generated showcase for low-poly stylized games and the first whitelisted, reusable runner for upstream Blender skills.
 
 ## Included
 
-- Optional blender-skills detection through `BLENDER_SKILLS_ROOT`, project configuration and standard agent skill folders.
-- `assetforge blender-skills` capability catalog and routing for 28 upstream skills.
-- `blender-pipeline`: procedural Blender build, material assignment, upstream `blender-asset-qa`, GLB export, optimization and Khronos validation.
-- `blender-qa`: standalone QA gate for an existing `.blend` file.
-- QA enforcement: upstream errors fail the step; warnings require an explicit `warning_note`; visual approval requires `visual_review=approved` and `approval_note`.
-- Immutable build/material `.blend` stages, project-relative review evidence and artifact hashes recorded in `asset.json`.
-- Mesh and texture-only packaging for generic, Godot and Roblox profiles. Engine import remains `NOT_TESTED`.
-- All 0.1.0 image, GLB, comfy-kit, img2threejs and export functionality remains available.
+- `enchanted-fire-sword.glb`: a project-owned low-poly showcase prop for stylized/Roblox-style game work, built entirely in Blender without third-party artwork.
+- Reproducible Blender generator for the GLB and preview PNG in `examples/`; CI now inspects the committed GLB.
+- Concept exploration for the showcase used comfy-kit / SwarmUI locally. The shipped GLB is procedural Blender geometry and has no dependency on generated reference images.
+- `blender-optimize`: whitelisted `blender-game-optimization` operations (`mesh-stats`, `make-lods`) with project-owned outputs.
+- `blender-retopo-uv`: whitelisted `blender-retopology-uv` operations (`auto-retopo`, `uv-pack`, `texel-density`) with validation and immutable input `.blend` behavior.
+- Generic `blender.skills.run`: documented operations only, with strict arguments and no arbitrary script paths.
+- All prior 0.2.0 image, GLB, export, comfy-kit, img2threejs and blender-skills functionality remains available.
 
 ## Verified
 
-- Full suite: 91 tests, 89 passed, 2 skipped, 0 failed.
-- Real Blender 5.2.3 LTS: procedural crate, 108 triangles, QA clean with 0 errors and 0 warnings, GLB exported and optimized, Khronos validation `PASS`.
-- 0.2.0 wheel installed into a clean environment and exercised end-to-end.
-- The `v0.1.0` release remains unchanged.
+- Full suite with blender-skills available: **97 tests passed**, 2 skipped, 0 failed.
+- Full suite without blender-skills: **89 tests passed**, 4 skipped, 0 failed.
+- Showcase GLB SHA-256: `2d4c4635950ba63c7409cce9fbb31a0fdbb6b7441f8a5f92ad30820f369e33db`.
+- Showcase GLB: `21,856` triangles, `26,044` vertices, `12` materials, `830,584` bytes.
+- Showcase inspection/validation: `PASS=12`, `WARNING=0`, `FAIL=0`, `NOT_TESTED=1` (`GLB-013`, no skins/animations).
+- Regenerating the showcase GLB from the repository generator produced the same SHA-256.
 
 ## Boundaries
 
-- Only 4 of the 28 cataloged blender-skills were exercised end-to-end.
-- Blender integration tests are skipped in hosted CI because CI has no Blender installation.
-- Visual QA is explicitly approval-gated, not automatic.
-- Roblox Studio and Godot imports were not run; exports are verified packages only.
-- img2threejs reconstruction, Teardown, Graphite, AI 3D generation, rigging and MCP remain unimplemented or unverified.
+- Roblox Studio and Godot imports were not run. The Roblox-style showcase is an asset fit, not proof of engine import; engine integration remains `NOT_TESTED`.
+- Showcase geometry is intentionally stylized low-poly work, not photoreal or hand-sculpted AAA modeling.
+- The showcase has no rigging, skinning, animation, audio or VFX simulation.
+- Blender integration tests are skipped in hosted CI because hosted CI has no Blender installation.
+- comfy-kit remains an optional external owner; AssetForge does not install models or edit its configuration.
 
 ## Requirements
 

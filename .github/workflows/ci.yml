@@ -38,6 +38,7 @@ jobs:
           cd .smoke
           python -m assetforge run image-prep --input ../examples/assets/source.png --json
           python -m assetforge run glb-inspect --input ../examples/assets/textured-scene.glb --json
+          python -m assetforge run glb-inspect --input ../examples/assets/enchanted-fire-sword.glb --json
 
   package:
     name: wheel packaging

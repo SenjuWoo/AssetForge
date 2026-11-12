@@ -1,10 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — 2026-11-12
 
 - Add `blender-optimize` and `blender-retopo-uv` recipes for whitelisted blender-skills operations on existing `.blend` files.
 - Add the generic `blender.skills.run` step, restricted to documented operations: `mesh-stats`, `make-lods`, `auto-retopo`, `uv-pack` and `texel-density`. No arbitrary skill names, script paths or shell commands are accepted.
 - Preserve immutable `.blend` inputs; mutating operations write new project-owned artifacts and record upstream reports in asset provenance.
+- Add the project-generated `enchanted-fire-sword.glb` showcase fixture, reproducible Blender generator and low-poly preview render to `examples/`.
+- Inspect the committed showcase GLB in the Windows/Linux CI smoke test.
 
 ## 0.2.0 — 2026-11-08
 

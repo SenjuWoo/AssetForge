@@ -79,6 +79,14 @@ Blender 5.2+ is required. `BLENDER_EXE` selects the executable; detection also c
 
 Upstream was tested at revision `389f28addc79b87b28764898e38e7bf408d14b77` (v1.2.0) with Blender 5.2.3. AssetForge reports the detected revision but never updates upstream automatically. Installation, Hermes `skills.external_dirs` setup, routing and the tested evidence are in [docs/PROVIDERS.md](docs/PROVIDERS.md).
 
+## Showcase
+
+![AssetForge-generated enchanted fire sword](examples/assets/enchanted-fire-sword.png)
+
+This low-poly enchanted-fire sword is the AssetForge showcase for stylized game props. It is built directly in Blender and included at `examples/assets/enchanted-fire-sword.glb`, with a reproducible generator (`examples/generate-enchanted-fire-sword.py`) producing the faceted blade shell, ember layers, raised runes and scrollwork, bat-wing crossguard, wrapped hilt, finial and floating sparks. It is a strong reference for low-poly stylized games such as Roblox-style worlds and games; Roblox Studio import was not run, so engine integration remains `NOT_TESTED`.
+
+The concept exploration for this prop was generated locally through the comfy-kit / SwarmUI workflow; the shipped GLB itself is project-owned procedural geometry and does not depend on the generated reference images. comfy-kit remains the recommended free local companion for texture work.
+
 ## Built-in recipes
 
 | Recipe | Purpose |
