@@ -1,13 +1,14 @@
 # State
 
-- **Version:** 0.3.0
-- **Milestone:** 0.3.0 release candidate: low-poly showcase and whitelisted Blender skill runner are implemented and locally validated
-- **Active task:** commit, push, converge CI and publish 0.3.0
-- **Current revision:** uncommitted 0.3.0 candidate based on `9027141dc5680a29ed4d7d4745bc551a04647e72`
+- **Version:** 0.3.1
+- **Milestone:** 0.3.1 local: `mesh-gameready` hard triangle cap. Not published.
+- **Active task:** none. Do not publish until asked.
+- **Current revision:** uncommitted 0.3.1 on `9027141dc5680a29ed4d7d4745bc551a04647e72`
 - **Last known-good:** `9027141dc5680a29ed4d7d4745bc551a04647e72` (`main`; CI `43170035309` passed 7/7)
 
 ## Completed
 
+- `mesh-gameready` (0.3.1, local): default budget `game` fails a written GLB over 20,000 triangles. `hero` is 30,000. `accessory` is 4,000. A 700,000-triangle count is rejected. Guide: `docs/GAME-READY.md`. On 2026-11-12 a 699,878-triangle PBR GLB wrote 17,000 triangles, 21,186 vertices, 6,192,808 bytes, and three 1024 PNGs. Official glTF validator: 0 errors, 0 warnings. Engine import was not run.
 - Standalone CLI: `doctor`, `capabilities`, `providers`, `init`, `recipes`, `run`, `status`, `inspect`, `validate`, `export`.
 - Project/asset/job contracts with versioned JSON schemas.
 - Inputs copied into the project; original locations kept only in job provenance.
@@ -63,7 +64,7 @@ assetforge.cmd doctor
 
 ## Next action
 
-Commit the 0.3.0 candidate, push `main`, wait on its CI and security alerts, tag and publish `v0.3.0` from the exact green SHA, then download and verify the published archive.
+Leave 0.3.1 unpublished until a publish is requested. The game-ready gate is local.
 
 ## Integration status
 

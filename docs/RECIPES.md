@@ -72,7 +72,28 @@ Run glTF-Transform with conservative flags, validate the result, compare both fi
 assetforge run glb-optimize --input model.glb
 ```
 
-Requires the glTF-Transform provider. Missing provider exits `4`.
+Requires the glTF-Transform provider. Missing provider exits `4`. This recipe does not decimate. A 700,000-triangle GLB stays 700,000 triangles.
+
+## `mesh-gameready`
+
+Import a GLB in Blender, collapse it under a hard triangle cap, shrink textures, validate, and compare. The written file is deleted and the job fails if it is over the cap. A 700,000-triangle sculpt does not ship. Full rules: [GAME-READY.md](GAME-READY.md).
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `budget` | `game`, `hero`, `accessory` | `game` (20,000 triangles, texture 1024) |
+| `tris` | integer | `0` (use the budget; a value above the cap is rejected) |
+| `texture` | integer | `0` (use the budget; a larger request is clamped down) |
+| `timeout` | integer | `900` |
+
+`hero` is 30,000 triangles and texture 2048. It is not a Roblox mesh. `accessory` is 4,000 triangles and texture 1024.
+
+```bash
+assetforge run mesh-gameready --input mesh=model.glb
+assetforge run mesh-gameready --input mesh=model.glb --set budget=hero
+assetforge run mesh-gameready --input mesh=model.glb --set budget=accessory
+```
+
+Needs the Blender provider. Missing Blender exits `4`. `glb-optimize` is a different, conservative pass and does not replace this recipe.
 
 ## `blender-sample`
 

@@ -16,6 +16,57 @@ class AdapterError(RuntimeError):
     pass
 
 
+def blender_gameready(provider: dict, source: Path, out_path: Path, tris: int, texture: int, timeout: float = 900) -> dict:
+    """Collapse a GLB in Blender to a triangle budget and a texture cap.
+
+    The script lives with the package. ASSETFORGE_SRC lets Blender import
+    the same budget helper the tests use, so the limits are not copied.
+    """
+    script = Path(__file__).resolve().parent / "data" / "blender" / "gameready.py"
+    src = str(Path(__file__).resolve().parent.parent)
+    command = [
+        provider["path"],
+        "-b",
+        "--factory-startup",
+        "--python",
+        str(script),
+        "--",
+        "--input",
+        str(source),
+        "--out",
+        str(out_path),
+        "--tris",
+        str(int(tris)),
+        "--texture",
+        str(int(texture)),
+    ]
+    result = run(command, timeout=timeout, cwd=out_path.parent, env={"ASSETFORGE_SRC": src})
+    result["command"] = command
+    if result.get("timed_out"):
+        raise AdapterError(f"Blender timed out after {timeout:g}s")
+    payload = None
+    for line in reversed((result.get("stdout") or "").splitlines()):
+        if line.startswith("GAMEREADY "):
+            try:
+                payload = json.loads(line[len("GAMEREADY "):])
+            except ValueError:
+                payload = None
+            break
+    result["report"] = payload
+    if result["returncode"] != 0:
+        detail = ""
+        if isinstance(payload, dict) and payload.get("error"):
+            detail = str(payload["error"])
+        else:
+            detail = (result.get("stderr") or result.get("stdout") or "")[-800:]
+        raise AdapterError(f"Blender exited {result['returncode']}: {detail}")
+    if not out_path.exists() or out_path.stat().st_size < 20:
+        raise AdapterError("Blender reported success but no GLB was written")
+    if isinstance(payload, dict) and payload.get("ok") is False:
+        raise AdapterError(f"Blender game-ready failed: {payload.get('error')}")
+    return result
+
+
 def blender_build(provider: dict, out_path: Path, timeout: float = 240) -> dict:
     script = Path(__file__).resolve().parent / "blender_sample.py"
     command = [

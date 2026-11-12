@@ -131,6 +131,7 @@ def cmd_capabilities(args) -> int:
         {"id": "glb-validate-structural", "status": "IMPLEMENTED", "provider": "core", "available": True},
         {"id": "glb-validate-official", "status": "IMPLEMENTED", "provider": "gltf-validator", "available": now["gltf-validator"]["available"]},
         {"id": "glb-optimize", "status": "IMPLEMENTED", "provider": "gltf-transform", "available": now["gltf-transform"]["available"]},
+        {"id": "mesh-gameready", "status": "IMPLEMENTED", "provider": "blender", "available": now["blender"]["available"]},
         {"id": "blender-export", "status": "IMPLEMENTED", "provider": "blender", "available": now["blender"]["available"]},
         {"id": "blender-skills", "status": "IMPLEMENTED", "provider": "blender-skills", "available": now["blender-skills"]["available"]},
         {"id": "blender-asset-qa", "status": "IMPLEMENTED", "provider": "blender-skills", "available": now["blender-skills"]["available"]},

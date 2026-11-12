@@ -6,6 +6,16 @@ It is designed to work on its own and can also be registered as a companion of t
 
 AssetForge orchestrates other owners. It does not fork Blender, ComfyUI, Graphite, img2threejs or any other upstream application.
 
+## Game-ready mesh (one command)
+
+A generated GLB at sculpt density does not ship. About 700,000 triangles fails. The default budget `game` hard-fails above **20,000 triangles** and shrinks textures to **1024**. Ask for `hero` (30,000) only for a close-up that is not a Roblox mesh, or `accessory` (4,000) for a worn Roblox accessory.
+
+```bat
+assetforge.cmd run mesh-gameready --input mesh=model.glb
+```
+
+Rules: [docs/GAME-READY.md](docs/GAME-READY.md).
+
 ## Quick start (Windows)
 
 1. Run `START-HERE.bat`. It creates a repo-local `.venv`, installs Pillow for the image recipes, and runs `doctor`.
@@ -96,6 +106,7 @@ The concept exploration for this prop was generated locally through the comfy-ki
 | `sprite-atlas` | Pack a folder of images into a grid atlas with JSON frame metadata. |
 | `glb-inspect` | Record geometry statistics and structural conformance. |
 | `glb-optimize` | Conservative glTF-Transform pass: no simplification, compression, flattening or joining. |
+| `mesh-gameready` | Collapse a generated GLB under a hard triangle cap. Default `game` fails above 20,000 triangles. |
 | `blender-sample` | Headless Blender bevelled-cube export. Requires Blender. |
 | `blender-pipeline` | Procedural crate → PBR material → upstream QA gate → GLB export → optimize → validate. |
 | `blender-qa` | Run upstream `blender-asset-qa` and review sheets on an existing `.blend`. |
@@ -123,6 +134,7 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | Structural GLB validation | VERIFIED | Not a conformance claim |
 | Khronos glTF validation | VERIFIED when installed | Optional Node package in `.tools`; otherwise `NOT_TESTED` |
 | Conservative GLB optimization | VERIFIED | glTF-Transform; source and optimized structure compared |
+| Game-ready mesh collapse | IMPLEMENTED | `mesh-gameready` decimates a GLB in Blender and fails above the budget cap. Default is 20,000 triangles. Engine import remains `NOT_TESTED` |
 | Blender background export | VERIFIED | Real Blender 5.2.3; `blender-sample` and upstream export pipeline executed |
 | blender-skills catalog and routing | VERIFIED | 28 skills detected at upstream revision `389f28a`; CLI list/route tested |
 | Blender asset QA gate | VERIFIED | Upstream `blender-asset-qa`: 108 tris, 0 errors, 0 warnings; review sheets generated and explicitly approved after inspection |
@@ -188,6 +200,7 @@ No bundle files are modified by this repository.
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Providers](docs/PROVIDERS.md)
+- [Game-ready meshes](docs/GAME-READY.md)
 - [Recipes](docs/RECIPES.md)
 - [Upstream evaluations](docs/UPSTREAM-EVALUATIONS.md)
 - [Bundle integration](docs/UABS-INTEGRATION.md)

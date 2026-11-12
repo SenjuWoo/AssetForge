@@ -9,7 +9,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from . import adapters, images, official, providers
+from . import adapters, gameready, images, official, providers
 from .glb import GlbError, compare_glb, inspect_glb, validate_glb
 from .recipes import RecipeError
 from .store import Asset, Job, Project, StoreError
@@ -287,6 +287,55 @@ def _glb_compare(ctx: Context) -> dict:
     return {
         "status": "PASS",
         "detail": f"bytes {delta['bytes']:+d}, triangles {delta['triangles']:+d}, vertices {delta['vertices']:+d}",
+    }
+
+
+def _blender_gameready(ctx: Context) -> dict:
+    provider = _provider(ctx, "blender")
+    source = ctx.mesh()
+    ctx.outputs.setdefault("source_mesh", source)
+    budget_name = str(ctx.params.get("budget") or "game")
+    try:
+        target_tris, texture_cap, hard_cap = gameready.resolve_budget(
+            budget_name,
+            int(ctx.params.get("tris") or 0),
+            int(ctx.params.get("texture") or 0),
+        )
+    except ValueError as exc:
+        raise RunFailed(str(exc)) from exc
+    target = ctx.asset.path("outputs", f"{source.stem}-gameready.glb")
+    result = adapters.blender_gameready(
+        provider,
+        source,
+        target,
+        target_tris,
+        texture_cap,
+        timeout=float(ctx.params.get("timeout") or 900),
+    )
+    stats = inspect_glb(target)
+    before = int((ctx.outputs.get("stats") or {}).get("triangles") or 0)
+    try:
+        gameready.reject_over_cap(stats["triangles"], hard_cap, budget_name)
+    except ValueError as exc:
+        target.unlink(missing_ok=True)
+        raise RunFailed(f"{exc} Source had {before}.") from exc
+    ctx.outputs["mesh"] = target
+    report = result.get("report") or {}
+    report["triangle_cap"] = hard_cap
+    report["triangles"] = stats["triangles"]
+    ctx.outputs["gameready"] = report
+    ctx.artifact(target, "mesh", "gameready")
+    ctx.asset.set_primary("mesh", target)
+    shrunk = [
+        item for item in (report.get("textures") or [])
+        if item.get("before") != item.get("after")
+    ]
+    return {
+        "status": "PASS",
+        "detail": (
+            f"{stats['triangles']} tris (cap {hard_cap}, asked {target_tris}); "
+            f"texture cap {texture_cap}; {len(shrunk)} texture(s) resized"
+        ),
     }
 
 
@@ -712,6 +761,7 @@ HANDLERS = {
     "glb.optimize": _glb_optimize,
     "glb.compare": _glb_compare,
     "blender.sample": _blender_sample,
+    "blender.gameready": _blender_gameready,
     "blender.skills.build": _blender_skills_build,
     "blender.skills.material": _blender_skills_material,
     "blender.skills.qa": _blender_skills_qa,
@@ -746,7 +796,7 @@ def plan(recipe: dict, inputs: dict[str, Path], params: dict, project: Project |
     for step in recipe["steps"]:
         if step == "glb.optimize":
             needs.append("gltf-transform")
-        elif step == "blender.sample":
+        elif step in ("blender.sample", "blender.gameready"):
             needs.append("blender")
         elif step.startswith("blender.skills."):
             needs.extend(["blender-skills", "blender"])

@@ -22,6 +22,7 @@ STEP_NAMES = {
     "glb.optimize",
     "glb.compare",
     "blender.sample",
+    "blender.gameready",
     "blender.skills.build",
     "blender.skills.material",
     "blender.skills.qa",

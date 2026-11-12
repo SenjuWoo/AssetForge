@@ -48,7 +48,7 @@ When absent, validation reports `GLB-014 NOT_TESTED`; when present, the official
 - Kind: external application, background mode.
 - Detect: `BLENDER_EXE`, legacy `BLENDER`, `PATH`, Blender Foundation install folders, or the Steam install at `C:/Program Files (x86)/Steam/steamapps/common/Blender/blender.exe`.
 - The probe runs `--version` and requires a `Blender x.y` version string. A shim that starts some other program is reported as unavailable rather than accepted. Candidate paths are tried in order, so a broken PATH shim does not hide a real install.
-- Used by: `blender-sample` and all `blender.skills.*` steps.
+- Used by: `mesh-gameready`, `blender-sample`, and all `blender.skills.*` steps. `mesh-gameready` imports a GLB directly and does not need blender-skills. The default cap is 20,000 triangles. See [GAME-READY.md](GAME-READY.md).
 - Blender is GPL software and remains independently installed and maintained.
 
 ## blender-skills

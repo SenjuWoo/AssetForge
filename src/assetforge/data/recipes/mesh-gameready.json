@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "mesh-gameready",
+  "title": "Make a generated GLB game-ready",
+  "description": "Import a GLB in Blender, collapse it under the triangle cap, shrink textures, then validate. The default budget game fails above 20000 triangles. A 700000-triangle sculpt does not ship. hero is 30000 and is not a Roblox mesh. accessory is 4000.",
+  "input": {"name": "mesh", "kind": "mesh", "required": true},
+  "params": {
+    "budget": {
+      "type": "string",
+      "default": "game",
+      "choices": ["game", "hero", "accessory"]
+    },
+    "tris": {"type": "integer", "default": 0},
+    "texture": {"type": "integer", "default": 0},
+    "timeout": {"type": "integer", "default": 900}
+  },
+  "steps": ["glb.inspect", "blender.gameready", "glb.validate", "glb.compare", "asset.record"]
+}
