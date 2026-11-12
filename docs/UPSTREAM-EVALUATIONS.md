@@ -9,7 +9,7 @@ Checked against upstream repository metadata on **2026-11-08**. Licenses marked 
 | [image-js](https://github.com/image-js/image-js) | MIT | Active | Not integrated. Pillow covers the MVP image operations; image-js remains a Node-side option. |
 | [Graphite](https://github.com/GraphiteEditor/Graphite) | Apache-2.0 | Alpha, active | **Planned** manual/interchange integration. No verified headless automation contract; no invented CLI. |
 | [Blender](https://www.blender.org/) | GPL-2.0-or-later (Blender Foundation) | Optional external | **Integrated and executed** with Blender 5.2.3 LTS: background smoke, procedural build, material, QA and export. Runs as an external process; AssetForge does not link or redistribute Blender. |
-| [blender-skills](https://github.com/EL4CTEO/blender-skills) | MIT (Copyright (c) 2026 EL4CTEO) | v1.2.0, revision `389f28a` | **Recommended Blender skills provider.** 28 skills validated, 69 upstream headless tests passed, catalog/routing and QA gate integrated. Never vendored or auto-updated. |
+| [blender-skills](https://github.com/EL4CTEO/blender-skills) | MIT (Copyright (c) 2026 EL4CTEO) | v1.2.0, revision `389f28a` | **Recommended Blender skills provider.** 28 skills validated, 69 upstream headless tests passed, catalog/routing, optimization, retopology/UV and QA gate integrated. Never vendored or auto-updated. |
 | [glTF-Transform](https://github.com/donmccurdy/glTF-Transform) | MIT | Active | **Integrated** for conservative GLB optimization. |
 | [meshoptimizer](https://github.com/zeux/meshoptimizer) | MIT | Active | Used through glTF-Transform; no separate integration. |
 | [glTF-Validator](https://github.com/KhronosGroup/glTF-Validator) | Apache-2.0 | Active | **Integrated** as an optional Khronos conformance check. |

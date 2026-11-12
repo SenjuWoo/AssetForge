@@ -123,6 +123,59 @@ assetforge run blender-qa --input blend=asset.blend --set visual_review=approved
 
 Any QA error fails the job. Warnings require `warning_note`. Review sheets are written even when QA fails, so the failure is inspectable. This recipe records reports and previews only; it does not export a mesh.
 
+## `blender-optimize`
+
+Run a whitelisted `blender-game-optimization` operation on an existing `.blend`. Input is copied into the asset; mutating `make-lods` writes a new `blender-make-lods.blend` artifact and never overwrites the input.
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `operation` | `mesh-stats`, `make-lods` | `mesh-stats` |
+| `objects` | string, space-separated | empty (all meshes) |
+| `budget` | `mobile`, `roblox`, `web`, `vr`, `console`, `pc` | empty |
+| `ratios` | string, space-separated | `0.5 0.25 0.125` |
+| `symmetry` | boolean | `false` |
+| `cleanup` | boolean | `false` |
+| `rename` | boolean | `false` |
+| `collection` | string | empty |
+| `timeout` | integer | `300` |
+
+```bash
+assetforge run blender-optimize --input blend=asset.blend --set operation=mesh-stats --set budget=roblox
+assetforge run blender-optimize --input blend=asset.blend --set operation=make-lods --set "ratios=0.5 0.25" --set cleanup=true
+```
+
+`mesh-stats` reports triangles, draw calls and textures against the selected budget. `make-lods` creates `*_LOD1`, `*_LOD2`, ... copies using upstream Decimate. The output is intermediate; run `blender-qa` and `blender-pipeline`/export after mutation.
+
+## `blender-retopo-uv`
+
+Run a whitelisted `blender-retopology-uv` operation on an existing `.blend`. Input is copied into the asset; mutating operations write a new `blender-<operation>.blend` artifact and never overwrite the input.
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `operation` | `auto-retopo`, `uv-pack`, `texel-density` | `uv-pack` |
+| `objects` | string, space-separated | empty (all meshes) |
+| `method` | `quadriflow`, `decimate`, `planar` for retopo; `smart`, `seams`, `min_stretch` for UVs | `decimate` for retopo, `smart` for UVs |
+| `tris` | integer | `10000` |
+| `voxel` | string | empty (auto) |
+| `symmetry` | boolean | `false` |
+| `angle` | string | `66.0` |
+| `seams_from_sharp` | string | empty |
+| `res` | integer | `2048` |
+| `margin_px` | integer | `8` |
+| `lightmap` | boolean | `false` |
+| `shape` | `AABB`, `CONVEX`, `CONCAVE` | `AABB` |
+| `target` | string, px/m | empty (report only) |
+| `timeout` | integer | `300` |
+
+```bash
+assetforge run blender-retopo-uv --input blend=dense.blend --set operation=auto-retopo --set method=decimate --set tris=5000
+assetforge run blender-retopo-uv --input blend=asset.blend --set operation=uv-pack --set method=smart --set res=2048
+assetforge run blender-retopo-uv --input blend=asset.blend --set operation=texel-density --set res=2048
+assetforge run blender-retopo-uv --input blend=asset.blend --set operation=texel-density --set target=512
+```
+
+`auto-retopo` creates `<name>_low` copies. `uv-pack` creates/packs UVs (and a lightmap UV2 when requested). `texel-density` reports density unless `target` is supplied, in which case it writes a scaled/repacked `.blend`. None of these recipes claims engine-import success or visual approval.
+
 
 ## `comfy-generate`
 

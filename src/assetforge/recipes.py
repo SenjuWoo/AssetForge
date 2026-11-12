@@ -26,6 +26,7 @@ STEP_NAMES = {
     "blender.skills.material",
     "blender.skills.qa",
     "blender.skills.export",
+    "blender.skills.run",
     "comfykit.detect",
     "comfykit.generate",
     "comfykit.import",

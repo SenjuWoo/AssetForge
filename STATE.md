@@ -1,10 +1,10 @@
 # State
 
 - **Version:** 0.2.0
-- **Milestone:** Phase 0 + Phase 1 MVP complete; Phase 2 image layer and img2threejs codegen complete; 0.1.0 published; blender-skills integration verified locally
-- **Active task:** commit the Blender integration and run hosted CI before any new release
-- **Current revision:** `d7b9d142e0d063b122a0b52e4fb38150b5c5626e`
-- **Last known-good:** `d7b9d142e0d063b122a0b52e4fb38150b5c5626e`
+- **Milestone:** Phase 0 + Phase 1 MVP complete; Phase 2 image layer and img2threejs codegen complete; 0.1.0 and 0.2.0 published; blender-skills runner for optimization and retopo/UV verified locally
+- **Active task:** commit the whitelisted `blender-optimize` / `blender-retopo-uv` runner and run hosted CI; no new release until requested
+- **Current revision:** `69c229e6484d8de628815acb1e0478be981cb027` (pre-change HEAD)
+- **Last known-good:** `69c229e6484d8de628815acb1e0478be981cb027` (`v0.2.0` source)
 
 ## Completed
 
@@ -24,6 +24,7 @@
 - External adapters: Blender headless export (verified), blender-skills catalog/QA/export (verified), comfy-kit generate/import (verified), img2threejs probe and codegen (verified).
 - blender-skills 28-skill catalog, route CLI and Hermes external-dir documentation; tested upstream revision `389f28a`.
 - `blender-pipeline` and `blender-qa`; mandatory upstream QA gate with numeric and random/wire review evidence.
+- Whitelisted `blender-optimize` (`mesh-stats`, `make-lods`) and `blender-retopo-uv` (`auto-retopo`, `uv-pack`, `texel-density`); immutable input `.blend`, new project-owned outputs and upstream reports in provenance.
 - Windows installer, updater, start script, local launcher; CI definition; examples; documentation.
 - Release metadata, roadmap, release notes and publication checklist prepared for `0.1.0`.
 - Clean install from committed source verified with and without optional providers.
@@ -43,6 +44,7 @@ None known. Open limits are evidence gaps, not known code defects:
 
 ```text
 python -m unittest discover -s tests -v
+python -m unittest test_blender_skill_runner -v
 python -m assetforge doctor --json
 python -m assetforge recipes list
 python -m assetforge run glb-optimize --input examples/assets/textured-scene.glb
@@ -59,11 +61,11 @@ assetforge.cmd doctor
 
 ## Next action
 
-Commit the Blender integration and run the full suite plus hosted CI on that exact commit. Do not publish a new release until those gates pass. The next engineering priority is a genuine reference-image-to-3D-to-engine workflow (see `ROADMAP.md`), not more provider breadth.
+Commit the verified blender skill-runner work and run hosted CI on that exact commit. Do not publish a new release until the user asks. The old `d7b9d...` pointers above were historical and superseded by published `v0.2.0` (`69c229e...`).
 
 ## Integration status
 
 - Ultimate AI Starter Bundle: proposal only; no bundle file modified.
 - comfy-kit: recommended free local texture-generation companion; read-only delegation, verified generation and import; no owner files modified.
-- blender-skills: recommended optional Blender skills provider; read-only catalog and delegation; tested revision `389f28a`; no upstream files modified.
+- blender-skills: recommended optional Blender skills provider; read-only catalog and delegation; tested revision `389f28a`; optimization/retopo/UV runner verified on the current Blender 5.3.0 installation; no upstream files modified.
 - img2threejs/teardown candidate checkouts: inspected and documented; not vendored, modified or deleted.

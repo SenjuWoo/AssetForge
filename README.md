@@ -62,16 +62,18 @@ assetforge.cmd export ASSET --target godot
 
 ## Recommended Blender workflow (blender-skills)
 
-For Blender work, the recommended provider is [EL4CTEO/blender-skills](https://github.com/EL4CTEO/blender-skills), an MIT-licensed set of 28 agent skills for modeling, UVs, PBR, baking, rigging, animation, optimization, QA and export. AssetForge exposes all 28 but the verified pipeline currently executes four of them: core runner, PBR materials, asset QA and export pipelines. AssetForge does not vendor upstream; point `BLENDER_SKILLS_ROOT` at a checkout or installed skills folder, then inspect the catalog:
+For Blender work, the recommended provider is [EL4CTEO/blender-skills](https://github.com/EL4CTEO/blender-skills), an MIT-licensed set of 28 agent skills for modeling, UVs, PBR, baking, rigging, animation, optimization, QA and export. AssetForge exposes all 28 and executes six of them through explicit, whitelisted operations: core runner, PBR materials, asset QA, export pipelines, mesh optimization (`mesh-stats`, `make-lods`) and retopology/UV (`auto-retopo`, `uv-pack`, `texel-density`). AssetForge does not vendor upstream; point `BLENDER_SKILLS_ROOT` at a checkout or installed skills folder, then inspect the catalog:
 
 ```bat
 assetforge.cmd blender-skills --json
 assetforge.cmd blender-skills --route materials
 assetforge.cmd run blender-pipeline
+assetforge.cmd run blender-optimize --input input.blend --set operation=mesh-stats --set budget=roblox
+assetforge.cmd run blender-retopo-uv --input sculpt.blend --set operation=uv-pack
 assetforge.cmd export ASSET --target godot
 ```
 
-`blender-pipeline` builds a procedural crate, applies an upstream PBR preset, runs the **mandatory** `blender-asset-qa` gate, writes random/wire review sheets, exports GLB through upstream `blender-export-pipelines`, optimizes it and validates it. A QA error or unaccepted warning fails the job before delivery. Rendering the review sheets is not visual approval: `BLENDER-QA-VISUAL` stays `NOT_TESTED` until an explicit `--set visual_review=approved --set approval_note="..."` records the inspection. `blender-qa` applies the same gate to an existing `.blend`.
+`blender-pipeline` builds a procedural crate, applies an upstream PBR preset, runs the **mandatory** `blender-asset-qa` gate, writes random/wire review sheets, exports GLB through upstream `blender-export-pipelines`, optimizes it and validates it. A QA error or unaccepted warning fails the job before delivery. Rendering the review sheets is not visual approval: `BLENDER-QA-VISUAL` stays `NOT_TESTED` until an explicit `--set visual_review=approved --set approval_note="..."` records the inspection. `blender-qa` applies the same gate to an existing `.blend`. `blender-optimize` and `blender-retopo-uv` expose the mesh-statistics, LOD generation, retopology, UV packing and texel-density scripts on an existing `.blend`; mutating operations write a new `.blend` artifact and leave the input untouched.
 
 Blender 5.2+ is required. `BLENDER_EXE` selects the executable; detection also checks `PATH`, Blender Foundation folders and the Steam install. Blender MCP is optional and not required; every step runs headless.
 
@@ -89,6 +91,8 @@ Upstream was tested at revision `389f28addc79b87b28764898e38e7bf408d14b77` (v1.2
 | `blender-sample` | Headless Blender bevelled-cube export. Requires Blender. |
 | `blender-pipeline` | Procedural crate → PBR material → upstream QA gate → GLB export → optimize → validate. |
 | `blender-qa` | Run upstream `blender-asset-qa` and review sheets on an existing `.blend`. |
+| `blender-optimize` | Run whitelisted `blender-game-optimization` operations (`mesh-stats`, `make-lods`). |
+| `blender-retopo-uv` | Run whitelisted `blender-retopology-uv` operations (`auto-retopo`, `uv-pack`, `texel-density`). |
 | `comfy-generate` | Delegate one render to an installed comfy-kit. |
 | `comfy-import` | Copy newest images from a comfy-kit output folder. |
 | `img2threejs-probe` | Run the external img2threejs technical image probe. |
@@ -114,6 +118,7 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | Blender background export | VERIFIED | Real Blender 5.2.3; `blender-sample` and upstream export pipeline executed |
 | blender-skills catalog and routing | VERIFIED | 28 skills detected at upstream revision `389f28a`; CLI list/route tested |
 | Blender asset QA gate | VERIFIED | Upstream `blender-asset-qa`: 108 tris, 0 errors, 0 warnings; review sheets generated and explicitly approved after inspection |
+| Blender optimization and retopo/UV | VERIFIED | `blender-optimize` and `blender-retopo-uv` execute whitelisted `blender-game-optimization` and `blender-retopology-uv` scripts on real Blender; mutating operations create new `.blend` artifacts |
 | comfy-kit generation | VERIFIED | Exercised against a running comfy-kit; generation is delegated |
 | img2threejs probe | VERIFIED | Technical probe only; reconstruction remains agent-driven |
 | img2threejs spec-to-Three.js codegen | VERIFIED | Upstream deterministic generator; consumes an ObjectSculptSpec, not a raw image |

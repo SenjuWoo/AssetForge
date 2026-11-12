@@ -57,7 +57,7 @@ When absent, validation reports `GLB-014 NOT_TESTED`; when present, the official
 - Upstream: [EL4CTEO/blender-skills](https://github.com/EL4CTEO/blender-skills), MIT License, Copyright (c) 2026 EL4CTEO.
 - Tested revision: `389f28addc79b87b28764898e38e7bf408d14b77` (v1.2.0), with Blender 5.2.3 LTS on Windows. Upstream `validate_skills.py` passed and its 69 headless tests passed with Blender.
 - Detect: `BLENDER_SKILLS_ROOT`, project `integrations.blender_skills`, `~/blender-skills`, `~/.claude/skills`, or `~/.agents/skills`. Both a checkout (`<root>/skills/<name>/SKILL.md`) and an installed folder (`<root>/<name>/SKILL.md`) are accepted. Required markers are `blender-core` and `blender-asset-qa`.
-- All 28 discovered skills are exposed in the catalog. The verified pipeline executes four upstream skills: `blender-core` (headless runner), `blender-pbr-materials`, `blender-asset-qa` and `blender-export-pipelines`. Other routes are cataloged, not claimed as executed.
+- All 28 discovered skills are exposed in the catalog. The verified surface executes six upstream skills: `blender-core` (headless runner), `blender-pbr-materials`, `blender-asset-qa`, `blender-export-pipelines`, `blender-game-optimization` (`mesh_stats.py`, `make_lods.py`) and `blender-retopology-uv` (`auto_retopo.py`, `uv_pack.py`, `texel_density.py`). Other skills are cataloged and tested upstream, not claimed as executed by AssetForge.
 - AssetForge reports the detected commit when the root is a Git checkout. It never installs, updates or rewrites upstream skills.
 - Catalog and routing:
 
@@ -69,7 +69,8 @@ assetforge blender-skills --route materials
 Routes cover core, scene, modeling, sculpting, UV, texturing, materials, baking, rigging, animation, optimization, export, QA, rendering, lighting, simulation, clothing, hair, facial, NPR, weather, video, addon, pipeline and recipes. The JSON includes each skill's `SKILL.md`, scripts and absolute path for the agent.
 
 - Execution: all skill scripts go through upstream `blender-core/scripts/run_in_blender.py` with `BLENDER_EXE` set to the executable AssetForge verified. No Blender MCP server is required; the integration is headless.
-- Recipes: `blender-pipeline` and `blender-qa`.
+- Whitelist: `blender.skills.run` accepts only the operations documented for `blender-optimize` and `blender-retopo-uv` (`mesh-stats`, `make-lods`, `auto-retopo`, `uv-pack`, `texel-density`) and only their documented arguments. It has no arbitrary script path or shell access.
+- Recipes: `blender-pipeline`, `blender-qa`, `blender-optimize` and `blender-retopo-uv`.
 - QA gate: `blender-asset-qa/scripts/qa_check.py` runs on the generated `.blend` before delivery. Any reported error fails the job. Warnings must be fixed or explicitly accepted with `warning_note`; zero warnings is the verified path. `review_shots.py` writes random and wire contact sheets. A generated sheet is recorded as `BLENDER-QA-RENDER PASS`, while `BLENDER-QA-VISUAL` remains `NOT_TESTED` until `visual_review=approved` and a recorded `approval_note` are supplied. QA numeric results and project-relative review paths are stored in the asset provenance.
 - Current pipeline result: 108 triangles, 0 QA errors, 0 warnings, GLB exported, optimized and validated with `GLB-014 PASS` when the Khronos validator is installed.
 

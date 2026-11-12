@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "id": "blender-optimize",
+  "title": "Blender mesh optimization",
+  "description": "Run a whitelisted blender-game-optimization operation on an existing .blend file.",
+  "input": {"name": "blend", "kind": "file", "required": true},
+  "params": {
+    "operation": {"type": "string", "default": "mesh-stats", "choices": ["mesh-stats", "make-lods"]},
+    "objects": {"type": "string", "default": ""},
+    "budget": {"type": "string", "default": "", "choices": ["", "mobile", "roblox", "web", "vr", "console", "pc"]},
+    "ratios": {"type": "string", "default": "0.5 0.25 0.125"},
+    "symmetry": {"type": "boolean", "default": false},
+    "cleanup": {"type": "boolean", "default": false},
+    "rename": {"type": "boolean", "default": false},
+    "collection": {"type": "string", "default": ""},
+    "timeout": {"type": "integer", "default": 300}
+  },
+  "steps": ["blender.skills.run", "asset.record"]
+}

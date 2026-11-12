@@ -124,6 +124,17 @@ Upstream: [EL4CTEO/blender-skills](https://github.com/EL4CTEO/blender-skills) at
 - A deliberately lifted crate produced an upstream grounding warning. Since no `warning_note` was supplied, the job ended `FAILED` with the acceptance instruction; the warning was preserved, not silently converted to a clean pass.
 - Export from the same asset to Roblox, Godot and generic → `PASS`, `kind=mesh`, `engine_import=NOT_TESTED`; only the optimized GLB is packaged. QA previews are not copied into texture folders (regression test added).
 
+### Whitelisted optimization and retopo/UV runner — 2026-11-12
+
+The current machine's Blender install reports **5.3.0** (previous verification evidence above used 5.2.3 LTS). Upstream blender-skills remains at revision `389f28addc79b87b28764898e38e7bf408d14b77` (v1.2.0).
+
+- `python -m unittest test_blender_skill_runner` → **6 passed**: `mesh-stats` budget reporting, `make-lods` writing `LOD1`/`LOD2`, `auto-retopo` decimate output, `uv-pack` smart-project UVs, `texel-density` report and targeted repack, all through real Blender.
+- `python -m unittest discover -s tests` → **97 tests, OK (2 skipped)**.
+- With Blender unavailable/unset, discovery exits **0** with the new runner class skipped as one class-level skip (`Ran 89`, `skipped=4`); no behavior changes in the standalone package.
+- Fresh wheel/sdist build: **PASS**; both new recipes are present in the wheel's `data/recipes/`; installed clean environment lists `blender-optimize` and `blender-retopo-uv` and `--help` succeeds.
+- `blender-optimize` and `blender-retopo-uv` are deliberately fixed-argument runners: they expose only the documented operations and documented arguments; no arbitrary skill names, script paths or shell access.
+- `mesh-stats` budget is restricted to `mobile`, `roblox`, `web`, `vr`, `console`, `pc`; ratios and numeric inputs are validated before Blender starts. Mutation writes a new `.blend`, leaves the input unchanged and records the upstream JSON report in the asset.
+
 ## Installer and packaging
 
 - `Install.ps1` created a repo-local `.venv`, ran `doctor`, exited `0` at the 0.1.0 checkpoint.

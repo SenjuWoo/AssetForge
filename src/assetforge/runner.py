@@ -476,6 +476,130 @@ def _blender_skills_qa(ctx: Context) -> dict:
 
 
 
+def _param_float(ctx: Context, name: str, default: str) -> float:
+    raw = ctx.params.get(name, default)
+    try:
+        return float(str(raw).strip())
+    except ValueError as exc:
+        raise RunFailed(f"{name} must be a number, got {raw!r}") from exc
+
+
+def _res_margin_args(ctx: Context) -> list[str]:
+    res = int(ctx.params.get("res") or 2048)
+    margin = int(ctx.params.get("margin_px") or 8)
+    if not 64 <= res <= 8192:
+        raise RunFailed("res must be between 64 and 8192")
+    if not 0 <= margin <= 256:
+        raise RunFailed("margin_px must be between 0 and 256")
+    return ["--res", str(res), "--margin-px", str(margin)]
+
+
+def _blender_skills_run(ctx: Context) -> dict:
+    skills, blender, skills_dir = _blender_skills(ctx)
+    blend = _blender_blend(ctx)
+    recipe_id = str(ctx.recipe.get("id") or "")
+    operation = str(ctx.params.get("operation") or "").strip()
+    # Keep the runner surface explicit: each whitelisted operation maps to one
+    # upstream script and only its documented arguments.
+    operations = {
+        "blender-optimize": {
+            "mesh-stats": ("blender-game-optimization", "mesh_stats.py", False),
+            "make-lods": ("blender-game-optimization", "make_lods.py", True),
+        },
+        "blender-retopo-uv": {
+            "auto-retopo": ("blender-retopology-uv", "auto_retopo.py", True),
+            "uv-pack": ("blender-retopology-uv", "uv_pack.py", True),
+            "texel-density": ("blender-retopology-uv", "texel_density.py", bool(str(ctx.params.get("target") or "").strip())),
+        },
+    }
+    mapping = operations.get(recipe_id, {}).get(operation)
+    if mapping is None:
+        raise RunFailed(f"unsupported blender-skills operation for {recipe_id}: {operation}")
+    skill, script_name, mutating = mapping
+    script = skills_dir / skill / "scripts" / script_name
+    args = []
+    for item in str(ctx.params.get("objects") or "").split():
+        args.append(item)
+    if args:
+        args = ["--objects", *args]
+    if operation == "mesh-stats" and ctx.params.get("budget"):
+        args += ["--budget", str(ctx.params["budget"])]
+    result_blend = ctx.asset.path("outputs", f"blender-{operation}.blend") if mutating else None
+    if operation == "make-lods":
+        ratios = str(ctx.params.get("ratios") or "0.5 0.25").split()
+        try:
+            ratio_values = [float(item) for item in ratios]
+        except ValueError as exc:
+            raise RunFailed("ratios must be space-separated numbers between 0 and 1") from exc
+        if not ratio_values or any(not 0.0 < item < 1.0 for item in ratio_values):
+            raise RunFailed("ratios must be space-separated numbers between 0 and 1")
+        args += ["--ratios", *(str(item) for item in ratio_values)]
+        if ctx.params.get("symmetry"):
+            args.append("--symmetry")
+        if ctx.params.get("cleanup"):
+            args.append("--cleanup")
+        if ctx.params.get("rename"):
+            args.append("--rename")
+        if ctx.params.get("collection"):
+            args += ["--collection", str(ctx.params["collection"])]
+    elif operation == "auto-retopo":
+        method = (str(ctx.params.get("method") or "").strip() or "decimate")
+        if method not in {"quadriflow", "decimate", "planar"}:
+            raise RunFailed("method must be one of quadriflow, decimate, planar")
+        args += ["--method", method]
+        tris = _param_float(ctx, "tris", "10000")
+        if tris < 1:
+            raise RunFailed("tris must be at least 1")
+        args += ["--tris", str(int(tris))]
+        if str(ctx.params.get("voxel") or "").strip():
+            voxel = _param_float(ctx, "voxel", "0")
+            if voxel < 0:
+                raise RunFailed("voxel must be zero or positive")
+            args += ["--voxel", str(voxel)]
+        if ctx.params.get("symmetry"):
+            args.append("--symmetry")
+    elif operation == "uv-pack":
+        method = (str(ctx.params.get("method") or "").strip() or "smart")
+        if method not in {"smart", "seams", "min_stretch"}:
+            raise RunFailed("method must be one of smart, seams, min_stretch")
+        args += ["--method", method]
+        args += ["--angle", str(_param_float(ctx, "angle", "66"))]
+        if str(ctx.params.get("seams_from_sharp") or "").strip():
+            args += ["--seams-from-sharp", str(_param_float(ctx, "seams_from_sharp", "60"))]
+        args += _res_margin_args(ctx)
+        if ctx.params.get("lightmap"):
+            args.append("--lightmap")
+        args += ["--shape", str(ctx.params.get("shape") or "AABB")]
+    elif operation == "texel-density":
+        args += _res_margin_args(ctx)
+        if str(ctx.params.get("target") or "").strip():
+            target = _param_float(ctx, "target", "512")
+            if target <= 0:
+                raise RunFailed("target must be at least 1 px/m")
+            args += ["--set", str(target)]
+    if result_blend is not None:
+        args += ["--save", str(result_blend)]
+    data, _ = adapters.blender_skills_exec(
+        skills, blender, script, args, blend=blend,
+        timeout=float(ctx.params.get("timeout") or 300), cwd=ctx.project.root,
+    )
+    report = ctx.report(f"blender-{operation}.json", data)
+    if data.get("ok") is not True:
+        raise RunFailed(f"blender-skills {operation} reported failure: {data}")
+    ctx.validation.append({
+        "artifact": result_blend.name if result_blend else blend.name,
+        "id": "BLENDER-SKILL",
+        "status": "PASS",
+        "detail": f"{recipe_id} {operation}",
+    })
+    if result_blend is not None:
+        if not result_blend.is_file() or result_blend.stat().st_size < 1000:
+            raise RunFailed(f"blender-skills {operation} wrote no output .blend")
+        ctx.outputs["blend"] = result_blend
+        ctx.artifact(result_blend, "source", f"blender-{operation}")
+    return {"status": "PASS", "detail": f"{operation}; report {report.name}"}
+
+
 def _blender_skills_export(ctx: Context) -> dict:
     skills, blender, skills_dir = _blender_skills(ctx)
     blend = _blender_blend(ctx)
@@ -592,6 +716,7 @@ HANDLERS = {
     "blender.skills.material": _blender_skills_material,
     "blender.skills.qa": _blender_skills_qa,
     "blender.skills.export": _blender_skills_export,
+    "blender.skills.run": _blender_skills_run,
     "comfykit.detect": _comfykit_check,
     "comfykit.generate": _comfykit_generate,
     "comfykit.import": _comfykit_import,

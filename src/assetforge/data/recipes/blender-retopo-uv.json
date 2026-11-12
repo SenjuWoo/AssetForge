@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "id": "blender-retopo-uv",
+  "title": "Blender retopology and UVs",
+  "description": "Run a whitelisted blender-retopology-uv operation on an existing .blend file.",
+  "input": {"name": "blend", "kind": "file", "required": true},
+  "params": {
+    "operation": {"type": "string", "default": "uv-pack", "choices": ["auto-retopo", "uv-pack", "texel-density"]},
+    "objects": {"type": "string", "default": ""},
+    "method": {"type": "string", "default": ""},
+    "tris": {"type": "integer", "default": 10000},
+    "voxel": {"type": "string", "default": ""},
+    "symmetry": {"type": "boolean", "default": false},
+    "angle": {"type": "string", "default": "66.0"},
+    "seams_from_sharp": {"type": "string", "default": ""},
+    "res": {"type": "integer", "default": 2048},
+    "margin_px": {"type": "integer", "default": 8},
+    "lightmap": {"type": "boolean", "default": false},
+    "shape": {"type": "string", "default": "AABB", "choices": ["AABB", "CONVEX", "CONCAVE"]},
+    "target": {"type": "string", "default": ""},
+    "timeout": {"type": "integer", "default": 300}
+  },
+  "steps": ["blender.skills.run", "asset.record"]
+}
