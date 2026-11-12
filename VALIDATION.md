@@ -134,6 +134,7 @@ The current machine's Blender install reports **5.3.0** (previous verification e
 - Fresh wheel/sdist build: **PASS**; both new recipes are present in the wheel's `data/recipes/`; installed clean environment lists `blender-optimize` and `blender-retopo-uv` and `--help` succeeds.
 - `blender-optimize` and `blender-retopo-uv` are deliberately fixed-argument runners: they expose only the documented operations and documented arguments; no arbitrary skill names, script paths or shell access.
 - `mesh-stats` budget is restricted to `mobile`, `roblox`, `web`, `vr`, `console`, `pc`; ratios and numeric inputs are validated before Blender starts. Mutation writes a new `.blend`, leaves the input unchanged and records the upstream JSON report in the asset.
+- Commit `71b6903e1193a220ec23420a0bab0ed0ed2f1be9` pushed to `main`; hosted workflow `ci` run `43169849382` passed **7/7 jobs**. Security queries: **0** open Dependabot alerts, **0** open secret-scanning alerts; code-scanning is unavailable (`no analysis found`).
 
 ## Installer and packaging
 

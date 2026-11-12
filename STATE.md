@@ -2,9 +2,9 @@
 
 - **Version:** 0.2.0
 - **Milestone:** Phase 0 + Phase 1 MVP complete; Phase 2 image layer and img2threejs codegen complete; 0.1.0 and 0.2.0 published; blender-skills runner for optimization and retopo/UV verified locally
-- **Active task:** commit the whitelisted `blender-optimize` / `blender-retopo-uv` runner and run hosted CI; no new release until requested
-- **Current revision:** `69c229e6484d8de628815acb1e0478be981cb027` (pre-change HEAD)
-- **Last known-good:** `69c229e6484d8de628815acb1e0478be981cb027` (`v0.2.0` source)
+- **Active task:** choose the next milestone; `main` contains unreleased skill-runner changes and no new release has been cut
+- **Current revision:** `71b6903e1193a220ec23420a0bab0ed0ed2f1be9` (`Add whitelisted Blender skill runner`)
+- **Last known-good:** `71b6903e1193a220ec23420a0bab0ed0ed2f1be9` (main; CI `43169849382` passed 7/7)
 
 ## Completed
 
@@ -61,7 +61,7 @@ assetforge.cmd doctor
 
 ## Next action
 
-Commit the verified blender skill-runner work and run hosted CI on that exact commit. Do not publish a new release until the user asks. The old `d7b9d...` pointers above were historical and superseded by published `v0.2.0` (`69c229e...`).
+Choose whether to cut `0.3.0` or continue the post-release milestone first. Do not publish a release until the user asks. CI `43169849382` passed 7/7 for `71b6903e1193a220ec23420a0bab0ed0ed2f1be9`; security check found 0 Dependabot and 0 secret-scanning alerts, with code-scanning unavailable (`no analysis found`).
 
 ## Integration status
 
