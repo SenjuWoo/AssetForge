@@ -1,37 +1,31 @@
-# AssetForge 0.3.0 — Showcase and whitelisted Blender skill runner
+# AssetForge 0.3.1 — Game-ready mesh cap
 
-Adds a project-generated showcase for low-poly stylized games and the first whitelisted, reusable runner for upstream Blender skills.
+A generated GLB at sculpt density does not ship. `mesh-gameready` imports it in Blender, collapses it, shrinks the textures, and fails the job if the written file is over the triangle cap.
 
 ## Included
 
-- `enchanted-fire-sword.glb`: a project-owned low-poly showcase prop for stylized/Roblox-style game work, built entirely in Blender without third-party artwork.
-- Reproducible Blender generator for the GLB and preview PNG in `examples/`; CI now inspects the committed GLB.
-- Concept exploration for the showcase used comfy-kit / SwarmUI locally. The shipped GLB is procedural Blender geometry and has no dependency on generated reference images.
-- `blender-optimize`: whitelisted `blender-game-optimization` operations (`mesh-stats`, `make-lods`) with project-owned outputs.
-- `blender-retopo-uv`: whitelisted `blender-retopology-uv` operations (`auto-retopo`, `uv-pack`, `texel-density`) with validation and immutable input `.blend` behavior.
-- Generic `blender.skills.run`: documented operations only, with strict arguments and no arbitrary script paths.
-- All prior 0.2.0 image, GLB, export, comfy-kit, img2threejs and blender-skills functionality remains available.
+- Default budget `game`: 20,000 triangles and a 1024 texture. That is the Roblox MeshPart ceiling and the handheld-prop ceiling used here.
+- `hero`: 30,000 triangles and a 2048 texture. Close-up only. It is not a Roblox mesh.
+- `accessory`: 4,000 triangles and a 1024 texture. A Roblox accessory worn on an avatar.
+- A 700,000-triangle sculpt is rejected. This recipe has no 50,000-triangle budget.
+- `glb-optimize` still does not simplify. `blender-optimize` and `blender-retopo-uv` still need a `.blend`.
+- Guide: `docs/GAME-READY.md`.
+
+## One command
+
+```bat
+assetforge.cmd run mesh-gameready --input mesh=model.glb
+```
 
 ## Verified
 
-- Full suite with blender-skills available: **97 tests passed**, 2 skipped, 0 failed.
-- Full suite without blender-skills: **89 tests passed**, 4 skipped, 0 failed.
-- Showcase GLB SHA-256: `2d4c4635950ba63c7409cce9fbb31a0fdbb6b7441f8a5f92ad30820f369e33db`.
-- Showcase GLB: `21,856` triangles, `26,044` vertices, `12` materials, `830,584` bytes.
-- Showcase inspection/validation: `PASS=12`, `WARNING=0`, `FAIL=0`, `NOT_TESTED=1` (`GLB-013`, no skins/animations).
-- Regenerating the showcase GLB from the repository generator produced the same SHA-256.
+- One PBR prop went from 699,878 triangles and 61.5 MB to 17,000 triangles, 21,186 vertices, 6,192,808 bytes, and three 1024 maps.
+- Official glTF validator on that file: 0 errors, 0 warnings. No skins or animations, so that check was not applicable.
+- Engine import was not run.
+- Hosted CI has no Blender, so the Blender pass skips there. It runs in the local suite when Blender is installed.
 
 ## Boundaries
 
-- Roblox Studio and Godot imports were not run. The Roblox-style showcase is an asset fit, not proof of engine import; engine integration remains `NOT_TESTED`.
-- Showcase geometry is intentionally stylized low-poly work, not photoreal or hand-sculpted AAA modeling.
-- The showcase has no rigging, skinning, animation, audio or VFX simulation.
-- Blender integration tests are skipped in hosted CI because hosted CI has no Blender installation.
-- comfy-kit remains an optional external owner; AssetForge does not install models or edit its configuration.
-
-## Requirements
-
-- Python 3.10 or newer; CI covers Python 3.12–3.14.
-- Pillow is optional but recommended for image recipes.
-- Blender and blender-skills are optional and independently installed.
-- All external tools and model weights are optional.
+- Roblox Studio, Unity, Godot, and Unreal imports were not run.
+- The cap is one prop mesh. It does not guess a full-character budget.
+- Blender is optional and independently installed.

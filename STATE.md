@@ -1,9 +1,9 @@
 # State
 
 - **Version:** 0.3.1
-- **Milestone:** 0.3.1 local: `mesh-gameready` hard triangle cap. Not published.
-- **Active task:** none. Do not publish until asked.
-- **Current revision:** uncommitted 0.3.1 on `9027141dc5680a29ed4d7d4745bc551a04647e72`
+- **Milestone:** 0.3.1: `mesh-gameready` hard triangle cap
+- **Active task:** publish 0.3.1 from the green main commit
+- **Current revision:** 0.3.1 on main, ahead of the published `v0.3.0`
 - **Last known-good:** `9027141dc5680a29ed4d7d4745bc551a04647e72` (`main`; CI `43170035309` passed 7/7)
 
 ## Completed
@@ -64,7 +64,7 @@ assetforge.cmd doctor
 
 ## Next action
 
-Leave 0.3.1 unpublished until a publish is requested. The game-ready gate is local.
+Tag `v0.3.1` on the green main SHA and publish `AssetForge-0.3.1.zip`. Guide: `docs/GAME-READY.md`.
 
 ## Integration status
 
