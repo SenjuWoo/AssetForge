@@ -39,7 +39,7 @@ Exit codes: `0` ok, `2` usage or recipe error, `3` missing project/asset/job, `4
 |---|---|---|---|
 | Blender (`blender`) | `mesh-convert`, `mesh-gameready`, `blender-sample`, every `blender.skills.*` step | modelling, rigging and rendering by script: `blender --background --python make.py` | ask the user to install Blender, or set `BLENDER_EXE` |
 | Godot 4 (`godot`) | `engine-check` | running a project or its tests headless: `godot --headless --path PROJECT --import` | ask to install Godot 4, or set `GODOT_EXE` |
-| FFmpeg (`ffmpeg`, `ffprobe`) | nothing yet | preview or turntable video from rendered frames (`ffmpeg -framerate 24 -i frame_%04d.png -pix_fmt yuv420p out.mp4`), audio conversion, reading media facts with `ffprobe` | ask to install FFmpeg, or set `FFMPEG_EXE` |
+| FFmpeg (`ffmpeg`, `ffprobe`) | `teardown-film` video encoding | preview or turntable video from rendered frames (`ffmpeg -framerate 24 -i frame_%04d.png -pix_fmt yuv420p out.mp4`), audio conversion, reading media facts with `ffprobe` | ask to install FFmpeg, or set `FFMPEG_EXE` |
 | ImageMagick (`magick`) | nothing yet | formats Pillow does not write (DDS, EXR), contact sheets (`magick montage`), resizing and atlases in one command | ask to install ImageMagick, or set `MAGICK_EXE` |
 | Node.js | glTF-Transform, the Khronos validator | | `Install.ps1` reports it |
 | Pillow | image recipes, atlases, PBR packing | | installed with AssetForge |

@@ -1,13 +1,14 @@
 # State
 
-- **Version:** 0.5.1
-- **Milestone:** 0.5.1: providers current (blender-skills 1.3.0, img2threejs 2.0.1)
+- **Version:** 0.6.0
+- **Milestone:** 0.6.0: teardown simulator pages and films; providers current
 - **Active task:** none
-- **Current revision:** 0.5.1 on main
-- **Last known-good:** tag `v0.5.0`
+- **Current revision:** 0.6.0 on main
+- **Last known-good:** tag `v0.5.1`
 
 ## Completed
 
+- teardown (0.6.0, 2026-11-13): `teardown-build` and `teardown-film` recipes, provider detection, `PAGE-001`/`VIDEO-001` validation. Upstream `a91262a` cloned beside the other provider clones with `npm ci`; the old candidate snapshots were retired. The upstream V8 example built and filmed through AssetForge on Windows.
 - Provider recheck (0.5.1, 2026-11-13): blender-skills v1.3.0 and img2threejs v2.0.1 installed as clones in a declared tool root, each upstream suite run (69/69 on Blender 5.3.0; 1,416 img2threejs tests, 0 failures, 3 Windows symlink errors), AssetForge suite 144 OK / 2 skipped with every provider present, real pipeline/probe/codegen/engine-check runs. blender-skills is now found in tool roots and reports its release version; img2threejs reports its version; a wrong provider variable is reported instead of bypassed; pipeline `.blend1` backups removed; CI Actions v7 plus Dependabot. Companion tools evaluated in `docs/UPSTREAM-EVALUATIONS.md`.
 - `engine-check` (0.5.0): Godot 4 headless imports a GLB, then loads and instantiates it. On 2026-11-12 Godot 4.7.2 passed the showcase sword (61 meshes) and the test triangle and failed a non-GLB file. Rendering is not tested.
 - Godot, FFmpeg and ImageMagick detection (0.5.0) with a stated purpose each; FFmpeg and ImageMagick are not called by any recipe.
@@ -82,4 +83,4 @@ None queued. Candidates: Roblox Studio import evidence; a Unity import check (MC
 - Ultimate AI Starter Bundle: proposal only; no bundle file modified.
 - comfy-kit: recommended free local texture-generation companion; read-only delegation, verified generation and import; no owner files modified.
 - blender-skills: recommended optional Blender skills provider; read-only catalog and delegation; tested v1.3.0 (`3e481ad`) on Blender 5.3.0; optimization/retopo/UV runner verified on the current Blender 5.3.0 installation; no upstream files modified.
-- img2threejs/teardown candidate checkouts: inspected and documented; not vendored, modified or deleted.
+- img2threejs and teardown: provider Git clones (v2.0.1, `a91262a`); the earlier candidate snapshots matched upstream and were retired to the Recycle Bin on 2026-11-13.

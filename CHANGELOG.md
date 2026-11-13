@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0 — 2026-11-13
+
+- Add `teardown-build`: a teardown simulator folder (main.js and its imports) becomes one offline HTML page through upstream [teardown](https://github.com/elvarofficial/teardown), with three.js and fonts inlined. The folder is copied into the asset with its layout; links are refused and the copy is capped at 2,000 files / 512 MiB. A folder of sims takes `--set entry=NAME`, which is how upstream's own pages import their shared parts.
+- Add `teardown-film`: the page rendered frame by frame in headless Chromium to an MP4 (encoded with the FFmpeg AssetForge found) or, with `stills`, to a labelled review sheet. `to`, `fps`, `size` and `stills` are checked before anything runs. `TEARDOWN-RENDER` passes only when frames were rendered; `TEARDOWN-VISUAL` stays `NOT_TESTED` until someone looks.
+- teardown is a detected provider (`TEARDOWN_ROOT`, standard skill folders, declared tool roots). It is available only after `npm install` in its checkout, and a missing Chromium is reported with the command that installs it.
+- `validate` checks pages and videos: `PAGE-001` (one file, has a script, loads nothing from the network) and `VIDEO-001` (a real MP4 container). A page-only asset no longer fails `ASSET-001`.
+- `capabilities` lists `teardown-build` and `teardown-film` instead of the planned `teardown-simulation`; FFmpeg is now used by a recipe.
+
 ## 0.5.1 — 2026-11-13
 
 - Providers brought up to date and re-verified: blender-skills **v1.3.0** (Blender 5.3 support; upstream validation and 69/69 headless tests pass on Blender 5.3.0) and img2threejs **v2.0.1** (upstream suite has no assertion failures; probe and codegen recipes succeed). glTF-Transform 4.5.1 and gltf-validator 2.0.0-dev.3.10 are already the latest releases.

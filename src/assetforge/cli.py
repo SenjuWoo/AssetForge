@@ -123,8 +123,7 @@ def cmd_doctor(args) -> int:
     return 0 if not failed else 1
 
 
-def cmd_capabilities(args) -> int:
-    project = Project.find()
+def capabilities_payload(project=None) -> dict:
     now = {item["id"]: item for item in providers.detect(project)}
     capabilities = [
         {"id": "image-processing", "status": "IMPLEMENTED", "provider": "pillow", "available": now["pillow"]["available"]},
@@ -147,19 +146,25 @@ def cmd_capabilities(args) -> int:
         {"id": "export-roblox", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED"},
         {"id": "export-godot", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED", "note": "run `assetforge engine-check <file.glb>` for a real Godot import"},
         {"id": "godot-import-check", "status": "IMPLEMENTED", "provider": "godot", "available": now["godot"]["available"], "note": "headless import and load; rendering is not tested"},
-        {"id": "ffmpeg", "status": "DETECTED_ONLY", "provider": "ffmpeg", "available": now["ffmpeg"]["available"], "note": "no recipe calls it yet"},
+        {"id": "teardown-build", "status": "IMPLEMENTED", "provider": "teardown", "available": now["teardown"]["available"], "note": "a sim folder becomes one offline HTML page; it is not a game-engine asset"},
+        {"id": "teardown-film", "status": "IMPLEMENTED", "provider": "teardown", "available": now["teardown"]["available"] and now["ffmpeg"]["available"], "note": "frame-accurate mp4 or a review sheet rendered in headless Chromium; visual quality is not judged"},
+        {"id": "ffmpeg", "status": "IMPLEMENTED", "provider": "ffmpeg", "available": now["ffmpeg"]["available"], "note": "teardown-film encodes through it"},
         {"id": "imagemagick", "status": "DETECTED_ONLY", "provider": "imagemagick", "available": now["imagemagick"]["available"], "note": "no recipe calls it yet"},
         {"id": "export-generic", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED"},
         {"id": "ai-3d-providers", "status": "PLANNED"},
         {"id": "rig-deformation-preview", "status": "PLANNED"},
-        {"id": "teardown-simulation", "status": "PLANNED"},
         {"id": "graphite-integration", "status": "PLANNED"},
         {"id": "mcp-server", "status": "PLANNED"},
     ]
+    return {"schema": 1, "version": __version__, "capabilities": capabilities}
+
+
+def cmd_capabilities(args) -> int:
+    payload = capabilities_payload(Project.find())
     if args.json:
-        print(json.dumps({"schema": 1, "version": __version__, "capabilities": capabilities}, indent=2))
+        print(json.dumps(payload, indent=2))
     else:
-        for item in capabilities:
+        for item in payload["capabilities"]:
             extra = " available" if item.get("available") else ""
             print(f"{item['status']:<12} {item['id']:<28}{extra}")
     return 0

@@ -7,6 +7,7 @@ asset was imported into an engine; that check is always NOT_TESTED here.
 
 from __future__ import annotations
 
+import re
 import shutil
 from pathlib import Path
 
@@ -76,17 +77,44 @@ def _primary_image(asset: Asset) -> tuple[Path, bool]:
     raise ExportError("asset has no image artifact to export")
 
 
+EXTERNAL_REFERENCE = re.compile(r"""<(?:script|link|img)\b[^>]*\b(?:src|href)\s*=\s*["']?(?:https?:)?//""", re.I)
+
+
+def _presentation_check(asset: Asset, item: dict) -> dict:
+    """A page must open offline as one file; a video must be a real MP4.
+    Neither check says anything about how it looks."""
+    try:
+        path = asset.resolve_artifact(item["path"])
+    except Exception as exc:
+        return {"id": "ASSET-002", "status": "FAIL", "detail": str(exc)}
+    if item["role"] == "video":
+        head = path.read_bytes()[:12]
+        if head[4:8] != b"ftyp":
+            return {"id": "VIDEO-001", "status": "FAIL", "detail": "not an MP4 container (no ftyp box)"}
+        return {"id": "VIDEO-001", "status": "PASS", "detail": f"MP4 container, {path.stat().st_size} bytes; playback not reviewed"}
+    text = path.read_text(encoding="utf-8", errors="replace")
+    if "<script" not in text.lower():
+        return {"id": "PAGE-001", "status": "FAIL", "detail": "page has no script; it is not a built simulator"}
+    external = EXTERNAL_REFERENCE.search(text)
+    if external:
+        return {"id": "PAGE-001", "status": "FAIL", "detail": f"page loads from the network ({external.group(0)[:60]}); it will not open offline"}
+    return {"id": "PAGE-001", "status": "PASS", "detail": f"single offline page, {path.stat().st_size} bytes; rendering not reviewed"}
+
+
 def validate_asset(project: Project, asset: Asset) -> dict:
     checks: list[dict] = []
     meshes = [item for item in asset.manifest.get("artifacts", []) if item.get("role") == "mesh" or item.get("path", "").lower().endswith(".glb")]
     image_items = _image_artifacts(asset)
-    if not meshes and not image_items:
+    presentation = [item for item in asset.manifest.get("artifacts", []) if item.get("role") in ("page", "video")]
+    if not meshes and not image_items and not presentation:
         checks.append({
             "artifact": None,
             "id": "ASSET-001",
             "status": "FAIL",
-            "detail": "asset has no mesh or image artifact; source-only artifacts such as Three.js TypeScript remain editable intermediates and are not exported",
+            "detail": "asset has no mesh, image, page or video artifact; source-only artifacts such as Three.js TypeScript remain editable intermediates and are not exported",
         })
+    for item in presentation:
+        checks.append({"artifact": item["path"], **_presentation_check(asset, item)})
     for item in meshes:
         try:
             path = asset.resolve_artifact(item["path"])

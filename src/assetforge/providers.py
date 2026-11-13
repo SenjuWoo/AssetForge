@@ -22,6 +22,7 @@ MARKERS = {
     "comfy-kit": ("TOOLS/image-stack.ps1", "presets/presets.json"),
     "img2threejs": ("SKILL.md", "forge/stage1_intake/probe_image.py"),
     "blender-skills": ("skills/blender-core/SKILL.md", "skills/blender-asset-qa/SKILL.md"),
+    "teardown": ("SKILL.md", "paths.mjs", "sims/build.mjs"),
 }
 
 
@@ -522,7 +523,7 @@ def detect(project=None) -> list[dict]:
         "path": str(ffmpeg_path) if ffmpeg_path else None,
         "reason": "" if ffmpeg_path else "ffmpeg is not on PATH; set FFMPEG_EXE or install it",
         "capabilities": ["media.convert", "media.frames_to_video", "audio.convert"],
-        "use": "not called by a recipe yet; an agent uses it for turntable or preview video from rendered frames and for audio conversion",
+        "use": "teardown-film encodes its video through it; an agent also uses it for turntable or preview video from rendered frames and for audio conversion",
     })
 
     magick_path, magick_version = _probe_version(
@@ -540,7 +541,53 @@ def detect(project=None) -> list[dict]:
         "use": "not called by a recipe yet; an agent uses it for formats Pillow does not write (DDS, EXR), contact sheets and atlases",
     })
 
+    providers.append(_teardown(project, home, node))
+
     return providers
+
+
+def _teardown(project, home: Path, node: str | None) -> dict:
+    """teardown runs from its own checkout with its own npm dependencies
+    (three, esbuild, playwright). AssetForge only calls its build and capture
+    scripts; it never runs `npm install` for it."""
+    root = find_owner(
+        "teardown",
+        project,
+        defaults=(home / ".claude" / "skills" / "teardown", home / ".agents" / "skills" / "teardown"),
+        env="TEARDOWN_ROOT",
+    )
+    reason = ""
+    version = None
+    revision = None
+    if root is None:
+        reason = explicit_problem("teardown", "TEARDOWN_ROOT") or (
+            "teardown was not found; clone https://github.com/elvarofficial/teardown into a tool root "
+            "and run `npm install` in it, or set TEARDOWN_ROOT"
+        )
+    else:
+        try:
+            version = read_json(root / "package.json").get("version")
+        except (OSError, ValueError, AttributeError):
+            version = None
+        revision = blenderskills.revision(root)
+        missing = [name for name in ("esbuild", "three") if not (root / "node_modules" / name / "package.json").is_file()]
+        if missing:
+            reason = f"teardown dependencies are not installed ({', '.join(missing)}); run `npm install` in {root}"
+        elif not node:
+            reason = "Node.js is not on PATH; teardown runs on Node 20 or newer"
+    return {
+        "id": "teardown",
+        "title": "teardown (machine simulator pages)",
+        "kind": "skill",
+        "available": root is not None and not reason,
+        "version": version,
+        "path": str(root) if root else None,
+        "reason": reason,
+        "capabilities": ["presentation.page", "presentation.video", "presentation.review_sheet"],
+        "use": "teardown-build bundles a simulator folder into one offline HTML page; teardown-film renders it to mp4 "
+               "or a review sheet in headless Chromium (Playwright's browser, installed by `npx playwright install chromium` in the checkout)",
+        "details": {"revision": revision, "license": "MIT"},
+    }
 
 
 def get(provider_id: str, project=None) -> dict:

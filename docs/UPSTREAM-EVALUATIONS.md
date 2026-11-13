@@ -5,7 +5,7 @@ Checked against upstream repository metadata on **2026-11-08**; integrated provi
 | Project | License | Status | Decision |
 | --- | --- | --- | --- |
 | [img2threejs](https://github.com/img2threejs/img2threejs) | Apache-2.0 | v2.0.1, revision `0c0c49b`, tested 2026-11-13 | Optional **technical probe** and **deterministic spec-to-Three.js codegen** adapters. Its core produces procedural Three.js source under an agent workflow; that is not a portable game-ready mesh. Image-to-spec reconstruction and review gates remain agent-driven. |
-| [teardown](https://github.com/elvarofficial/teardown) | MIT | Active, inspected; head `a91262a` (2026-10-31), no tagged release | Specialized simulation/presentation module, **planned**. Its offline HTML/video output stays separate from engine mesh export. |
+| [teardown](https://github.com/elvarofficial/teardown) | MIT | head `a91262a` (2026-10-31), no tagged release; tested 2026-11-13 | **Integrated (0.6.0)** as `teardown-build` and `teardown-film`: simulator pages and films, kept separate from engine meshes. Previously planned. |
 | [image-js](https://github.com/image-js/image-js) | MIT | Active | Not integrated. Pillow covers the MVP image operations; image-js remains a Node-side option. |
 | [Graphite](https://github.com/GraphiteEditor/Graphite) | Apache-2.0 | Alpha, active | **Planned** manual/interchange integration. No verified headless automation contract; no invented CLI. |
 | [Blender](https://www.blender.org/) | GPL-2.0-or-later (Blender Foundation) | Optional external | **Integrated and executed** with Blender 5.2.3 LTS and again with 5.3.0 (2026-11-13): background smoke, procedural build, material, QA, export, conversion and game-ready collapse. Runs as an external process; AssetForge does not link or redistribute Blender. |
@@ -47,7 +47,7 @@ Checked against upstream repository metadata on **2026-11-08**; integrated provi
 
 ## Candidate checkout status
 
-The external `img2threejs` and `teardown` candidate checkouts were inspected, not copied. Their capabilities and limits are documented above. They are not vendored, modified or deleted by AssetForge. The img2threejs probe and deterministic code generator are wired through external-path adapters; image-to-spec reconstruction remains agent-driven. Teardown and Graphite remain planned.
+The external `img2threejs` and `teardown` candidate snapshots were compared with upstream on 2026-11-13: both matched (img2threejs = v2.0.1, teardown = `a91262a`) and were replaced by the Git clones AssetForge now uses as providers. Before that they were inspected, not copied. Their capabilities and limits are documented above. They are not vendored, modified or deleted by AssetForge. The img2threejs probe and deterministic code generator are wired through external-path adapters; image-to-spec reconstruction remains agent-driven. Teardown and Graphite remain planned.
 
 ## 2026-11-13 recheck: providers and new companion tools
 
@@ -59,6 +59,7 @@ Integrated providers were compared with their upstream releases and each update 
 | img2threejs | v1.5.1 era | **v2.0.1** `0c0c49b` | upstream 1,416 tests, no assertion failures (3 Windows symlink-privilege fixture errors, 64 skipped); `img2threejs-probe` and `img2threejs-codegen` recipes succeed | **Updated.** Probe and generator keep the command lines the adapters call. |
 | glTF-Transform CLI | 4.5.1 | 4.5.1 | npm latest | No change. |
 | gltf-validator | 2.0.0-dev.3.10 | 2.0.0-dev.3.10 | npm latest | No change. |
+| teardown | candidate snapshot | `a91262a` (no tagged release) | `npm ci`; upstream examples built and filmed through AssetForge; review sheet inspected | **Integrated in 0.6.0** as `teardown-build` / `teardown-film`. |
 | GitHub Actions | checkout v4, setup-python v5 | checkout v7, setup-python v7 | release notes reviewed; the removed `pip-install` input is not used | **Updated**; Dependabot now proposes Actions updates monthly. |
 
 Companion tools reviewed for AssetForge. Upstream versions were read from each project's own repository on 2026-11-13. None is vendored.

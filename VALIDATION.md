@@ -4,7 +4,15 @@ Verified working tree: 0.3.0 release candidate based on `9027141dc5680a29ed4d7d4
 
 Environment: Windows 11, Python 3.14.10, Node 26.13.0, Pillow 13.0.0, jsonschema 4.x, glTF-Transform 4.5.1, Khronos glTF Validator installed locally in `.tools`, current Blender reports 5.3.0. The project works without any optional provider.
 
-## 0.5.1 provider recheck — 2026-11-13
+## 0.6.0 teardown — 2026-11-13
+
+Environment: Windows 11, Node 26.13.1, teardown `a91262ac1109051e014662d42ecb0b7bc1f113b1` with `npm ci` (Playwright 1.58.2, esbuild 0.28.1, three 0.186.1), Chromium 145.0.7632.6 and its headless shell, FFmpeg 9.0.2, NVIDIA RTX 4080 SUPER through ANGLE/D3D11.
+
+- Full suite: `python -m unittest discover -s tests` → **157 tests OK, 2 skipped** (Blender installed; no symlink privilege).
+- `test_teardown`: 13 tests. The stub-provider tests cover detection, the missing `npm install` reason, a wrong `TEARDOWN_ROOT`, copying a sim with its layout, entry selection (refusing `../` and unknown names), parameter checks and exit codes. The real-provider tests built upstream `v8-live` through `teardown-build` (page over 100 KB), rendered `v8-film` to an MP4 (`ftyp` box) through `teardown-film`, wrote a review sheet with every frame recorded as an artifact, and showed that filming a `-live` page fails with a message naming the film page.
+- CLI run: `teardown-film --input <teardown>/sims --set entry=strandbeest-film --set stills=1,4,7,10` → `SUCCEEDED`; the 1740x540 sheet was opened and shows four labelled frames of the walking machine. `validate` → `PAGE-001 PASS`.
+- `npx playwright install chromium` stalled during extraction twice; the official archives (7-Zip integrity test passed for both: Chromium 308 files, headless shell) were extracted by hand into the folders Playwright names. Capture then launched Chromium and reported the GPU.
+
 
 Environment: Windows 11, Python 3.14.10, Node 26.13.1, Blender 5.3.0 (Steam), Godot 4.7.2, glTF-Transform 4.5.1, gltf-validator 2.0.0-dev.3.10.
 
@@ -205,5 +213,6 @@ A fresh clone of the committed source was installed into a new virtual environme
 | Godot import | No editor session was run. |
 | img2threejs image-to-spec reconstruction | Upstream workflow is agent-driven; only the technical probe and deterministic spec-to-Three.js codegen are automated. |
 | img2threejs compilation/render/fidelity | Generated TypeScript is stored as an editable intermediate; it was not compiled, rendered or converted to a game-ready mesh. |
-| AI 3D, rigging, MCP, teardown, Graphite | Planned, not implemented. |
+| AI 3D, rigging, MCP, Graphite | Planned, not implemented. |
+| teardown visual quality | Frames are rendered, not reviewed; `TEARDOWN-VISUAL` stays `NOT_TESTED`. |
 | Windows symlink-escape test | Skipped without symlink privilege; policy logic is covered by absolute/`../`/missing tests and runs on Linux CI. |

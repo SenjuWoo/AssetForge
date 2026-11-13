@@ -6,6 +6,8 @@ pipeline, marks the job FAILED and leaves the asset folder for inspection.
 
 from __future__ import annotations
 
+import os
+import re
 import shutil
 from pathlib import Path
 
@@ -13,7 +15,7 @@ from . import adapters, gameready, images, official, providers
 from .glb import GlbError, compare_glb, inspect_glb, validate_glb
 from .recipes import RecipeError, asset_name
 from .store import Asset, Job, Project, StoreError
-from .util import human_bytes, now_iso, write_json
+from .util import human_bytes, now_iso, sha256_file, write_json
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tga"}
 MESH_SUFFIXES = {".glb"}
@@ -781,6 +783,184 @@ def _img2threejs_codegen(ctx: Context) -> dict:
     return {"status": "PASS", "detail": f"generated {human_bytes(target.stat().st_size)} of TypeScript"}
 
 
+# A teardown sim is a small code folder; these caps stop a mistaken input such
+# as a whole drive or a node_modules tree from being copied into the project.
+TEARDOWN_MAX_FILES = 2000
+TEARDOWN_MAX_BYTES = 512 * 1024 * 1024
+TEARDOWN_SKIP = {"node_modules", "teardown-out", "__pycache__"}
+STILLS = re.compile(r"^(?:\d+(?:\.\d+)?(?:,\d+(?:\.\d+)?){0,23}|every:\d+(?:\.\d+)?)$")
+SIZE = re.compile(r"^(\d{2,4})x(\d{2,4})$")
+ENTRY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+
+def _teardown_entry(ctx: Context, source: Path) -> str:
+    """Which folder holds the page's main.js. Upstream's own layout keeps the
+    page in `<machine>-live` and imports `../<machine>-shared`, so the whole
+    input is copied and the entry is one folder inside it."""
+    entry = str(ctx.params.get("entry") or "").strip()
+    if entry:
+        if not ENTRY.match(entry):
+            raise RunFailed("entry must be the name of one folder directly inside the input")
+        if not (source / entry / "main.js").is_file():
+            raise RunFailed(f"no main.js in {source / entry}")
+        return entry
+    if (source / "main.js").is_file():
+        return ""
+    found = sorted(child.name for child in source.iterdir() if child.is_dir() and (child / "main.js").is_file())
+    if len(found) == 1:
+        return found[0]
+    if not found:
+        raise RunFailed(f"a teardown sim is a folder with main.js; none in {source} or its folders")
+    raise RunFailed(f"{source} holds several sims ({', '.join(found)}); choose one with --set entry=NAME")
+
+
+def _teardown_copy_sim(ctx: Context, source: Path) -> Path:
+    """Copy the sim folder into the asset with its layout intact, so relative
+    imports and bundled .glb files still resolve. Links are refused."""
+    target = ctx.asset.path("inputs", source.name)
+    files: list[Path] = []
+    total = 0
+    for folder, dirs, names in os.walk(source, followlinks=False):
+        here = Path(folder)
+        dirs[:] = sorted(name for name in dirs if name not in TEARDOWN_SKIP and not name.startswith("."))
+        for name in dirs:
+            if (here / name).is_symlink():
+                raise RunFailed(f"teardown sim contains a link, which is not copied: {here / name}")
+        for name in sorted(names):
+            path = here / name
+            if path.is_symlink():
+                raise RunFailed(f"teardown sim contains a link, which is not copied: {path}")
+            files.append(path)
+            total += path.stat().st_size
+            if len(files) > TEARDOWN_MAX_FILES or total > TEARDOWN_MAX_BYTES:
+                raise RunFailed(
+                    f"teardown sim is larger than {TEARDOWN_MAX_FILES} files or {human_bytes(TEARDOWN_MAX_BYTES)}; "
+                    "pass the folder that holds main.js"
+                )
+    inputs = ctx.asset.manifest.setdefault("inputs", [])
+    for path in files:
+        relative = path.relative_to(source)
+        copy = target / relative
+        copy.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, copy)
+        inputs.append({
+            "path": ctx.asset.relative(copy),
+            "name": f"{source.name}/{relative.as_posix()}",
+            "kind": "teardown-sim",
+            "bytes": copy.stat().st_size,
+            "sha256": sha256_file(copy),
+        })
+    ctx.asset.save()
+    ctx.job.data.setdefault("sources", {})["teardown_sim"] = {
+        "original": str(source.resolve()),
+        "files": len(files),
+        "bytes": total,
+        "input": ctx.asset.relative(target),
+    }
+    return target
+
+
+def _teardown_build(ctx: Context) -> dict:
+    provider = _provider(ctx, "teardown")
+    node = _provider(ctx, "node")
+    source = ctx.input("source")
+    if not source.is_dir():
+        raise RunFailed(f"teardown input is not a folder: {source}")
+    entry = _teardown_entry(ctx, source)
+    copied = _teardown_copy_sim(ctx, source)
+    sim = copied / entry if entry else copied
+    out = ctx.asset.path("outputs", "teardown")
+    try:
+        page, _ = adapters.teardown_build(
+            Path(node["path"]), Path(provider["path"]), sim, out, timeout=float(ctx.params.get("timeout") or 300)
+        )
+    except adapters.AdapterError as exc:
+        raise RunFailed(str(exc)) from exc
+    # The page and anything the build placed beside it (external models,
+    # decoders listed in <name>.assets.json) are the deliverable.
+    for path in sorted((out / "dist").rglob("*")):
+        if path.is_file():
+            ctx.artifact(path, "page" if path == page else "page-asset", path.name)
+    ctx.asset.set_primary("page", page)
+    ctx.outputs.update({"page": page, "teardown_out": out, "teardown_name": sim.name})
+    ctx.validation.append({
+        "artifact": page.name, "id": "TEARDOWN-BUILD", "status": "PASS",
+        "detail": f"{human_bytes(page.stat().st_size)} single-file page from {sim.name}/main.js",
+    })
+    ctx.validation.append({
+        "artifact": page.name, "id": "TEARDOWN-RENDER", "status": "NOT_TESTED",
+        "detail": "bundled, not opened in a browser; teardown-film renders it",
+    })
+    return {"status": "PASS", "detail": f"{page.name} {human_bytes(page.stat().st_size)}"}
+
+
+def _teardown_capture_args(ctx: Context) -> tuple[list[str], str]:
+    args: list[str] = []
+    size = str(ctx.params.get("size") or "1080x1350").strip()
+    match = SIZE.match(size)
+    if not match or not all(16 <= int(value) <= 3840 for value in match.groups()):
+        raise RunFailed("size must be WIDTHxHEIGHT with each side 16-3840 CSS px")
+    args += ["--size", size]
+    fps = int(ctx.params.get("fps") or 30)
+    if not 1 <= fps <= 120:
+        raise RunFailed("fps must be 1-120")
+    args += ["--fps", str(fps)]
+    end = str(ctx.params.get("to") or "").strip()
+    if end:
+        try:
+            seconds = float(end)
+        except ValueError as exc:
+            raise RunFailed("to must be a number of seconds") from exc
+        if not 0 < seconds <= 600:
+            raise RunFailed("to must be more than 0 and at most 600 seconds")
+        args += ["--to", end]
+    stills = str(ctx.params.get("stills") or "").strip()
+    if stills:
+        if not STILLS.match(stills):
+            raise RunFailed("stills must be a comma list of seconds (at most 24) or every:<step>")
+        args += ["--stills", stills, "--cols", str(min(4, max(1, stills.count(",") + 1)))]
+    return args, ("png" if stills else "mp4")
+
+
+def _teardown_capture(ctx: Context) -> dict:
+    provider = _provider(ctx, "teardown")
+    node = _provider(ctx, "node")
+    args, kind = _teardown_capture_args(ctx)
+    ffmpeg = _provider(ctx, "ffmpeg")["path"] if kind == "mp4" else None
+    page = ctx.outputs.get("page")
+    if not page:
+        raise RunFailed("teardown.capture needs teardown.build first")
+    name = ctx.outputs["teardown_name"]
+    target = ctx.asset.path("outputs", f"{name}-sheet.png" if kind == "png" else f"{name}.mp4")
+    try:
+        result = adapters.teardown_capture(
+            Path(node["path"]), Path(provider["path"]), name, ctx.outputs["teardown_out"], target, args,
+            ffmpeg=ffmpeg, timeout=float(ctx.params.get("timeout") or 1800),
+        )
+    except adapters.AdapterError as exc:
+        raise RunFailed(str(exc)) from exc
+    gpu = next((line.strip() for line in result["stdout"].splitlines() if line.startswith("gpu:")), "")
+    role = "preview" if kind == "png" else "video"
+    ctx.artifact(target, role, target.name)
+    # A review sheet comes with its full-size frames in `<sheet>-frames/`.
+    frames = target.with_name(target.stem + "-frames")
+    if kind == "png" and frames.is_dir():
+        for frame in sorted(frames.glob("*.png")):
+            ctx.artifact(frame, "preview-frame", f"{frames.name}/{frame.name}")
+    ctx.asset.set_primary(role, target)
+    ctx.validation = [item for item in ctx.validation if item["id"] != "TEARDOWN-RENDER"]
+    ctx.validation.append({
+        "artifact": target.name, "id": "TEARDOWN-RENDER", "status": "PASS",
+        "detail": f"rendered in headless Chromium to {target.name} ({human_bytes(target.stat().st_size)})"
+                  + (f"; {gpu}" if gpu else ""),
+    })
+    ctx.validation.append({
+        "artifact": target.name, "id": "TEARDOWN-VISUAL", "status": "NOT_TESTED",
+        "detail": "frames were rendered, not reviewed; open the file before calling it finished",
+    })
+    return {"status": "PASS", "detail": f"{target.name} {human_bytes(target.stat().st_size)}"}
+
+
 def _asset_record(ctx: Context) -> dict:
     ctx.asset.manifest["provenance"]["versions"] = providers.tool_versions(ctx.project)
     ctx.asset.manifest["provenance"]["seed"] = ctx.params.get("seed")
@@ -814,6 +994,8 @@ HANDLERS = {
     "comfykit.import": _comfykit_import,
     "img2threejs.probe": _img2threejs_probe,
     "img2threejs.codegen": _img2threejs_codegen,
+    "teardown.build": _teardown_build,
+    "teardown.capture": _teardown_capture,
     "asset.record": _asset_record,
 }
 

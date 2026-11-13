@@ -56,7 +56,7 @@ Status values are strict: **VERIFIED** (executed with evidence), **IMPLEMENTED /
 | P2-08 | Imported `.blend` QA recipe | VERIFIED |
 | P3-01 | TripoSR image-to-3D provider, isolated environment | PLANNED |
 | P3-02 | Rigging validation interfaces and UniRig adapter | PLANNED |
-| P3-03 | teardown simulation/presentation module | PLANNED |
+| P3-03 | teardown simulation/presentation module | VERIFIED (0.6.0: `teardown-build`, `teardown-film`) |
 | P4-01 | Additional export profiles (Unity, Unreal, web, Skyrim) | PLANNED |
 | P4-02 | MCP server over the same service layer | PLANNED |
 | P4-03 | Remote GPU execution | PLANNED |

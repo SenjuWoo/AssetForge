@@ -32,7 +32,7 @@ AssetForge is built around one priority: a genuine reference-image → 3D → en
 
 ## Priority 4 — simulation, editing and animation
 
-- Teardown: optional mechanical simulation and presentation output, separate from game-engine meshes.
+- **Done (0.6.0):** Teardown simulator pages and films (`teardown-build`, `teardown-film`), separate from game-engine meshes.
 - Graphite: documented manual/interchange workflow; no invented headless CLI.
 - Rigging validation and UniRig after the core mesh path is stable.
 
@@ -45,7 +45,7 @@ AssetForge is built around one priority: a genuine reference-image → 3D → en
 ## Explicitly not done
 
 - img2threejs image-to-spec reconstruction and visual approval.
-- Teardown builds, Graphite automation and real engine imports.
+- Graphite automation and Roblox/Unity engine imports.
 - AI 3D generation, rigging, MCP and batch/remote GPU support.
 
 Those items stay marked as planned or unverified until executed with recorded evidence.

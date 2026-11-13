@@ -128,6 +128,8 @@ The concept exploration for this prop was generated locally through the comfy-ki
 | `comfy-import` | Copy newest images from a comfy-kit output folder. |
 | `img2threejs-probe` | Run the external img2threejs technical image probe. |
 | `img2threejs-codegen` | Generate an editable Three.js factory from an ObjectSculptSpec through upstream img2threejs. |
+| `teardown-build` | Bundle a teardown machine simulator into one offline HTML page. |
+| `teardown-film` | Render a teardown simulator to MP4, or to a labelled review sheet, in headless Chromium. |
 
 Every recipe writes a job record under `.assetforge/jobs/` with per-step status, errors and tool versions. Assets keep copied inputs, a JSON manifest, relative artifact paths and provenance. A manifest-defined primary artifact decides what gets exported.
 
@@ -162,8 +164,11 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | img2threejs reconstruction | PLANNED | Image-to-spec review gates remain agent-driven |
 | Roblox / Godot / generic export | VERIFIED packaging | Mesh and texture-only packages; the export itself runs no engine, so its engine import stays `NOT_TESTED` |
 | Godot import check | VERIFIED | `engine-check`: Godot 4.7.2 headless imports the GLB, then loads and instantiates it; rendering and playback are not tested |
-| FFmpeg, ImageMagick | DETECTED | Reported by `doctor` and `providers` with version and purpose; no recipe calls them yet |
-| AI 3D providers, rig deformation preview, MCP, teardown, Graphite | PLANNED | Not implemented yet |
+| teardown simulator page | VERIFIED | Upstream example bundled through `teardown-build`; page opens offline (`PAGE-001`) |
+| teardown film | VERIFIED | Upstream example rendered to MP4 in headless Chromium through `teardown-film`; visual review stays `NOT_TESTED` |
+| FFmpeg | USED | `teardown-film` encodes through it; `doctor` reports version and purpose |
+| ImageMagick | DETECTED | Reported by `doctor` and `providers` with version and purpose; no recipe calls it yet |
+| AI 3D providers, rig deformation preview, MCP, Graphite | PLANNED | Not implemented yet |
 
 `VERIFIED` means the behaviour was executed with recorded evidence. `IMPLEMENTED / UNVERIFIED` means code exists but the real integration was not exercised. A successful export is not proof that an asset works inside the target engine.
 
@@ -180,6 +185,7 @@ AssetForge detects providers without installing or reconfiguring them.
 | blender-skills | Recommended Blender skills catalog, QA and export | Blender steps exit with code `4` |
 | comfy-kit | Free local texture generation (recommended companion) | `comfy-generate` exits with code `4` |
 | img2threejs | Technical image probe and spec-to-Three.js codegen | `img2threejs-probe` / `img2threejs-codegen` exit with code `4` |
+| teardown | Offline simulator pages and their films | `teardown-build` / `teardown-film` exit with code `4` |
 
 Detection paths and environment variables are documented in [docs/PROVIDERS.md](docs/PROVIDERS.md).
 

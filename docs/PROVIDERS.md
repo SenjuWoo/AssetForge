@@ -123,6 +123,25 @@ Update with `git -C blender-skills fetch --tags` and check out the new tag, then
 - Used by: `img2threejs-probe` (technical image probe) and `img2threejs-codegen` (deterministic ObjectSculptSpec to Three.js TypeScript).
 - Full reference-image reconstruction is an agent-driven upstream workflow and is **not** automated by AssetForge.
 
+## teardown
+
+- Kind: external skill checkout with its own npm dependencies.
+- Upstream: [elvarofficial/teardown](https://github.com/elvarofficial/teardown), MIT. Built on claude-motion (MIT); its recorded samples are CC0.
+- Tested revision: `a91262ac1109051e014662d42ecb0b7bc1f113b1` (package 1.0.0; upstream has no tagged release), Node 26, Playwright 1.58.2 with its Chromium 145 build, FFmpeg 9.0.2, on Windows (2026-11-13).
+- Detect: `TEARDOWN_ROOT`, project `integrations.teardown`, `~/.claude/skills/teardown`, `~/.agents/skills/teardown`, or a checkout under a declared tool root. Required markers: `SKILL.md`, `paths.mjs` and `sims/build.mjs`. The checkout is available only after `npm install` (AssetForge checks `node_modules/esbuild` and `node_modules/three`); AssetForge never runs npm for it. A set variable that points at the wrong folder is reported, never bypassed.
+- Install:
+
+```bash
+git clone https://github.com/elvarofficial/teardown
+cd teardown
+npm install
+npx playwright install chromium
+```
+
+- If `npx playwright install chromium` downloads but never finishes extracting (seen twice with Playwright 1.58.2 on Node 26 on Windows), stop it, run `npx playwright install --dry-run chromium` for the folder and archive URL, extract the archive there with 7-Zip, and create empty `INSTALLATION_COMPLETE` and `DEPENDENCIES_VALIDATED` files in that folder. Do the same for `chromium-headless-shell`, which headless capture uses.
+- Used by: `teardown-build` (`node sims/build.mjs <sim>` with `TEARDOWN_OUT` inside the asset) and `teardown-film` (`node sims/capture.mjs <entry> --out <file> ...`, with `FFMPEG` set to the FFmpeg AssetForge found). Every write lands in the asset; the checkout is only read.
+- Evidence limits: a build proves the bundle, a film proves Chromium rendered the frames. Neither judges how the machine looks.
+
 ## Godot
 
 - Kind: external application, headless.

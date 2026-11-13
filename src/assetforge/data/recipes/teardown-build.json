@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "id": "teardown-build",
+  "title": "Bundle a teardown simulator into one offline page",
+  "description": "Copies a teardown sim folder (main.js and its imports) into the asset and bundles it with upstream teardown into a single HTML page with three.js and fonts inlined. The page is a presentation deliverable, not a game-engine asset. Pass a sim folder with main.js, or a folder of sims with --set entry=NAME when the page imports sibling folders.",
+  "input": {
+    "name": "source",
+    "kind": "directory",
+    "required": true
+  },
+  "params": {
+    "entry": {
+      "type": "string",
+      "default": ""
+    },
+    "timeout": {
+      "type": "integer",
+      "default": 300
+    }
+  },
+  "steps": [
+    "teardown.build",
+    "asset.record"
+  ]
+}

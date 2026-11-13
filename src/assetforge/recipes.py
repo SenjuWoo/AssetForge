@@ -34,6 +34,8 @@ STEP_NAMES = {
     "comfykit.import",
     "img2threejs.probe",
     "img2threejs.codegen",
+    "teardown.build",
+    "teardown.capture",
     "asset.record",
 }
 

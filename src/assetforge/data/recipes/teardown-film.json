@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "id": "teardown-film",
+  "title": "Render a teardown simulator to video or a review sheet",
+  "description": "Builds the sim page, then renders it frame by frame in headless Chromium through upstream teardown: an mp4 encoded with FFmpeg, or a labelled review sheet when stills is set. Pass a sim folder with main.js, or a folder of sims with --set entry=NAME when the page imports sibling folders.",
+  "input": {
+    "name": "source",
+    "kind": "directory",
+    "required": true
+  },
+  "params": {
+    "entry": {
+      "type": "string",
+      "default": ""
+    },
+    "to": {
+      "type": "string",
+      "default": ""
+    },
+    "fps": {
+      "type": "integer",
+      "default": 30
+    },
+    "size": {
+      "type": "string",
+      "default": "1080x1350"
+    },
+    "stills": {
+      "type": "string",
+      "default": ""
+    },
+    "timeout": {
+      "type": "integer",
+      "default": 1800
+    }
+  },
+  "steps": [
+    "teardown.build",
+    "teardown.capture",
+    "asset.record"
+  ]
+}

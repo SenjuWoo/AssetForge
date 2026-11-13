@@ -277,6 +277,40 @@ assetforge run img2threejs-codegen --input object-sculpt-spec.json
 
 Requires an installed img2threejs owner with `forge/stage3_build/generate_threejs_factory.py`. Missing provider exits `4`; a generator failure is a failed job, not a partial success.
 
+## `teardown-build`
+
+Bundles a teardown simulator into one offline HTML page through upstream [teardown](https://github.com/elvarofficial/teardown): three.js and fonts are inlined, so the file opens from disk. The page is a presentation deliverable (a machine you can take apart on screen), not a game-engine asset, and `export` does not package it.
+
+```bash
+assetforge run teardown-build --input my-machine            # a folder with main.js
+assetforge run teardown-build --input sims --set entry=pump-live
+```
+
+- Input: a folder with `main.js`, or a folder of sims plus `entry=NAME` when the page imports sibling folders (upstream's own layout: `pump-live` imports `../pump-shared`). The whole input is copied into the asset with its layout; links are refused and the copy is capped at 2,000 files / 512 MiB.
+- Output: `outputs/teardown/dist/<entry>.html` (primary `page`), plus any files the build places beside it.
+- Evidence: `TEARDOWN-BUILD PASS` with the page size; `TEARDOWN-RENDER NOT_TESTED` because the page was not opened. `validate` adds `PAGE-001`: one file with a script and no network loads.
+
+## `teardown-film`
+
+Builds the page, then renders it frame by frame in headless Chromium with upstream `sims/capture.mjs`: an MP4 encoded with FFmpeg, or a labelled review sheet.
+
+```bash
+assetforge run teardown-film --input sims --set entry=pump-film --set to=8 --set fps=30
+assetforge run teardown-film --input my-machine --set stills=0,2,4,6
+```
+
+| Parameter | Default | Meaning |
+| --- | --- | --- |
+| `entry` | | sim folder inside the input, as for `teardown-build` |
+| `to` | the sim's own duration | seconds to render (up to 600) |
+| `fps` | `30` | 1-120 |
+| `size` | `1080x1350` | layout in CSS px; each side 16-3840 |
+| `stills` | | a comma list of seconds (up to 24) or `every:<step>`; writes `<entry>-sheet.png` instead of a video |
+
+- The entry must be a film page: one built on the kit runtime that publishes `window.SIM` (upstream's `<machine>-film`). A `-live` page is driven by hand and fails with a message saying so.
+- Needs teardown's Chromium (`npx playwright install chromium` in the teardown checkout) and, for video, FFmpeg.
+- Evidence: `TEARDOWN-RENDER PASS` names the file and the GPU Chromium reported; `TEARDOWN-VISUAL NOT_TESTED` until someone has looked at it. `validate` adds `VIDEO-001` (a real MP4 container).
+
 ## Custom recipes
 
 ```json

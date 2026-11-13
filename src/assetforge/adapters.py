@@ -321,3 +321,63 @@ def blender_skills_exec(provider: dict, blender: dict, script: Path, args: list[
     if data.get("ok") is False:
         raise AdapterError(f"blender-skills script failed: {data.get('error') or data}")
     return data, result
+
+
+def _tail(result: dict, size: int = 800) -> str:
+    return (result.get("stderr") or result.get("stdout") or "")[-size:]
+
+
+def teardown_build(node: Path, root: Path, sim_dir: Path, out_dir: Path, timeout: float = 300) -> tuple[Path, dict]:
+    """Bundle one teardown sim folder (main.js plus its imports) into a single
+    offline HTML page with upstream `sims/build.mjs`. TEARDOWN_OUT keeps every
+    write inside the asset; the teardown checkout is only read."""
+    script = root / "sims" / "build.mjs"
+    if not script.is_file():
+        raise AdapterError(f"teardown build script is missing: {script}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    command = [str(node), str(script), str(sim_dir)]
+    result = run(command, timeout=timeout, cwd=out_dir, env={"TEARDOWN_OUT": str(out_dir)})
+    result["command"] = command
+    if result.get("timed_out"):
+        raise AdapterError(f"teardown build timed out after {timeout:g}s")
+    if result["returncode"] != 0:
+        raise AdapterError(f"teardown build exited {result['returncode']}: {_tail(result)}")
+    page = out_dir / "dist" / f"{sim_dir.name}.html"
+    if not page.is_file() or page.stat().st_size < 1000:
+        raise AdapterError(f"teardown build reported success but wrote no page at {page.name}")
+    return page, result
+
+
+def teardown_capture(node: Path, root: Path, name: str, out_dir: Path, target: Path, args: list[str],
+                     ffmpeg: str | None = None, timeout: float = 1800) -> dict:
+    """Render a built sim with upstream `sims/capture.mjs` in headless Chromium:
+    an mp4 when `target` ends in .mp4, a labelled review sheet for .png."""
+    script = root / "sims" / "capture.mjs"
+    if not script.is_file():
+        raise AdapterError(f"teardown capture script is missing: {script}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    env = {"TEARDOWN_OUT": str(out_dir)}
+    if ffmpeg:
+        env["FFMPEG"] = ffmpeg
+    command = [str(node), str(script), name, "--out", str(target), *args]
+    result = run(command, timeout=timeout, cwd=out_dir, env=env)
+    result["command"] = command
+    if result.get("timed_out"):
+        raise AdapterError(f"teardown capture timed out after {timeout:g}s")
+    if result["returncode"] != 0:
+        output = (result.get("stdout") or "") + (result.get("stderr") or "")
+        if "Executable doesn't exist" in output:
+            raise AdapterError(
+                "Playwright's Chromium is not installed for teardown; run `npx playwright install chromium` "
+                f"in {root}"
+            )
+        if "waitForFunction" in output and "Timeout" in output:
+            # Upstream `-live` pages are driven by hand and never publish window.SIM.
+            raise AdapterError(
+                "the page never reported window.SIM.ready; teardown-film needs a film page "
+                "(upstream's `<machine>-film`, built on the kit runtime), not a `-live` page"
+            )
+        raise AdapterError(f"teardown capture exited {result['returncode']}: {_tail(result)}")
+    if not target.is_file() or target.stat().st_size < 1000:
+        raise AdapterError(f"teardown capture reported success but wrote no {target.suffix} file")
+    return result
