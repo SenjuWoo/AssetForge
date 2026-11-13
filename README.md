@@ -95,7 +95,7 @@ assetforge.cmd export ASSET --target godot
 
 `blender-pipeline` builds a procedural crate, applies an upstream PBR preset, runs the **mandatory** `blender-asset-qa` gate, writes random/wire review sheets, exports GLB through upstream `blender-export-pipelines`, optimizes it and validates it. A QA error or unaccepted warning fails the job before delivery. Rendering the review sheets is not visual approval: `BLENDER-QA-VISUAL` stays `NOT_TESTED` until an explicit `--set visual_review=approved --set approval_note="..."` records the inspection. `blender-qa` applies the same gate to an existing `.blend`. `blender-optimize` and `blender-retopo-uv` expose the mesh-statistics, LOD generation, retopology, UV packing and texel-density scripts on an existing `.blend`; mutating operations write a new `.blend` artifact and leave the input untouched.
 
-Blender 5.2+ is required. `BLENDER_EXE` selects the executable; detection also checks `PATH`, Blender Foundation folders and the Steam install. Blender MCP is optional and not required; every step runs headless.
+Blender 5.2+ is required. `BLENDER_EXE` selects the executable; detection also checks `PATH`, the Blender Foundation folders, the uninstall registry, every Steam library and a portable copy under a declared tool root. Blender MCP is optional and not required; every step runs headless.
 
 Upstream was tested at revision `389f28addc79b87b28764898e38e7bf408d14b77` (v1.2.0) with Blender 5.2.3. AssetForge reports the detected revision but never updates upstream automatically. Installation, Hermes `skills.external_dirs` setup, routing and the tested evidence are in [docs/PROVIDERS.md](docs/PROVIDERS.md).
 

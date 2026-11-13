@@ -1,32 +1,23 @@
-# AssetForge 0.4.0 — Any mesh in, checked rig out
+# AssetForge 0.4.1 — Blender is found where it is
 
-Point AssetForge at whatever you were handed. It now tells you what the file is, converts it if it is not a GLB, and checks the parts that break in an engine: the rig, the materials and the textures inside the file.
+A maintenance release for one failure: Blender was installed and AssetForge, or the agent driving it, could not find it.
 
 ## Included
 
-- `assetforge probe PATH` looks at a file or a folder without a project and prints the recipe commands that fit, with the numbers behind the choice.
-- `mesh-convert` turns FBX, OBJ, STL, PLY, glTF, USD, Alembic and `.blend` into one validated GLB through Blender, keeping rigs, skin weights and animations.
-- Rig validation is real: joints, inverse bind matrices, skin weights and animation channels are checked for consistency.
-- Material validation: dangling material, texture and image references fail; a textured surface with no UV set is flagged.
-- Texture budgets now measure textures embedded in the GLB.
+- Blender detection reads every Steam library, the Windows uninstall registry, the Blender Foundation folders and a portable copy under a declared tool root. `BLENDER_EXE` still selects one explicitly.
+- A `blender.bat` that starts a Hermes profile named `blender` is skipped instead of being started as if it were Blender.
+- A missing Blender is reported with the places that were searched and the variable that fixes it.
 
-## Start here
+## Unchanged
 
-```bat
-assetforge.cmd probe model.fbx
-assetforge.cmd run mesh-convert --input model.fbx
-assetforge.cmd export <asset> --target roblox --dry-run
-```
+Everything in 0.4.0: `assetforge probe`, `mesh-convert`, rig, material and texture validation, embedded texture budgets.
 
 ## Verified
 
-- A rigged, animated FBX and an OBJ with its `.mtl` were converted with Blender 5.3 from a folder whose name has a space, `!`, parentheses and an accented letter. The rigged result kept 1 skin, 2 joints and a 1-second animation, passed the structural rig check, and the official glTF validator reported 0 errors.
-- The new checks are covered by fixtures built from bytes: broken inverse bind counts, missing weights, out-of-range joint indices, mismatched animation keys, dangling materials and oversized embedded textures each fail or warn as documented.
-- Hosted CI has no Blender, so the conversion tests skip there and run in the local suite.
+- The full suite on Windows with Blender 5.3 installed through Steam and not on PATH.
+- `assetforge doctor --json` reports Blender available at its Steam path with no `BLENDER_EXE` set.
 
-## Boundaries
+## Not verified
 
-- A passing rig check means the data is consistent. Nothing renders the deformation.
-- `mesh-gameready` still drops animations and now says so in the job.
-- Roblox Studio, Unity, Godot and Unreal imports were not run.
-- Collada (`.dae`) depends on the Blender build; recent builds no longer ship that importer.
+- Linux and macOS discovery beyond `BLENDER_EXE` and PATH; the registry and Steam library lookups are Windows-only.
+- Engine import of any exported asset. Validation and export are file checks.

@@ -71,6 +71,64 @@ class ProviderTests(unittest.TestCase):
             self.assertTrue(item["available"])
             self.assertEqual(item["version"], "4.2.0")
 
+    def test_a_profile_wrapper_named_blender_is_never_probed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = Path(tmp) / "blender.bat"
+            wrapper.write_text("@echo off\r\nhermes -p blender %*\r\n", encoding="utf-8")
+            real = Path(tmp) / "blender.cmd"
+            real.write_text("@echo off\r\necho Blender 4.2.0\r\n", encoding="utf-8")
+            self.assertTrue(providers._is_profile_wrapper(wrapper))
+            self.assertFalse(providers._is_profile_wrapper(real))
+            saved = {name: os.environ.pop(name, None) for name in ("BLENDER_EXE", "BLENDER")}
+            which = providers.shutil.which
+            providers.shutil.which = lambda name: str(wrapper) if name == "blender" else which(name)
+            try:
+                self.assertNotIn(wrapper, providers.blender_candidates())
+                os.environ["BLENDER_EXE"] = str(wrapper)
+                self.assertNotIn(wrapper, providers.blender_candidates())
+            finally:
+                providers.shutil.which = which
+                os.environ.pop("BLENDER_EXE", None)
+                for name, value in saved.items():
+                    if value is not None:
+                        os.environ[name] = value
+
+    def test_blender_is_found_in_a_declared_tool_root_and_the_variable_wins(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            portable = Path(tmp) / "tools" / "blender-5.2-windows-x64" / "blender.exe"
+            portable.parent.mkdir(parents=True)
+            portable.write_bytes(b"")
+            chosen = Path(tmp) / "mine" / "blender.exe"
+            chosen.parent.mkdir()
+            chosen.write_bytes(b"")
+            saved = {name: os.environ.pop(name, None) for name in ("BLENDER_EXE", "BLENDER", "ASSETFORGE_ROOTS")}
+            os.environ["ASSETFORGE_ROOTS"] = str(Path(tmp) / "tools")
+            try:
+                self.assertIn(portable, providers.blender_candidates())
+                os.environ["BLENDER_EXE"] = str(chosen)
+                self.assertEqual(providers.blender_candidates()[0], chosen)
+            finally:
+                for name in ("BLENDER_EXE", "ASSETFORGE_ROOTS"):
+                    os.environ.pop(name, None)
+                for name, value in saved.items():
+                    if value is not None:
+                        os.environ[name] = value
+
+    def test_a_missing_blender_says_where_it_looked(self):
+        saved = {name: os.environ.pop(name, None) for name in ("BLENDER_EXE", "BLENDER")}
+        original = providers.blender_candidates
+        providers.blender_candidates = lambda project=None: []
+        try:
+            item = providers.get("blender")
+        finally:
+            providers.blender_candidates = original
+            for name, value in saved.items():
+                if value is not None:
+                    os.environ[name] = value
+        self.assertFalse(item["available"])
+        self.assertIn("BLENDER_EXE", item["reason"])
+        self.assertIn("Steam", item["reason"])
+
     def test_missing_provider_reports_reason(self):
         with tempfile.TemporaryDirectory() as tmp:
             old = os.environ.get("IMG2THREEJS_ROOT")

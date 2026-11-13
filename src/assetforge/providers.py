@@ -112,6 +112,106 @@ def _tree_size_files(root: Path, limit: int = 5000) -> int:
     return count
 
 
+def _is_profile_wrapper(path: Path) -> bool:
+    """A `blender.bat` that starts a Hermes profile is not Blender.
+
+    Hermes writes one wrapper per profile, named after the profile, into a folder
+    on PATH. Probing it would start a chat client and wait for the timeout.
+    """
+    if path.suffix.lower() not in (".bat", ".cmd"):
+        return False
+    try:
+        if path.stat().st_size > 2048:
+            return False
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return bool(re.search(r"(?im)^\s*@?\s*hermes(?:\.exe)?\s+-p\s+\S+", text))
+
+
+def _steam_libraries() -> list[Path]:
+    """Every Steam library on this PC, not only the default one."""
+    if os.name != "nt":
+        return []
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam") as key:
+            steam = Path(str(winreg.QueryValueEx(key, "SteamPath")[0]))
+    except (OSError, ImportError):
+        return []
+    libraries = [steam]
+    try:
+        text = (steam / "steamapps" / "libraryfolders.vdf").read_text(encoding="utf-8", errors="replace")
+        libraries += [Path(match.replace("\\\\", "\\")) for match in re.findall(r'"path"\s+"([^"]+)"', text)]
+    except OSError:
+        pass
+    return libraries
+
+
+def _uninstall_locations(pattern: str) -> list[Path]:
+    """Install folders the Windows uninstall registry records for a product."""
+    if os.name != "nt":
+        return []
+    try:
+        import winreg
+    except ImportError:
+        return []
+    found = []
+    for hive, sub in ((winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+                      (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
+                      (winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall")):
+        try:
+            root = winreg.OpenKey(hive, sub)
+        except OSError:
+            continue
+        with root:
+            for index in range(winreg.QueryInfoKey(root)[0]):
+                try:
+                    with winreg.OpenKey(root, winreg.EnumKey(root, index)) as key:
+                        name = str(winreg.QueryValueEx(key, "DisplayName")[0])
+                        where = str(winreg.QueryValueEx(key, "InstallLocation")[0]).strip('"')
+                except OSError:
+                    continue
+                if where and re.search(pattern, name, re.I):
+                    found.append(Path(where))
+    return found
+
+
+BLENDER_SEARCHED = ("BLENDER_EXE, BLENDER, PATH, the Blender Foundation folders, the uninstall registry, "
+                    "every Steam library and the declared tool roots")
+
+
+def blender_candidates(project=None) -> list[Path]:
+    """Where Blender may be, most explicit first. Nothing is run here."""
+    candidates: list[Path] = []
+
+    def add(value) -> None:
+        if not value:
+            return
+        path = Path(value)
+        if path not in candidates and not _is_profile_wrapper(path):
+            candidates.append(path)
+
+    add(_env_path("BLENDER_EXE"))
+    add(_env_path("BLENDER"))
+    add(shutil.which("blender"))
+    for variable in ("ProgramFiles", "LOCALAPPDATA"):
+        base = os.environ.get(variable)
+        if base:
+            folder = Path(base) / ("Programs" if variable == "LOCALAPPDATA" else "") / "Blender Foundation"
+            for found in sorted(folder.glob("*/blender.exe"), reverse=True):
+                add(found)
+    for folder in _uninstall_locations(r"^blender\b"):
+        add(folder / "blender.exe")
+    for library in _steam_libraries():
+        add(library / "steamapps" / "common" / "Blender" / "blender.exe")
+    for root in _declared_roots(project):
+        for pattern in ("blender*/blender.exe", "*/blender*/blender.exe", "*/*/blender*/blender.exe"):
+            for found in sorted(root.glob(pattern), reverse=True):
+                add(found)
+    return candidates
+
+
 def _blender_version(path: Path) -> tuple[str | None, str]:
     result = run([path, "--version"], timeout=25)
     combined = f"{result.get('stdout', '')}\n{result.get('stderr', '')}"
@@ -242,24 +342,11 @@ def detect(project=None) -> list[dict]:
         "capabilities": ["glb.validate.official"],
     })
 
-    candidates = []
-    for value in (_env_path("BLENDER_EXE"), _env_path("BLENDER"), shutil.which("blender")):
-        if value:
-            candidate = Path(value)
-            if candidate not in candidates:
-                candidates.append(candidate)
-    for pattern in (
-        Path("C:/Program Files/Blender Foundation").glob("Blender */blender.exe"),
-        (local / "Programs" / "Blender Foundation").glob("Blender */blender.exe"),
-        Path("C:/Program Files (x86)/Steam/steamapps/common/Blender").glob("blender.exe"),
-    ):
-        for candidate in pattern:
-            if candidate not in candidates:
-                candidates.append(candidate)
+    candidates = blender_candidates(project)
 
     blender_path = None
     blender_version = None
-    blender_reason = "Blender is not installed or not on PATH"
+    blender_reason = "Blender was not found (looked at " + BLENDER_SEARCHED + "); set BLENDER_EXE to blender.exe"
     for candidate in candidates:
         if not candidate.is_file():
             continue

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1 — 2026-11-12
+
+- Blender is found wherever it was installed: every Steam library (not only the default one), the folder the Windows uninstall registry records, the Blender Foundation folders under any `ProgramFiles`, and a portable copy under a declared tool root (`ASSETFORGE_ROOTS`, the profile's tool roots, a project's integration roots). `BLENDER_EXE` still wins.
+- A `blender.bat` that starts a Hermes profile is no longer probed as Blender. Hermes writes one wrapper per profile, named after the profile, into a folder on PATH; a profile called `blender` made the doctor start a chat client and wait out the timeout before it tried the real program.
+- When Blender is missing the doctor says where it looked and names `BLENDER_EXE`, instead of "not installed or not on PATH".
+
 ## 0.4.0 — 2026-11-12
 
 - Add `assetforge probe PATH`: inspect a file or a folder before any project exists. It reports the facts that decide a pipeline (triangles, vertices, texture sizes, rig, animations, how the mesh sits against each export budget) and prints the exact recipe commands that fit. It writes nothing.

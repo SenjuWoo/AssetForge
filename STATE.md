@@ -1,13 +1,14 @@
 # State
 
-- **Version:** 0.4.0
+- **Version:** 0.4.1
 - **Milestone:** 0.4.0: source probe, mesh conversion, rig/material/texture validation
 - **Active task:** none
-- **Current revision:** 0.4.0 on main
-- **Last known-good:** tag `v0.3.1`
+- **Current revision:** 0.4.1 on main
+- **Last known-good:** tag `v0.4.0`
 
 ## Completed
 
+- Blender discovery (0.4.1): Steam libraries, uninstall registry, tool roots; a Hermes profile wrapper named `blender` is skipped. Proven on 2026-11-12 with Steam Blender 5.3 that was not on PATH.
 - `probe` (0.4.0): read-only routing for a file or folder; prints the recipe commands that fit and the numbers behind them.
 - `mesh-convert` (0.4.0): FBX/OBJ/STL/PLY/glTF/USD/Alembic/`.blend` to GLB through Blender. On 2026-11-12 a rigged, animated FBX (1 skin, 2 joints, 1 s animation) and an OBJ with `.mtl` converted with Blender 5.3.0 from a folder named with a space, `!`, parentheses and an accented letter; official glTF validator 0 errors.
 - `GLB-013` rig/animation, `GLB-015` material/UV and `GLB-016` transform checks (0.4.0); embedded texture sizes decoded and budgeted.
