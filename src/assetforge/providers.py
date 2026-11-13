@@ -7,6 +7,7 @@ are reported with a reason and a capability list, never silently replaced.
 
 from __future__ import annotations
 
+import glob
 import importlib.metadata
 import os
 import re
@@ -212,6 +213,57 @@ def blender_candidates(project=None) -> list[Path]:
     return candidates
 
 
+def _program_candidates(env_names, names, patterns=(), extra=()) -> list[Path]:
+    """Places a command-line program may be, most explicit first. Nothing is run."""
+    found: list[Path] = []
+
+    def add(value) -> None:
+        if value:
+            path = Path(value)
+            if path not in found and not _is_profile_wrapper(path):
+                found.append(path)
+
+    for name in env_names:
+        add(_env_path(name))
+    for name in names:
+        add(shutil.which(name))
+    for pattern in patterns:
+        expanded = os.path.expandvars(pattern)
+        if "%" in expanded or "$" in expanded:
+            continue        # the variable is not set on this system
+        # A console build prints to the terminal; prefer it, then the newest name.
+        for hit in sorted(glob.glob(expanded), key=lambda item: ("console" in item.lower(), item), reverse=True):
+            add(hit)
+    for value in extra:
+        add(value)
+    return found
+
+
+def _probe_version(candidates, args, pattern):
+    """(path, version) of the first candidate whose own output names a version."""
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        result = run([candidate, *args], timeout=25)
+        match = re.search(pattern, f"{result.get('stdout', '')}\n{result.get('stderr', '')}")
+        if match:
+            return candidate, match.group(1)
+    return None, None
+
+
+def godot_candidates(project=None) -> list[Path]:
+    extra = [library / "steamapps" / "common" / "Godot Engine" / "godot.windows.opt.tools.64.exe"
+             for library in _steam_libraries()]
+    for root in _declared_roots(project):
+        for pattern in ("godot*/Godot*.exe", "*/godot*/Godot*.exe"):
+            extra += sorted(root.glob(pattern), key=lambda item: ("console" in item.name.lower(), item.name), reverse=True)
+    return _program_candidates(
+        ("GODOT_EXE", "GODOT", "GODOT4"), ("godot", "godot4"),
+        (r"%LOCALAPPDATA%\Microsoft\WinGet\Packages\GodotEngine.GodotEngine*\Godot*.exe",
+         r"%LOCALAPPDATA%\Programs\Godot\Godot*.exe", r"%ProgramFiles%\Godot\Godot*.exe"),
+        extra)
+
+
 def _blender_version(path: Path) -> tuple[str | None, str]:
     result = run([path, "--version"], timeout=25)
     combined = f"{result.get('stdout', '')}\n{result.get('stderr', '')}"
@@ -414,6 +466,52 @@ def detect(project=None) -> list[dict]:
         "path": str(img2) if img2 else None,
         "reason": "" if img2 else "img2threejs was not found; install it with npx or set IMG2THREEJS_ROOT",
         "capabilities": ["image.probe", "image.reconstruct.agent"],
+    })
+
+    godot_path, godot_version = _probe_version(godot_candidates(project), ["--version"], r"(\d+\.\d+(?:\.\d+)?)")
+    providers.append({
+        "id": "godot",
+        "title": "Godot 4 (headless)",
+        "kind": "application",
+        "available": godot_path is not None,
+        "version": godot_version,
+        "path": str(godot_path) if godot_path else None,
+        "reason": "" if godot_path else ("Godot 4 was not found (looked at GODOT_EXE, GODOT, PATH, the winget package folder, "
+                                         "the Godot install folders, Steam and the declared tool roots); set GODOT_EXE"),
+        "capabilities": ["godot.import_check", "godot.headless"],
+        "use": "engine-check: import a GLB into a throwaway Godot project and load it",
+    })
+
+    ffmpeg_path, ffmpeg_version = _probe_version(
+        _program_candidates(("FFMPEG_EXE", "FFMPEG"), ("ffmpeg",),
+                            (r"%LOCALAPPDATA%\Microsoft\WinGet\Links\ffmpeg.exe",
+                             r"%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg*\*\bin\ffmpeg.exe",
+                             r"%ProgramFiles%\ffmpeg\bin\ffmpeg.exe")), ["-version"], r"ffmpeg version (\S+)")
+    providers.append({
+        "id": "ffmpeg",
+        "title": "FFmpeg",
+        "kind": "cli",
+        "available": ffmpeg_path is not None,
+        "version": ffmpeg_version,
+        "path": str(ffmpeg_path) if ffmpeg_path else None,
+        "reason": "" if ffmpeg_path else "ffmpeg is not on PATH; set FFMPEG_EXE or install it",
+        "capabilities": ["media.convert", "media.frames_to_video", "audio.convert"],
+        "use": "not called by a recipe yet; an agent uses it for turntable or preview video from rendered frames and for audio conversion",
+    })
+
+    magick_path, magick_version = _probe_version(
+        _program_candidates(("MAGICK_EXE", "MAGICK"), ("magick",),
+                            (r"%ProgramFiles%\ImageMagick-*\magick.exe",)), ["-version"], r"ImageMagick (\d+\.\d+\.\d+(?:-\d+)?)")
+    providers.append({
+        "id": "imagemagick",
+        "title": "ImageMagick",
+        "kind": "cli",
+        "available": magick_path is not None,
+        "version": magick_version,
+        "path": str(magick_path) if magick_path else None,
+        "reason": "" if magick_path else "magick is not on PATH; set MAGICK_EXE or install it",
+        "capabilities": ["image.convert.formats", "image.montage", "image.dds"],
+        "use": "not called by a recipe yet; an agent uses it for formats Pillow does not write (DDS, EXR), contact sheets and atlases",
     })
 
     return providers

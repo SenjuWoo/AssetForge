@@ -13,7 +13,7 @@ import re
 import sys
 from pathlib import Path
 
-from . import __version__, exporters, images, providers
+from . import __version__, adapters, exporters, images, providers
 from . import blenderskills
 from . import probe as probe_lib
 from . import recipes as recipe_lib
@@ -145,7 +145,10 @@ def cmd_capabilities(args) -> int:
         {"id": "img2threejs-codegen", "status": "IMPLEMENTED", "provider": "img2threejs", "available": now["img2threejs"]["available"]},
         {"id": "img2threejs-reconstruction", "status": "PLANNED", "provider": "img2threejs", "available": False},
         {"id": "export-roblox", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED"},
-        {"id": "export-godot", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED"},
+        {"id": "export-godot", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED", "note": "run `assetforge engine-check <file.glb>` for a real Godot import"},
+        {"id": "godot-import-check", "status": "IMPLEMENTED", "provider": "godot", "available": now["godot"]["available"], "note": "headless import and load; rendering is not tested"},
+        {"id": "ffmpeg", "status": "DETECTED_ONLY", "provider": "ffmpeg", "available": now["ffmpeg"]["available"], "note": "no recipe calls it yet"},
+        {"id": "imagemagick", "status": "DETECTED_ONLY", "provider": "imagemagick", "available": now["imagemagick"]["available"], "note": "no recipe calls it yet"},
         {"id": "export-generic", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED"},
         {"id": "ai-3d-providers", "status": "PLANNED"},
         {"id": "rig-deformation-preview", "status": "PLANNED"},
@@ -220,6 +223,41 @@ def cmd_probe(args) -> int:
     else:
         print(probe_lib.render(report))
     return EXIT_VALIDATION if any(item["status"] == "FAIL" for item in report["findings"]) else 0
+
+
+def cmd_engine_check(args) -> int:
+    source = Path(args.path)
+    if not source.is_file():
+        return _fail(f"no such file: {source}", EXIT_NOT_FOUND)
+    if source.suffix.lower() != ".glb":
+        return _fail("engine-check reads a .glb; convert other formats first with the mesh-convert recipe", EXIT_USAGE)
+    provider = providers.get("godot", Project.find())
+    if not provider["available"]:
+        return _fail(provider["reason"], EXIT_PROVIDER)
+    try:
+        result = adapters.godot_import_check(provider, source, timeout=args.timeout)
+    except adapters.AdapterError as exc:
+        report = {"schema": 1, "source": str(source), "engine": "godot", "engine_version": provider.get("version"),
+                  "status": "FAIL", "error": str(exc)}
+        if args.json:
+            print(json.dumps(report, indent=2))
+        else:
+            print(f"FAIL  Godot {provider.get('version')} could not use {source.name}: {exc}", file=sys.stderr)
+        return EXIT_VALIDATION
+    # A scene with no mesh loads, but it is not what an asset export means.
+    status = "PASS" if result["meshes"] > 0 and not result["engine_errors"] else "WARNING"
+    report = {"schema": 1, "source": str(source), "status": status,
+              "evidence": "godot --headless --import, then load and instantiate the imported scene",
+              "not_tested": ["rendering", "materials on screen", "animation playback", "physics"], **result}
+    if args.json:
+        print(json.dumps(report, indent=2))
+    else:
+        print(f"{status}  Godot {result['engine_version']} imported and loaded {source.name}")
+        print(f"  meshes {result['meshes']}  skeletons {result['skeletons']}  animations {len(result['animations'])}")
+        for line in result["engine_errors"]:
+            print(f"  {line}")
+        print("  not tested: " + ", ".join(report["not_tested"]))
+    return 0
 
 
 def cmd_init(args) -> int:
@@ -390,6 +428,13 @@ def build_parser() -> argparse.ArgumentParser:
     probe.add_argument("path")
     probe.add_argument("--json", action="store_true")
     probe.set_defaults(func=cmd_probe)
+
+    engine = sub.add_parser("engine-check", help="import a GLB into a real engine (Godot, headless) and load it")
+    engine.add_argument("path")
+    engine.add_argument("--engine", choices=("godot",), default="godot")
+    engine.add_argument("--timeout", type=float, default=300)
+    engine.add_argument("--json", action="store_true")
+    engine.set_defaults(func=cmd_engine_check)
 
     init = sub.add_parser("init", help="create a project")
     init.add_argument("path", nargs="?", default=".")

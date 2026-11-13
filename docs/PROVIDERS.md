@@ -46,7 +46,7 @@ When absent, validation reports `GLB-014 NOT_TESTED`; when present, the official
 ## Blender
 
 - Kind: external application, background mode.
-- Detect: `BLENDER_EXE`, legacy `BLENDER`, `PATH`, Blender Foundation install folders, or the Steam install at `C:/Program Files (x86)/Steam/steamapps/common/Blender/blender.exe`.
+- Detect: `BLENDER_EXE`, legacy `BLENDER`, `PATH`, the Blender Foundation install folders, the folder the Windows uninstall registry records, every Steam library, and a portable copy under a declared tool root.
 - The probe runs `--version` and requires a `Blender x.y` version string. A shim that starts some other program is reported as unavailable rather than accepted. Candidate paths are tried in order, so a broken PATH shim does not hide a real install.
 - Used by: `mesh-gameready`, `blender-sample`, and all `blender.skills.*` steps. `mesh-gameready` imports a GLB directly and does not need blender-skills. The default cap is 20,000 triangles. See [GAME-READY.md](GAME-READY.md).
 - Blender is GPL software and remains independently installed and maintained.
@@ -113,6 +113,27 @@ Then set `BLENDER_SKILLS_ROOT` to the checkout or to the installed skills direct
 - Detect: `IMG2THREEJS_ROOT`, project `integrations.img2threejs`, standard skill directories, or declared roots. Required markers: `SKILL.md` and `forge/stage1_intake/probe_image.py`.
 - Used by: `img2threejs-probe`, which runs the upstream technical image probe only.
 - Full reference-image reconstruction and procedural Three.js generation are agent-driven upstream workflows and are **not** automated by AssetForge.
+
+## Godot
+
+- Kind: external application, headless.
+- Detect: `GODOT_EXE`, `GODOT`, `GODOT4`, `PATH` (`godot`, `godot4`), the winget package folder, `%LOCALAPPDATA%\Programs\Godot`, `%ProgramFiles%\Godot`, the Steam `Godot Engine` folder, and `godot*/Godot*.exe` under a declared tool root. On Windows the console build is preferred because it prints to the terminal.
+- The probe runs `--version` and requires a version number in the output.
+- Used by: `assetforge engine-check FILE.glb`. It writes a throwaway project to the temporary folder, copies the GLB in, runs `godot --headless --path PROJECT --import`, then a second headless run loads and instantiates the imported scene and prints the node classes it holds. The project is deleted afterwards.
+- Evidence: import and load. Rendering, materials on screen, animation playback and physics are not tested and the report says so.
+- Godot is MIT software and remains independently installed.
+
+## FFmpeg
+
+- Kind: command-line tool. Detect: `FFMPEG_EXE`, `FFMPEG`, `PATH`, the winget links and package folders, `%ProgramFiles%\ffmpeg\bin`.
+- Used by: no recipe yet. It is reported so an agent knows it is there.
+- What it is for in an asset pipeline: a preview or turntable video from rendered frames, audio conversion and trimming, and `ffprobe` for the facts of a media file.
+
+## ImageMagick
+
+- Kind: command-line tool. Detect: `MAGICK_EXE`, `MAGICK`, `PATH` (`magick`), `%ProgramFiles%\ImageMagick-*`.
+- Used by: no recipe yet. Pillow handles the image recipes.
+- What it is for: formats Pillow does not write (DDS, EXR), contact sheets with `magick montage`, and one-line batch conversion. The Windows `convert.exe` in System32 is a disk tool, not ImageMagick; only `magick` is accepted.
 
 ## Adding a provider
 

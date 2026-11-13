@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0 — 2026-11-12
+
+- Add `assetforge engine-check FILE.glb`: a real engine import. Godot 4 runs headless against a throwaway project, imports the GLB, then loads and instantiates the imported scene and reports the node classes, meshes, skeletons and animation names it found. `PASS` needs at least one mesh and no engine error line; a file Godot cannot import fails with exit 5. Rendering, on-screen materials, animation playback and physics are listed as not tested. The source file is copied, never modified, and the temporary project is removed.
+- Godot, FFmpeg and ImageMagick are detected providers. `doctor`, `providers` and `capabilities` report each with its version, path and what it is for. Godot is found through `GODOT_EXE`, PATH, the winget package folder, the Godot install folders, Steam and declared tool roots; FFmpeg and ImageMagick through `FFMPEG_EXE` / `MAGICK_EXE`, PATH and their usual install folders. A program is accepted only when its own version output names it.
+- FFmpeg and ImageMagick are reported as detected only: no recipe calls them yet. `AGENTS.md` and `docs/PROVIDERS.md` say what an agent uses each for and give the commands.
+- `AGENTS.md` gains the tool map: which external program does which job, and what to ask the user to install when one is missing.
+
 ## 0.4.1 — 2026-11-12
 
 - Blender is found wherever it was installed: every Steam library (not only the default one), the folder the Windows uninstall registry records, the Blender Foundation folders under any `ProgramFiles`, and a portable copy under a declared tool root (`ASSETFORGE_ROOTS`, the profile's tool roots, a project's integration roots). `BLENDER_EXE` still wins.

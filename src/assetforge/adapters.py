@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 from .util import read_json, run
@@ -68,6 +69,59 @@ def blender_gameready(provider: dict, source: Path, out_path: Path, tris: int, t
 
 
 CONVERTIBLE = (".fbx", ".obj", ".stl", ".ply", ".gltf", ".glb", ".dae", ".abc", ".usd", ".usda", ".usdc", ".usdz", ".blend")
+
+
+def godot_import_check(provider: dict, source: Path, timeout: float = 300) -> dict:
+    """Import a GLB into a throwaway Godot project, then load and instantiate it.
+
+    Two engine runs: `--import` writes the imported scene, and a second run loads
+    that scene and counts its nodes. The project lives in a temporary folder and
+    is removed; the source file is copied, never touched.
+    """
+    script = Path(__file__).resolve().parent / "data" / "godot" / "import_check.gd"
+    godot = provider["path"]
+    work = Path(tempfile.mkdtemp(prefix="assetforge-godot-"))
+    try:
+        (work / "project.godot").write_text(
+            'config_version=5\n\n[application]\n\nconfig/name="AssetForgeImportCheck"\n', encoding="utf-8")
+        shutil.copyfile(source, work / "asset.glb")
+        shutil.copyfile(script, work / "import_check.gd")
+        imported = run([godot, "--headless", "--path", str(work), "--import"], timeout=timeout)
+        if imported["timed_out"]:
+            raise AdapterError(f"Godot import timed out after {timeout:g}s")
+        scenes = sorted((work / ".godot" / "imported").glob("asset.glb-*.scn"))
+        if imported["returncode"] != 0 or not scenes:
+            tail = (imported.get("stderr") or imported.get("stdout") or "")[-800:]
+            raise AdapterError(f"Godot did not import the file (exit {imported['returncode']}): {tail}")
+        loaded = run([godot, "--headless", "--path", str(work), "--script", "res://import_check.gd"], timeout=timeout)
+        if loaded["timed_out"]:
+            raise AdapterError(f"Godot load timed out after {timeout:g}s")
+        payload = None
+        for line in (loaded.get("stdout") or "").splitlines():
+            if line.startswith("AF_RESULT "):
+                try:
+                    payload = json.loads(line[len("AF_RESULT "):])
+                except ValueError:
+                    payload = None
+        if not isinstance(payload, dict):
+            raise AdapterError("Godot ran but reported no result: " + ((loaded.get("stderr") or loaded.get("stdout") or "")[-800:]))
+        if not payload.get("ok") or loaded["returncode"] != 0:
+            raise AdapterError(f"Godot could not load the imported scene: {payload.get('error') or loaded['returncode']}")
+        nodes = {str(key): int(value) for key, value in (payload.get("nodes") or {}).items()}
+        errors = [line.strip() for line in ((imported.get("stderr") or "") + "\n" + (loaded.get("stderr") or "")).splitlines()
+                  if line.strip().startswith("ERROR")]
+        return {
+            "engine": "godot",
+            "engine_version": provider.get("version"),
+            "imported_scene_bytes": scenes[0].stat().st_size,
+            "nodes": nodes,
+            "meshes": nodes.get("MeshInstance3D", 0),
+            "skeletons": nodes.get("Skeleton3D", 0),
+            "animations": list(payload.get("animations") or []),
+            "engine_errors": errors[:20],
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
 
 
 def blender_convert(provider: dict, source: Path, out_path: Path, animations: bool = True, timeout: float = 900) -> dict:

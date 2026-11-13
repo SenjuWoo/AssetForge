@@ -14,7 +14,7 @@ AssetForge is built around one priority: a genuine reference-image → 3D → en
 2. **Spec-to-Three.js codegen**: implemented and verified. The TypeScript remains an editable intermediate.
 3. **Render/visual review**: compile and render the generated factory and capture comparison evidence. Status: planned.
 4. **GLB conversion**: convert the reviewed procedural result into a portable mesh, validate it and export. Status: planned; feature loss must be reported, not hidden.
-5. **Real engine import**: test the exported package in Roblox Studio and Godot, and record evidence. Status: not tested.
+5. **Real engine import**: test the exported package in Roblox Studio and Godot, and record evidence. Status: Godot import and load is automated by `engine-check` (0.5.0); rendering in Godot and any Roblox Studio import are not tested.
 
 ## Priority 2 — Blender integration
 

@@ -1,13 +1,15 @@
 # State
 
-- **Version:** 0.4.1
+- **Version:** 0.5.0
 - **Milestone:** 0.4.0: source probe, mesh conversion, rig/material/texture validation
 - **Active task:** none
-- **Current revision:** 0.4.1 on main
-- **Last known-good:** tag `v0.4.0`
+- **Current revision:** 0.5.0 on main
+- **Last known-good:** tag `v0.4.1`
 
 ## Completed
 
+- `engine-check` (0.5.0): Godot 4 headless imports a GLB, then loads and instantiates it. On 2026-11-12 Godot 4.7.2 passed the showcase sword (61 meshes) and the test triangle and failed a non-GLB file. Rendering is not tested.
+- Godot, FFmpeg and ImageMagick detection (0.5.0) with a stated purpose each; FFmpeg and ImageMagick are not called by any recipe.
 - Blender discovery (0.4.1): Steam libraries, uninstall registry, tool roots; a Hermes profile wrapper named `blender` is skipped. Proven on 2026-11-12 with Steam Blender 5.3 that was not on PATH.
 - `probe` (0.4.0): read-only routing for a file or folder; prints the recipe commands that fit and the numbers behind them.
 - `mesh-convert` (0.4.0): FBX/OBJ/STL/PLY/glTF/USD/Alembic/`.blend` to GLB through Blender. On 2026-11-12 a rigged, animated FBX (1 skin, 2 joints, 1 s animation) and an OBJ with `.mtl` converted with Blender 5.3.0 from a folder named with a space, `!`, parentheses and an accented letter; official glTF validator 0 errors.

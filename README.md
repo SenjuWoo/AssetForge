@@ -64,6 +64,7 @@ assetforge status [JOB_ID | --last] [--json]
 assetforge inspect ASSET [--json]
 assetforge validate ASSET [--json]
 assetforge export ASSET --target roblox|godot|generic [--dry-run] [--json]
+assetforge engine-check FILE.glb [--json]
 ```
 
 Exit codes are stable: `0` success, `2` usage/recipe error, `3` missing project/asset/job, `4` provider unavailable, `5` validation or budget failure, `6` run failure.
@@ -157,8 +158,11 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | comfy-kit generation | VERIFIED | Exercised against a running comfy-kit; generation is delegated |
 | img2threejs probe | VERIFIED | Technical probe only; reconstruction remains agent-driven |
 | img2threejs spec-to-Three.js codegen | VERIFIED | Upstream deterministic generator; consumes an ObjectSculptSpec, not a raw image |
+| Roblox Studio import | NOT TESTED | No Studio run is automated |
 | img2threejs reconstruction | PLANNED | Image-to-spec review gates remain agent-driven |
-| Roblox / Godot / generic export | VERIFIED packaging | Mesh and texture-only packages; no engine import was run, always `NOT_TESTED` |
+| Roblox / Godot / generic export | VERIFIED packaging | Mesh and texture-only packages; the export itself runs no engine, so its engine import stays `NOT_TESTED` |
+| Godot import check | VERIFIED | `engine-check`: Godot 4.7.2 headless imports the GLB, then loads and instantiates it; rendering and playback are not tested |
+| FFmpeg, ImageMagick | DETECTED | Reported by `doctor` and `providers` with version and purpose; no recipe calls them yet |
 | AI 3D providers, rig deformation preview, MCP, teardown, Graphite | PLANNED | Not implemented yet |
 
 `VERIFIED` means the behaviour was executed with recorded evidence. `IMPLEMENTED / UNVERIFIED` means code exists but the real integration was not exercised. A successful export is not proof that an asset works inside the target engine.
