@@ -1,13 +1,19 @@
 # State
 
-- **Version:** 0.6.0
-- **Milestone:** 0.6.0: teardown simulator pages and films; providers current
+- **Version:** 0.7.0
+- **Milestone:** 0.7.0: audio (voice lines, sound effects, finishing, Minecraft sound export)
 - **Active task:** none
-- **Current revision:** 0.6.0 on main
-- **Last known-good:** tag `v0.5.1`
+- **Current revision:** 0.7.0 on main
+- **Last known-good:** tag `v0.6.0`
 
 ## Completed
 
+- Audio (0.7.0, 2026-11-13):
+  - Recipes `audio-voice` (Qwen3-TTS voice design and cloning, Dia nonverbals, Kokoro), `audio-sfx` (MOSS-SoundEffect v2) and `audio-process`.
+  - `audio-setup`, which builds uv runtimes under `~/.assetforge/audio`.
+  - Whisper and CLAP take checks, fixed-gain finishing, `AUDIO-001`–`006` checks, and the `minecraft` sound export target.
+  - Real runs of every engine through the CLI on an RTX 4080 SUPER; evidence in `VALIDATION.md`.
+  - Music (ACE-Step 1.5) is planned.
 - teardown (0.6.0, 2026-11-13): `teardown-build` and `teardown-film` recipes, provider detection, `PAGE-001`/`VIDEO-001` validation. Upstream `a91262a` cloned beside the other provider clones with `npm ci`; the old candidate snapshots were retired. The upstream V8 example built and filmed through AssetForge on Windows.
 - Provider recheck (0.5.1, 2026-11-13): blender-skills v1.3.0 and img2threejs v2.0.1 installed as clones in a declared tool root, each upstream suite run (69/69 on Blender 5.3.0; 1,416 img2threejs tests, 0 failures, 3 Windows symlink errors), AssetForge suite 144 OK / 2 skipped with every provider present, real pipeline/probe/codegen/engine-check runs. blender-skills is now found in tool roots and reports its release version; img2threejs reports its version; a wrong provider variable is reported instead of bypassed; pipeline `.blend1` backups removed; CI Actions v7 plus Dependabot. Companion tools evaluated in `docs/UPSTREAM-EVALUATIONS.md`.
 - `engine-check` (0.5.0): Godot 4 headless imports a GLB, then loads and instantiates it. On 2026-11-12 Godot 4.7.2 passed the showcase sword (61 meshes) and the test triangle and failed a non-GLB file. Rendering is not tested.

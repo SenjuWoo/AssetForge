@@ -1,6 +1,6 @@
 """Validation reports and engine export packaging.
 
-Export means: copy the validated mesh or texture deliverables into a target
+Export means: copy the validated mesh, texture or audio deliverables into a target
 folder, write a machine-readable record and import notes. It never claims the
 asset was imported into an engine; that check is always NOT_TESTED here.
 """
@@ -11,7 +11,7 @@ import re
 import shutil
 from pathlib import Path
 
-from . import images, official
+from . import audio, images, official, providers
 from .glb import inspect_glb, validate_glb
 from .store import Asset, Project, StoreError
 from .util import now_iso, read_json, sha256_file, write_json, write_text
@@ -77,6 +77,45 @@ def _primary_image(asset: Asset) -> tuple[Path, bool]:
     raise ExportError("asset has no image artifact to export")
 
 
+def _audio_artifacts(asset: Asset) -> list[dict]:
+    """Finished sounds only; takes and reference voices are evidence."""
+    return [item for item in asset.manifest.get("artifacts", []) if item.get("role") == "audio"]
+
+
+def _audio_settings(asset: Asset) -> dict:
+    """The loudness target and ceiling the asset was finished to, if recorded."""
+    try:
+        return read_json(asset.path("outputs", "audio.json"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _audio_validation(asset: Asset, items: list[dict]) -> list[dict]:
+    ffmpeg = providers.get("ffmpeg", asset.project).get("path")
+    settings = _audio_settings(asset)
+    checks: list[dict] = []
+    for item in items:
+        try:
+            path = asset.resolve_artifact(item["path"])
+        except Exception as exc:
+            checks.append({"artifact": item.get("path"), "id": "ASSET-002", "status": "FAIL", "detail": str(exc)})
+            continue
+        if not ffmpeg:
+            checks.append({"artifact": item["path"], "id": "AUDIO-001", "status": "NOT_TESTED", "detail": "ffmpeg is not available to decode it"})
+            continue
+        try:
+            found, _ = audio.checks(ffmpeg, path, loudness=settings.get("loudness"), true_peak=float(settings.get("true_peak") or -1))
+        except audio.AudioError as exc:
+            found = [{"id": "AUDIO-001", "status": "FAIL", "detail": str(exc)}]
+        checks.extend({**check, "artifact": item["path"]} for check in found)
+    # Transcript and prompt-match evidence comes from the run; carry it over.
+    recorded = asset.manifest.get("validation") or []
+    for check in recorded if isinstance(recorded, list) else []:
+        if check.get("id") in ("AUDIO-ASR", "AUDIO-CLAP", "AUDIO-LISTEN"):
+            checks.append(check)
+    return checks
+
+
 EXTERNAL_REFERENCE = re.compile(r"""<(?:script|link|img)\b[^>]*\b(?:src|href)\s*=\s*["']?(?:https?:)?//""", re.I)
 
 
@@ -106,13 +145,15 @@ def validate_asset(project: Project, asset: Asset) -> dict:
     meshes = [item for item in asset.manifest.get("artifacts", []) if item.get("role") == "mesh" or item.get("path", "").lower().endswith(".glb")]
     image_items = _image_artifacts(asset)
     presentation = [item for item in asset.manifest.get("artifacts", []) if item.get("role") in ("page", "video")]
-    if not meshes and not image_items and not presentation:
+    sounds = _audio_artifacts(asset)
+    if not meshes and not image_items and not presentation and not sounds:
         checks.append({
             "artifact": None,
             "id": "ASSET-001",
             "status": "FAIL",
-            "detail": "asset has no mesh, image, page or video artifact; source-only artifacts such as Three.js TypeScript remain editable intermediates and are not exported",
+            "detail": "asset has no mesh, image, audio, page or video artifact; source-only artifacts such as Three.js TypeScript remain editable intermediates and are not exported",
         })
+    checks.extend(_audio_validation(asset, sounds))
     for item in presentation:
         checks.append({"artifact": item["path"], **_presentation_check(asset, item)})
     for item in meshes:
@@ -163,7 +204,7 @@ def _budget(checks: list[dict], name: str, value, limit, unit: str = "") -> None
     })
 
 
-def export(project: Project, asset: Asset, target: str, dry_run: bool = False) -> dict:
+def export(project: Project, asset: Asset, target: str, dry_run: bool = False, namespace: str = "") -> dict:
     profile = load_profile(target)
     validation = validate_asset(project, asset)
     if validation["status"] == "FAIL":
@@ -173,6 +214,10 @@ def export(project: Project, asset: Asset, target: str, dry_run: bool = False) -
 
     mesh_items = [item for item in asset.manifest.get("artifacts", []) if item.get("role") == "mesh" or item.get("path", "").lower().endswith(".glb")]
     image_items = _image_artifacts(asset)
+    if not mesh_items and _audio_artifacts(asset):
+        return _export_audio(project, asset, profile, validation, dry_run, namespace)
+    if profile.get("format") == "ogg":
+        raise ExportError(f"the {profile['title']} profile packages sounds only; this asset has no finished audio")
     kind = "mesh" if mesh_items else "texture"
     budgets = profile.get("budgets") or {}
 
@@ -312,6 +357,100 @@ def export(project: Project, asset: Asset, target: str, dry_run: bool = False) -
     return {**plan, "out_dir": str(out_dir), "files": files}
 
 
+NAMESPACE = __import__("re").compile(r"^[a-z0-9_.-]{1,64}$")
+
+
+def _resource(value: str) -> str:
+    """Minecraft resource locations allow only lowercase a-z, 0-9, _ . -"""
+    return re.sub(r"[^a-z0-9_.-]+", "_", value.lower()).strip("_.") or "sound"
+
+
+def _event_name(stem: str) -> str:
+    """greet1, greet2 -> greet: numbered takes of one line become variants
+    of one sound event, which the game picks between at random."""
+    base = re.sub(r"[_-]?\d+$", "", stem.lower())
+    return re.sub(r"[^a-z0-9_.]", "_", base or stem.lower())
+
+
+def _export_audio(project: Project, asset: Asset, profile: dict, validation: dict, dry_run: bool, namespace: str) -> dict:
+    rules = profile.get("audio") or {}
+    allowed = rules.get("formats") or sorted(audio.FORMATS)
+    ffmpeg = providers.get("ffmpeg", project).get("path")
+    ffprobe = audio.ffprobe_for(ffmpeg) if ffmpeg else None
+    sources = [asset.resolve_artifact(item["path"]) for item in _audio_artifacts(asset)]
+    checks = []
+    for path in sources:
+        fmt = path.suffix.lower().lstrip(".")
+        checks.append({"artifact": path.name, "id": "FORMAT-003", "status": "PASS" if fmt in allowed else "FAIL",
+                       "detail": f".{fmt}" + ("" if fmt in allowed else f" is not accepted; {profile['title']} takes {', '.join('.' + f for f in allowed)} (re-run with --set format={allowed[0]})")})
+        info = audio.probe(ffprobe, path) if ffprobe else {}
+        if rules.get("max_seconds"):
+            seconds = info.get("seconds")
+            checks.append({"artifact": path.name, "id": "BUDGET-AUDIO_SECONDS", "status": "NOT_TESTED" if seconds is None else "PASS" if seconds <= rules["max_seconds"] else "FAIL",
+                           "detail": f"{seconds} s / limit {rules['max_seconds']} s"})
+        if rules.get("max_bytes"):
+            size = path.stat().st_size
+            checks.append({"artifact": path.name, "id": "BUDGET-AUDIO_BYTES", "status": "PASS" if size <= rules["max_bytes"] else "FAIL",
+                           "detail": f"{size} / limit {rules['max_bytes']} bytes"})
+        if rules.get("max_sample_rate") and info.get("sample_rate"):
+            checks.append({"artifact": path.name, "id": "BUDGET-SAMPLE_RATE", "status": "PASS" if info["sample_rate"] <= rules["max_sample_rate"] else "FAIL",
+                           "detail": f"{info['sample_rate']} Hz / limit {rules['max_sample_rate']} Hz"})
+        if rules.get("positional_mono") and info.get("channels"):
+            checks.append({"artifact": path.name, "id": "AUDIO-POSITIONAL", "status": "PASS" if info["channels"] == 1 else "WARNING",
+                           "detail": "mono: plays from its position in the world" if info["channels"] == 1 else "stereo: the game plays it without distance falloff"})
+    ns = namespace.strip().lower()
+    if profile["id"] == "minecraft":
+        if not ns:
+            ns = "modid"
+            checks.append({"id": "NAMESPACE", "status": "WARNING", "detail": "no --namespace given; sounds.json uses 'modid', replace it with your mod or pack namespace"})
+        elif not NAMESPACE.match(ns):
+            raise ExportError("namespace must be lowercase letters, digits, '_', '-' or '.'")
+    checks.append({"id": "ENGINE-IMPORT", "status": "NOT_TESTED", "detail": f"{profile['title']} was not launched; this is packaging and structural validation only"})
+    summary = {status: 0 for status in ("PASS", "WARNING", "FAIL", "NOT_TESTED")}
+    for item in checks:
+        summary[item["status"]] += 1
+    overall = "FAIL" if summary["FAIL"] else ("WARNING" if summary["WARNING"] else "PASS")
+    plan = {"target": profile["id"], "asset": asset.id, "kind": "audio", "profile": profile, "source": [str(p) for p in sources],
+            "checks": checks, "summary": summary, "status": overall, "engine_import": "NOT_TESTED", "validation": validation["summary"]}
+    if dry_run:
+        return plan
+    if overall == "FAIL":
+        raise ExportError("export blocked: " + "; ".join(item["detail"] for item in checks if item["status"] == "FAIL"))
+    out_dir = asset.path("exports", profile["id"])
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(parents=True)
+    files = []
+    if profile["id"] == "minecraft":
+        # The asset's name, not its timestamped id: ids carry an uppercase T,
+        # which a resource location rejects.
+        group = _resource(str(asset.manifest.get("name") or asset.id))
+        sound_dir = out_dir / "assets" / ns / "sounds" / group
+        events: dict[str, list] = {}
+        for path in sources:
+            stem = _resource(path.stem)
+            copy = sound_dir / f"{stem}{path.suffix.lower()}"
+            copy.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, copy)
+            files.append({"path": copy.relative_to(out_dir).as_posix(), "sha256": sha256_file(copy), "bytes": copy.stat().st_size})
+            events.setdefault(f"{group}.{_event_name(stem)}", []).append({"name": f"{ns}:{group}/{stem}"})
+        sounds_json = out_dir / "assets" / ns / "sounds.json"
+        write_json(sounds_json, {event: {"sounds": variants, "subtitle": f"subtitles.{ns}.{event}"} for event, variants in sorted(events.items())})
+        files.append({"path": sounds_json.relative_to(out_dir).as_posix(), "sha256": sha256_file(sounds_json), "bytes": sounds_json.stat().st_size})
+    else:
+        for path in sources:
+            copy = out_dir / "sounds" / path.name
+            copy.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, copy)
+            files.append({"path": copy.relative_to(out_dir).as_posix(), "sha256": sha256_file(copy), "bytes": copy.stat().st_size})
+    record = {"schema": 1, "target": profile["id"], "title": profile["title"], "asset": asset.id, "kind": "audio",
+              "namespace": ns or None, "created": now_iso(), "status": overall, "checks": checks, "files": files, "engine_import": "NOT_TESTED"}
+    write_json(out_dir / "export.json", record)
+    write_text(out_dir / "IMPORT.md", _import_notes(profile, record))
+    asset.add_export({"target": profile["id"], "path": out_dir.relative_to(project.root).as_posix(), "created": record["created"], "status": overall})
+    return {**plan, "out_dir": str(out_dir), "files": files}
+
+
 def _import_notes(profile: dict, record: dict) -> str:
     lines = [
         f"# {profile['title']} import",
@@ -325,7 +464,30 @@ def _import_notes(profile: dict, record: dict) -> str:
     for item in record["files"]:
         lines.append(f"- `{item['path']}`")
     lines += ["", "## Steps", ""]
-    if record.get("kind") == "texture":
+    if record.get("kind") == "audio":
+        if profile["id"] == "minecraft":
+            ns = record.get("namespace") or "modid"
+            lines += [
+                f"1. Copy `assets/` into your resource pack, or merge it into `src/main/resources/assets/` of the mod whose namespace is `{ns}`.",
+                f"2. If `assets/{ns}/sounds.json` already exists, merge the events instead of replacing the file.",
+                f"3. Register each event in `sounds.json` (for example `{ns}:<event>`) as a SoundEvent in code, or play it with `/playsound {ns}:<event> master @s`.",
+                "4. Add the subtitle keys to your language file; mono files play from their position, stereo ones do not fade with distance.",
+            ]
+        elif profile["id"] == "roblox":
+            lines += [
+                "1. Open the Asset Manager in Roblox Studio (or the Creator Dashboard) and import the files in `sounds/`.",
+                "2. Each upload becomes an audio asset; put its ID in a Sound or AudioPlayer.",
+                "3. Uploads go through Roblox moderation before they play for others.",
+            ]
+        elif profile["id"] == "godot":
+            lines += [
+                "1. Copy `sounds/` into the Godot project and let the editor import it.",
+                "2. Godot suggests WAV for short repeated effects and Ogg Vorbis for music, speech and long effects.",
+                "3. Set loop points in the import dock for anything that loops.",
+            ]
+        else:
+            lines += ["1. Use the files in `sounds/` in any engine or audio tool."]
+    elif record.get("kind") == "texture":
         if profile["id"] == "roblox":
             lines += [
                 "1. Open the Roblox Creator Dashboard or Studio's Asset Manager.",

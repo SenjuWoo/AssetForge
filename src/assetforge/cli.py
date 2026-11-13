@@ -13,7 +13,7 @@ import re
 import sys
 from pathlib import Path
 
-from . import __version__, adapters, exporters, images, providers
+from . import __version__, adapters, audio, exporters, images, providers
 from . import blenderskills
 from . import probe as probe_lib
 from . import recipes as recipe_lib
@@ -148,9 +148,15 @@ def capabilities_payload(project=None) -> dict:
         {"id": "godot-import-check", "status": "IMPLEMENTED", "provider": "godot", "available": now["godot"]["available"], "note": "headless import and load; rendering is not tested"},
         {"id": "teardown-build", "status": "IMPLEMENTED", "provider": "teardown", "available": now["teardown"]["available"], "note": "a sim folder becomes one offline HTML page; it is not a game-engine asset"},
         {"id": "teardown-film", "status": "IMPLEMENTED", "provider": "teardown", "available": now["teardown"]["available"] and now["ffmpeg"]["available"], "note": "frame-accurate mp4 or a review sheet rendered in headless Chromium; visual quality is not judged"},
-        {"id": "ffmpeg", "status": "IMPLEMENTED", "provider": "ffmpeg", "available": now["ffmpeg"]["available"], "note": "teardown-film encodes through it"},
+        {"id": "ffmpeg", "status": "IMPLEMENTED", "provider": "ffmpeg", "available": now["ffmpeg"]["available"], "note": "audio finishing and measurement; teardown-film encodes through it"},
+        {"id": "audio-voice", "status": "IMPLEMENTED", "provider": "audio-speech", "available": now["audio-speech"]["available"] and now["ffmpeg"]["available"], "note": "Qwen3-TTS voice design and cloning, Dia nonverbals; Whisper checks the words; nobody listens"},
+        {"id": "audio-voice-fast", "status": "IMPLEMENTED", "provider": "audio-kokoro", "available": now["audio-kokoro"]["available"] and now["ffmpeg"]["available"], "note": "Kokoro preset voices"},
+        {"id": "audio-sfx", "status": "IMPLEMENTED", "provider": "audio-sfx", "available": now["audio-sfx"]["available"] and now["ffmpeg"]["available"], "note": "MOSS-SoundEffect v2; CLAP scores prompt match; nobody listens"},
+        {"id": "audio-process", "status": "IMPLEMENTED", "provider": "ffmpeg", "available": now["ffmpeg"]["available"], "note": "trim, level, convert and measure existing audio"},
+        {"id": "audio-music", "status": "PLANNED", "note": "ACE-Step 1.5 is the candidate; not integrated"},
         {"id": "imagemagick", "status": "DETECTED_ONLY", "provider": "imagemagick", "available": now["imagemagick"]["available"], "note": "no recipe calls it yet"},
         {"id": "export-generic", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED"},
+        {"id": "export-minecraft-sounds", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED", "note": "Ogg sounds plus sounds.json for a resource pack or mod; sounds only"},
         {"id": "ai-3d-providers", "status": "PLANNED"},
         {"id": "rig-deformation-preview", "status": "PLANNED"},
         {"id": "graphite-integration", "status": "PLANNED"},
@@ -216,6 +222,39 @@ def cmd_blender_skills(args) -> int:
         print(f"{len(catalog)} skill(s); tested upstream revision in docs/PROVIDERS.md")
     return 0
 
+
+
+def cmd_audio_setup(args) -> int:
+    names = args.runtime or ["speech", "sfx", "kokoro"]
+    unknown = [name for name in names if name not in audio.RUNTIMES]
+    if unknown:
+        return _fail(f"unknown audio runtime(s) {', '.join(unknown)}; choose from {', '.join(audio.RUNTIMES)}", EXIT_USAGE)
+    if args.list:
+        payload = {"schema": 1, "home": str(audio.home()), "runtimes": [audio.runtime_state(name) for name in names]}
+        if args.json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print(f"audio home {payload['home']}")
+            for item in payload["runtimes"]:
+                state = "ready" if item["available"] else "missing"
+                print(f"  {item['id']:<14} {state:<8} {item['details']['licenses']}  {item.get('reason') or ''}")
+        return 0
+    log = (lambda message: print(message, file=sys.stderr)) if args.json else print
+    try:
+        results = audio.setup(names, device=args.device, log=log)
+    except audio.AudioError as exc:
+        return _fail(str(exc), EXIT_PROVIDER)
+    ok = all(item["ok"] for item in results)
+    if args.json:
+        print(json.dumps({"schema": 1, "home": str(audio.home()), "results": results, "ok": ok}, indent=2))
+    else:
+        for item in results:
+            if item["ok"]:
+                print(f"ready   {item['runtime']:<8} torch {item.get('torch')} {'GPU ' + str(item.get('gpu')) if item.get('cuda') else 'CPU only'}")
+            else:
+                print(f"FAILED  {item['runtime']:<8} {item.get('error')}")
+        print("Models download on first use into " + str(audio.hf_home()))
+    return 0 if ok else EXIT_PROVIDER
 
 
 def cmd_probe(args) -> int:
@@ -389,7 +428,7 @@ def cmd_export(args) -> int:
     project = _project()
     try:
         asset = project.asset(args.asset)
-        result = exporters.export(project, asset, args.target, dry_run=args.dry_run)
+        result = exporters.export(project, asset, args.target, dry_run=args.dry_run, namespace=args.namespace or "")
     except StoreError as exc:
         return _fail(str(exc), EXIT_NOT_FOUND)
     except exporters.ExportError as exc:
@@ -433,6 +472,13 @@ def build_parser() -> argparse.ArgumentParser:
     probe.add_argument("path")
     probe.add_argument("--json", action="store_true")
     probe.set_defaults(func=cmd_probe)
+
+    asetup = sub.add_parser("audio-setup", help="install or check the local audio runtimes (speech, sfx, kokoro) with uv")
+    asetup.add_argument("runtime", nargs="*", help="speech, sfx or kokoro; default all")
+    asetup.add_argument("--device", choices=("auto", "cuda", "cpu"), default="auto")
+    asetup.add_argument("--list", action="store_true", help="show what is installed without changing anything")
+    asetup.add_argument("--json", action="store_true")
+    asetup.set_defaults(func=cmd_audio_setup)
 
     engine = sub.add_parser("engine-check", help="import a GLB into a real engine (Godot, headless) and load it")
     engine.add_argument("path")
@@ -480,6 +526,7 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("asset")
     export.add_argument("--target", required=True, choices=sorted(exporters.profiles()))
     export.add_argument("--dry-run", action="store_true")
+    export.add_argument("--namespace", help="minecraft target: the mod or resource-pack namespace for sounds.json")
     export.add_argument("--json", action="store_true")
     export.set_defaults(func=cmd_export)
     return parser

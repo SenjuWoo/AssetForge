@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "id": "audio-process",
+  "title": "Trim, level and convert existing audio",
+  "description": "Finishes an audio file or every audio file directly in a folder: trims edge silence, fades the cut ends, applies one gain to reach a loudness target (or peak level) under a true-peak ceiling, converts sample rate and channels, encodes, then measures each result. No AI model runs.",
+  "input": {
+    "name": "source",
+    "kind": "file",
+    "required": true
+  },
+  "params": {
+    "loudness": {
+      "type": "string",
+      "default": "peak"
+    },
+    "format": {
+      "type": "string",
+      "default": "ogg",
+      "choices": [
+        "ogg",
+        "wav",
+        "mp3",
+        "flac"
+      ]
+    },
+    "true_peak": {
+      "type": "string",
+      "default": "-1"
+    },
+    "sample_rate": {
+      "type": "integer",
+      "default": 44100
+    },
+    "channels": {
+      "type": "integer",
+      "default": 1
+    },
+    "trim": {
+      "type": "boolean",
+      "default": true
+    },
+    "highpass": {
+      "type": "integer",
+      "default": 0
+    }
+  },
+  "steps": [
+    "audio.source",
+    "audio.finish",
+    "asset.record"
+  ]
+}

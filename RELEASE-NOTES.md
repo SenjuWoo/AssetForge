@@ -1,22 +1,32 @@
-# AssetForge 0.6.0 — Machines you can take apart
+# AssetForge 0.7.0 — Sound
 
-teardown was the last planned candidate on the roadmap's simulation line. It is now a provider: a simulator folder goes in, a single offline page and a film come out, with the same evidence rules as every other recipe.
+AssetForge made meshes, textures and simulator films. It now makes the sounds too: voice lines and sound effects from text, with local open-weight models and the same evidence rules as every other recipe.
 
 ## Included
 
-- `teardown-build` bundles a teardown simulator into one HTML page that opens from disk.
-- `teardown-film` renders that page to MP4, or to a labelled review sheet, in headless Chromium.
-- `validate` checks pages (`PAGE-001`: offline, one file) and videos (`VIDEO-001`: a real MP4).
-- teardown detection, with the exact `npm install` / `npx playwright install chromium` command when something is missing.
-- Everything from 0.5.1: blender-skills v1.3.0 and img2threejs v2.0.1 verified as providers.
+- `audio-voice`:
+  - Qwen3-TTS designs a voice from a description and keeps it across a whole set of lines, or clones a recording you supply.
+  - Dia adds laughs, gasps and other nonverbals in the same voice.
+  - Kokoro gives fast preset voices.
+  - Whisper checks the words of every take.
+- `audio-sfx`: MOSS-SoundEffect v2 makes 48 kHz effects from a prompt. CLAP checks every take against the prompt.
+- `audio-process`: trims, levels, converts and measures audio you already have.
+- `assetforge audio-setup` installs the three local runtimes with uv and smoke-tests them. All the model weights are Apache-2.0 or MIT.
+- Exporting audio: the new `minecraft` target writes `sounds.json` and Ogg files, and the `godot`, `roblox` and `generic` targets now take audio.
 
 ## Verified
 
-- Upstream teardown `a91262a` with Node 26, Playwright 1.58.2 and FFmpeg 9.0.2 on Windows: the upstream V8 example built through `teardown-build` and rendered to a short MP4 through `teardown-film`.
-- The full AssetForge suite with every provider present on Windows: 157 tests, 2 platform skips.
+Windows 11, RTX 4080 SUPER, Python 3.14, PyTorch 2.9.1 (CUDA 12.8), FFmpeg 9.0.2:
+
+- **Qwen3-TTS:** designed a voice from a description and cloned it for three lines. All three had a 100% Whisper word match and came out within 0.25 LU of -18 LUFS.
+- **Dia:** given that designed voice as a reference, it spoke a gasp line and a laugh line, both at a 100% word match.
+- **Kokoro:** one line at a 100% word match.
+- **MOSS-SoundEffect v2:** made a sword swing and a door creak, three takes each, with CLAP 0.49 and 0.41 for the kept takes. Each take took about 17 seconds.
+- **Tests:** the full AssetForge suite passed, with stub runtimes covering the contract on any machine.
 
 ## Not verified
 
-- How a simulator looks. Frames are rendered, not reviewed: `TEARDOWN-VISUAL` stays `NOT_TESTED`.
-- teardown on Linux and macOS (upstream supports them; AssetForge only ran it on Windows).
-- Roblox Studio import; rendering and playback inside Godot.
+- **Listening:** nobody listened to the generated sounds. `AUDIO-LISTEN` stays `NOT_TESTED`. Listen before you ship.
+- **Loading in a game:** no Minecraft, Godot or Roblox game loaded the exported sounds.
+- **Linux and macOS:** the audio runtimes were not run there. `audio-setup` resolves the top-level pins on those systems instead of the Windows lock files.
+- **Music:** not covered. ACE-Step 1.5 is the planned candidate.

@@ -5,5 +5,13 @@
   "format": "glb",
   "budgets": {},
   "notes": "Godot recommends glTF 2.0 and supports both .gltf and .glb, including PBR materials and animations.",
-  "source": "https://docs.godotengine.org/en/stable/tutorials/assets_pipeline/importing_3d_scenes/available_formats.html"
+  "source": "https://docs.godotengine.org/en/stable/tutorials/assets_pipeline/importing_3d_scenes/available_formats.html",
+  "audio": {
+    "formats": [
+      "wav",
+      "ogg",
+      "mp3"
+    ]
+  },
+  "audio_source": "https://docs.godotengine.org/en/stable/tutorials/assets_pipeline/importing_audio_samples.html (checked 2026-11-13: WAV, Ogg Vorbis, MP3)"
 }

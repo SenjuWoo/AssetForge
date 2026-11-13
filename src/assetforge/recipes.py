@@ -36,6 +36,10 @@ STEP_NAMES = {
     "img2threejs.codegen",
     "teardown.build",
     "teardown.capture",
+    "audio.voice",
+    "audio.sfx",
+    "audio.source",
+    "audio.finish",
     "asset.record",
 }
 

@@ -523,7 +523,7 @@ def detect(project=None) -> list[dict]:
         "path": str(ffmpeg_path) if ffmpeg_path else None,
         "reason": "" if ffmpeg_path else "ffmpeg is not on PATH; set FFMPEG_EXE or install it",
         "capabilities": ["media.convert", "media.frames_to_video", "audio.convert"],
-        "use": "teardown-film encodes its video through it; an agent also uses it for turntable or preview video from rendered frames and for audio conversion",
+        "use": "audio-* recipes trim, level and encode through it and measure loudness and true peak; teardown-film encodes its video through it; an agent also uses it for preview video from rendered frames",
     })
 
     magick_path, magick_version = _probe_version(
@@ -542,6 +542,18 @@ def detect(project=None) -> list[dict]:
     })
 
     providers.append(_teardown(project, home, node))
+
+    from . import audio  # audio imports util only; kept local to keep detect() import-light
+
+    uses = {
+        "speech": "audio-voice: Qwen3-TTS designs a voice from a description and clones it for every line; Dia speaks nonverbals like (laughs) (gasps); Whisper checks each take's words",
+        "sfx": "audio-sfx: MOSS-SoundEffect v2 makes a sound from a text prompt; CLAP scores each take against the prompt",
+        "kokoro": "audio-voice engine=kokoro: fast preset voices, CPU-capable",
+    }
+    for name in audio.RUNTIMES:
+        state = audio.runtime_state(name)
+        state["use"] = uses[name]
+        providers.append(state)
 
     return providers
 

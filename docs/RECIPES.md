@@ -311,6 +311,46 @@ assetforge run teardown-film --input my-machine --set stills=0,2,4,6
 - Needs teardown's Chromium (`npx playwright install chromium` in the teardown checkout) and, for video, FFmpeg.
 - Evidence: `TEARDOWN-RENDER PASS` names the file and the GPU Chromium reported; `TEARDOWN-VISUAL NOT_TESTED` until someone has looked at it. `validate` adds `VIDEO-001` (a real MP4 container).
 
+## `audio-voice`
+
+Voice lines from text. Input: `--input lines=<file>` (`name: text` per line, or JSON) or `--set text=...` with an optional `name`.
+
+| Param | Default | Meaning |
+| --- | --- | --- |
+| `engine` | `qwen3-tts` | `qwen3-tts`, `dia` or `kokoro` |
+| `voice` | (empty) | qwen3-tts: a description of the voice to design. kokoro: a preset (`af_heart`) |
+| `reference_text` | built-in sentence | what the designed reference voice says |
+| `ref_text` | (empty) | exact words of `--input reference=<wav>`; required with a reference |
+| `language` | `English` | qwen3-tts language; Whisper's language |
+| `takes` | 0 (3, or 1 for kokoro) | attempts per line; Whisper picks the best |
+| `seed` | 0 | base seed; takes use derived seeds |
+| `speed` | 1.0 | kokoro speaking rate |
+| `loudness` | -18 | LUFS target, or `peak` |
+| `true_peak`, `format`, `sample_rate`, `channels`, `trim`, `highpass` | -1, ogg, 44100, 1, true, 0 | finishing (see `docs/AUDIO.md`) |
+| `check` | true | run the Whisper transcript check |
+
+Steps: `audio.voice` → `audio.finish` → `asset.record`. Outputs: one finished file per line (`audio`), every take (`audio-take`), the designed or supplied reference (`audio-reference`), `audio-generation.json` and `audio.json`. Validation: `AUDIO-001`–`006`, `AUDIO-ASR` per line, `AUDIO-LISTEN` `NOT_TESTED`.
+
+## `audio-sfx`
+
+Sound effects from prompts. Input: `--input prompts=<file>` or `--set prompt=...` with an optional `name`.
+
+| Param | Default | Meaning |
+| --- | --- | --- |
+| `seconds` | 3 | length, 0.5–30 |
+| `steps` | 100 | diffusion steps |
+| `cfg` | 4.0 | prompt guidance |
+| `takes` | 3 | attempts per prompt; CLAP picks the best |
+| `loudness` | peak | `peak`, or a LUFS target |
+| finishing params | as above | |
+| `check` | true | run the CLAP prompt check |
+
+Steps: `audio.sfx` → `audio.finish` → `asset.record`. Validation adds `AUDIO-CLAP` per sound.
+
+## `audio-process`
+
+Finish existing audio: one file, or every audio file directly in a folder (`.wav .ogg .mp3 .flac .m4a .aac .opus .aif .aiff`). No model runs. The params are the finishing params, with `loudness` defaulting to `peak`. Steps: `audio.source` → `audio.finish` → `asset.record`.
+
 ## Custom recipes
 
 ```json

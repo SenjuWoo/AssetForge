@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from . import exporters, images
+from . import audio, exporters, images, providers
 from .adapters import CONVERTIBLE
 from .glb import GlbError, inspect_glb, validate_glb
 from .util import human_bytes
@@ -35,6 +35,8 @@ def classify(path: Path) -> str:
         return "mesh"
     if suffix in IMAGE_SUFFIXES:
         return "image"
+    if suffix in audio.AUDIO_SUFFIXES:
+        return "audio"
     return "unknown"
 
 
@@ -149,9 +151,27 @@ def _probe_image(path: Path) -> dict:
     return {"facts": facts, "findings": findings, "recommend": recommend}
 
 
+def _probe_audio(path: Path) -> dict:
+    facts: dict = {"bytes": path.stat().st_size}
+    findings = []
+    ffmpeg = providers.get("ffmpeg").get("path")
+    if not ffmpeg:
+        findings.append({"status": "WARNING", "detail": "ffmpeg is not available; the file was not decoded"})
+    else:
+        try:
+            checks, info = audio.checks(ffmpeg, path)
+        except audio.AudioError as exc:
+            return {"facts": facts, "findings": [{"status": "FAIL", "detail": str(exc)}], "recommend": []}
+        facts.update({key: info.get(key) for key in ("codec", "sample_rate", "channels", "seconds", "lufs", "true_peak")})
+        findings = [{"id": item["id"], "status": item["status"], "detail": item["detail"]} for item in checks if item["status"] in ("FAIL", "WARNING")]
+    recommend = [_step("audio-process", "trim edge silence, level and encode (ogg by default)",
+                       f"assetforge run audio-process --input {_quote(path)}")]
+    return {"facts": facts, "findings": findings, "recommend": recommend}
+
+
 def _probe_directory(path: Path) -> dict:
     counts: dict[str, int] = {}
-    listed: dict[str, list[str]] = {"glb": [], "mesh": [], "image": []}
+    listed: dict[str, list[str]] = {"glb": [], "mesh": [], "image": [], "audio": []}
     channels: dict[str, str] = {}
     total = 0
     truncated = False
@@ -184,6 +204,10 @@ def _probe_directory(path: Path) -> dict:
         args = " ".join(f"--input {key}={_quote(Path(value))}" for key, value in sorted(channels.items()))
         recommend.append(_step("texture-pack", "an occlusion, a roughness and a metallic map are all present",
                                f"assetforge run texture-pack {args}"))
+    top_audio = [item for item in sorted(path.iterdir()) if item.is_file() and classify(item) == "audio"]
+    if top_audio:
+        recommend.append(_step("audio-process", f"{len(top_audio)} audio file(s) sit directly in this folder; finish them all",
+                               f"assetforge run audio-process --input {_quote(path)}"))
     if 2 <= len(top_images) <= 64 and not channels:
         recommend.append(_step("sprite-atlas", f"{len(top_images)} images sit directly in this folder",
                                f"assetforge run sprite-atlas --input {_quote(path)}"))
@@ -195,11 +219,11 @@ def probe(path: Path) -> dict:
     if not path.exists():
         raise FileNotFoundError(str(path))
     kind = classify(path)
-    handler = {"glb": _probe_glb, "mesh": _probe_mesh, "image": _probe_image, "directory": _probe_directory}.get(kind)
+    handler = {"glb": _probe_glb, "mesh": _probe_mesh, "image": _probe_image, "audio": _probe_audio, "directory": _probe_directory}.get(kind)
     if handler is None:
         body = {
             "facts": {"bytes": path.stat().st_size},
-            "findings": [{"status": "WARNING", "detail": f"{path.suffix or 'this file'} is not an image or a mesh format AssetForge reads"}],
+            "findings": [{"status": "WARNING", "detail": f"{path.suffix or 'this file'} is not an image, mesh or audio format AssetForge reads"}],
             "recommend": [],
         }
     else:

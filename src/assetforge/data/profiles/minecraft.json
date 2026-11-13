@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "id": "minecraft",
+  "title": "Minecraft Java (resource pack sounds)",
+  "format": "ogg",
+  "budgets": {},
+  "audio": {
+    "formats": [
+      "ogg"
+    ],
+    "positional_mono": true
+  },
+  "notes": "Sounds live in assets/<namespace>/sounds/ as .ogg and are declared in assets/<namespace>/sounds.json; a mono file plays from its position, a stereo file does not fade with distance (minecraft.wiki/w/Sounds.json, checked 2026-11-13). This profile packages sounds only.",
+  "source": "https://minecraft.wiki/w/Sounds.json"
+}

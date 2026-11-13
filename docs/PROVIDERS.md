@@ -142,6 +142,30 @@ npx playwright install chromium
 - Used by: `teardown-build` (`node sims/build.mjs <sim>` with `TEARDOWN_OUT` inside the asset) and `teardown-film` (`node sims/capture.mjs <entry> --out <file> ...`, with `FFMPEG` set to the FFmpeg AssetForge found). Every write lands in the asset; the checkout is only read.
 - Evidence limits: a build proves the bundle, a film proves Chromium rendered the frames. Neither judges how the machine looks.
 
+## Audio runtimes (`audio-speech`, `audio-sfx`, `audio-kokoro`)
+
+- Kind: isolated Python environments that AssetForge builds and owns, one per dependency set. The model code and weights stay with their upstream projects.
+- Install: `assetforge audio-setup` (all three) or `assetforge audio-setup speech|sfx|kokoro`. The command needs [uv](https://docs.astral.sh/uv/). It builds each runtime from the Python AssetForge runs on, installs PyTorch 2.9.1 from the PyTorch index (CUDA 12.8 when `nvidia-smi` works, CPU otherwise, or `--device`) and then the package set in `src/assetforge/data/audio/<runtime>.txt` (on Windows; elsewhere the top-level pins). After that it runs a smoke test. Running it again only changes what differs.
+- Location: `~/.assetforge/audio` or `ASSETFORGE_AUDIO_HOME`, holding `envs/<runtime>` and the model cache `hf/`. It is not under `AppData`, because sandboxed hosts redirect writes there.
+- Detect: a runtime is available only when its interpreter exists and its smoke-test marker (`assetforge-runtime.json`) was written. `doctor` reports torch, CUDA and the GPU.
+- Runtimes, engines and models:
+
+| Runtime | Engines | Models (licence) |
+| --- | --- | --- |
+| `speech` | `qwen3-tts`, `dia`, Whisper | Qwen3-TTS-12Hz-1.7B-VoiceDesign and -Base (Apache-2.0), Dia-1.6B-0626 (Apache-2.0), whisper-large-v3-turbo (MIT) |
+| `sfx` | `moss-sfx`, CLAP | MOSS-SoundEffect-v2.0 (Apache-2.0), larger_clap_general (Apache-2.0) |
+| `kokoro` | `kokoro` | Kokoro-82M (Apache-2.0) |
+
+- Tested on 2026-11-13 on Windows 11 with Python 3.14.10, torch 2.9.1+cu128 and an RTX 4080 SUPER. Versions: qwen-tts 0.1.1, transformers 4.57.3 (speech), 4.57.1 (sfx) and 5.23.0 (kokoro); MOSS-TTS commit `934d6826b084c46a0d033402174d5f8ac4ed2519`; kokoro 0.9.4.
+- How it runs: each job starts `<runtime python> -I audio_worker.py request.json` and reads back `result.json`. The worker loads each model once per job and writes only into the asset's `work/` folder. `ASSETFORGE_AUDIO_WORKER` swaps in another script that speaks the same protocol.
+- Upstream quirks handled in the worker:
+  - MOSS's `torch.compile` and CUDA-graph calls run eagerly on Python 3.14.
+  - MOSS's DiT is stored in bf16.
+  - MOSS's `seed` is passed through.
+  - Whisper input is resampled to 16 kHz.
+  - huggingface_hub's first-download symlink race on Windows is settled before any download.
+  - Kokoro's spaCy model ships in the runtime, so it never installs itself into another Python.
+
 ## Godot
 
 - Kind: external application, headless.
@@ -154,8 +178,8 @@ npx playwright install chromium
 ## FFmpeg
 
 - Kind: command-line tool. Detect: `FFMPEG_EXE`, `FFMPEG`, `PATH`, the winget links and package folders, `%ProgramFiles%\ffmpeg\bin`.
-- Used by: no recipe yet. It is reported so an agent knows it is there.
-- What it is for in an asset pipeline: a preview or turntable video from rendered frames, audio conversion and trimming, and `ffprobe` for the facts of a media file.
+- Used by: every `audio-*` recipe (trim, gain, resample, encode; `loudnorm`, `volumedetect` and `silencedetect` for the measurements; `ffprobe` for format facts) and `teardown-film` (video encoding).
+- Also useful to an agent: a preview or turntable video from rendered frames.
 
 ## ImageMagick
 

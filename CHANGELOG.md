@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.7.0 — 2026-11-13
+
+- Add audio. `audio-voice` makes voice lines from one line or a lines file, `audio-sfx` makes sound effects from text prompts, and `audio-process` trims, levels, converts and measures audio you already have. Details: `docs/AUDIO.md`.
+- `audio-voice` engines:
+  - **Qwen3-TTS** (default): designs a voice from a description, auditions it and clones the best audition for every line, so a set keeps one voice. It also clones a supplied recording (`--input reference=` with `ref_text`).
+  - **Dia 1.6B**: nonverbals such as `(laughs)` and `(gasps)`, and it takes the same reference voice.
+  - **Kokoro**: fast preset voices.
+- Every take is transcribed by Whisper, and the closest match to the text is kept (`AUDIO-ASR`).
+- `audio-sfx` uses MOSS-SoundEffect v2 (48 kHz, up to 30 s). CLAP scores every take against its prompt and the best is kept (`AUDIO-CLAP`, calibrated on matching and mismatched prompts).
+- Finishing trims edge silence, applies one fixed gain to a loudness target (voice -18 LUFS) or peak level under a -1 dBTP ceiling, and encodes to ogg, wav, mp3 or flac. Checks `AUDIO-001` to `AUDIO-006` cover decoding, silence, true peak, loudness, edge silence and format. `AUDIO-LISTEN` stays `NOT_TESTED`.
+- `assetforge audio-setup [speech|sfx|kokoro]` builds one isolated uv runtime per dependency set under `~/.assetforge/audio` (or `ASSETFORGE_AUDIO_HOME`). It reuses AssetForge's own Python, installs the package set proven together on Windows, and smoke-tests each runtime. `--list` shows the state. The home avoids `AppData`, which sandboxed hosts redirect. Models download from Hugging Face on first use. All weights are Apache-2.0 or MIT.
+- `doctor` and `providers` report `audio-speech`, `audio-sfx` and `audio-kokoro`, each with its engines, models and licences. A missing runtime names the setup command, and a recipe that needs it exits `4`.
+- New export target `minecraft` packages finished sounds as `assets/<namespace>/sounds/<asset>/*.ogg` plus a `sounds.json` that groups numbered variants into one event. `--namespace` names the mod or pack. Stereo files get a positional-sound warning.
+- `godot`, `roblox` and `generic` now export audio, with format, length, size and sample-rate rules from each engine's documentation.
+- `validate` re-measures audio deliverables. `probe` reads audio files and folders and recommends `audio-process`.
+- Engine fixes made inside the worker, without patching upstream:
+  - MOSS's float32 DiT is stored in bf16. Under autocast it overflowed a 16 GB card at its native 30 s window; it now peaks near 10 GB.
+  - MOSS's `seed` is passed through, so takes differ.
+  - MOSS's compile and CUDA-graph calls run eagerly on Python 3.14.
+  - Whisper input is resampled to 16 kHz first. transformers 4.57 otherwise returned dots for 44.1 kHz audio.
+  - huggingface_hub's per-folder symlink race on Windows is settled before any download.
+
 ## 0.6.0 — 2026-11-13
 
 - Add `teardown-build`: a teardown simulator folder (main.js and its imports) becomes one offline HTML page through upstream [teardown](https://github.com/elvarofficial/teardown), with three.js and fonts inlined. The folder is copied into the asset with its layout; links are refused and the copy is capped at 2,000 files / 512 MiB. A folder of sims takes `--set entry=NAME`, which is how upstream's own pages import their shared parts.

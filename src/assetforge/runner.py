@@ -11,7 +11,7 @@ import re
 import shutil
 from pathlib import Path
 
-from . import adapters, gameready, images, official, providers
+from . import adapters, audio, gameready, images, official, providers
 from .glb import GlbError, compare_glb, inspect_glb, validate_glb
 from .recipes import RecipeError, asset_name
 from .store import Asset, Job, Project, StoreError
@@ -961,6 +961,232 @@ def _teardown_capture(ctx: Context) -> dict:
     return {"status": "PASS", "detail": f"{target.name} {human_bytes(target.stat().st_size)}"}
 
 
+# --------------------------------------------------------------------- audio
+# CLAP cosine between the prompt and the sound. Calibrated 2026-11-13 on six
+# MOSS takes: their own prompts scored 0.29-0.49, four unrelated prompts at
+# most 0.26 and mostly under 0.18; see docs/AUDIO.md.
+CLAP_PASS = 0.30
+CLAP_WARN = 0.20
+
+
+def _audio_runtime(ctx: Context, engine: str) -> str:
+    runtime = audio.ENGINE_RUNTIME[engine]
+    _provider(ctx, f"audio-{runtime}")
+    return runtime
+
+
+def _audio_work(ctx: Context, name: str) -> Path:
+    work = ctx.asset.path("work", name).resolve()
+    try:
+        work.relative_to(ctx.project.root.resolve())
+    except ValueError as exc:
+        raise RunFailed("refusing to write audio work outside the project") from exc
+    return work
+
+
+def _audio_lines(ctx: Context, input_name: str, text_param: str) -> list[dict]:
+    path = ctx.copied.get(input_name)
+    try:
+        return audio.load_lines(path, str(ctx.params.get(text_param) or ""), str(ctx.params.get("name") or ""))
+    except (audio.AudioError, ValueError) as exc:
+        raise RunFailed(str(exc)) from exc
+
+
+def _asr_check(name: str, similarity, heard) -> dict:
+    if similarity is None:
+        return {"artifact": name, "id": "AUDIO-ASR", "status": "NOT_TESTED", "detail": "nonverbal line: no words to compare"}
+    status = "PASS" if similarity >= 0.85 else "WARNING" if similarity >= 0.6 else "FAIL"
+    return {"artifact": name, "id": "AUDIO-ASR", "status": status, "detail": f"Whisper heard {heard!r} ({similarity:.0%} word match)"}
+
+
+def _record_takes(ctx: Context, result: dict, work: Path) -> None:
+    for item in result.get("items", []):
+        for take in item.get("takes", []):
+            path = Path(take["path"])
+            if path.is_file():
+                ctx.artifact(path, "audio-take", f"takes/{path.name}")
+    for audition in result.get("auditions") or []:
+        path = Path(audition["path"])
+        if path.is_file():
+            ctx.artifact(path, "audio-take", f"takes/{path.name}")
+    reference = result.get("reference_audio")
+    if reference and Path(reference).is_file() and Path(reference).resolve().is_relative_to(work):
+        ctx.artifact(Path(reference), "audio-reference", "reference voice")
+    ctx.report("audio-generation.json", {k: v for k, v in result.items() if k != "traceback"})
+
+
+def _audio_voice(ctx: Context) -> dict:
+    engine = str(ctx.params.get("engine") or "qwen3-tts")
+    if engine not in audio.SPEECH_ENGINES:
+        raise RunFailed(f"engine must be one of {', '.join(audio.SPEECH_ENGINES)}")
+    runtime = _audio_runtime(ctx, engine)
+    lines = _audio_lines(ctx, "lines", "text")
+    reference = ctx.copied.get("reference")
+    ref_text = str(ctx.params.get("ref_text") or "").strip()
+    if reference is not None and engine == "kokoro":
+        raise RunFailed("kokoro speaks with preset voices; use engine=qwen3-tts or dia to clone a reference")
+    if reference is not None and not ref_text:
+        raise RunFailed("set ref_text to the exact words spoken in the reference recording")
+    if engine == "qwen3-tts" and reference is None and not str(ctx.params.get("voice") or "").strip():
+        raise RunFailed('describe the voice with --set voice="..." (Qwen3-TTS designs it), or pass --input reference=<wav> with ref_text')
+    check = bool(ctx.params.get("check", True))
+    work = _audio_work(ctx, "voice")
+    takes = int(ctx.params.get("takes") or 0) or (1 if engine == "kokoro" else 3)
+    request = {
+        "job": "speech", "engine": engine, "out_dir": str(work), "items": lines,
+        "voice": str(ctx.params.get("voice") or ("af_heart" if engine == "kokoro" else "")),
+        "language": str(ctx.params.get("language") or "English"),
+        "reference_text": str(ctx.params.get("reference_text") or ""),
+        "ref_audio": str(reference) if reference is not None else "", "ref_text": ref_text,
+        "takes": takes, "seed": int(ctx.params.get("seed") or 0), "speed": str(ctx.params.get("speed") or "1.0"),
+        "asr": check and runtime == "speech",
+    }
+    try:
+        result = audio.run_worker(runtime, request, work, timeout=float(ctx.params.get("timeout") or 3600))
+        if check and runtime != "speech" and providers.get("audio-speech", ctx.project).get("available"):
+            # Kokoro has its own runtime; Whisper lives in the speech runtime.
+            heard = audio.run_worker("speech", {"job": "transcribe", "engine": "asr", "language": request["language"],
+                                                "items": [{"name": i["name"], "text": i["text"], "path": i["best"]} for i in result["items"]]},
+                                     work / "asr", timeout=1800)
+            by_name = {i["name"]: i for i in heard["items"]}
+            for item in result["items"]:
+                item.update({k: by_name[item["name"]][k] for k in ("asr_text", "asr_similarity")})
+            result["asr"] = True
+    except audio.AudioError as exc:
+        raise RunFailed(str(exc)) from exc
+    _record_takes(ctx, result, work)
+    items = []
+    for item in result["items"]:
+        entry = {"name": item["name"], "source": Path(item["best"]), "text": item["text"], "kind": "speech",
+                 "seed": item["seed"], "score": item["score"]}
+        if result.get("asr"):
+            entry["asr"] = _asr_check(item["name"], item.get("asr_similarity"), item.get("asr_text"))
+        items.append(entry)
+    ctx.outputs["audio_items"] = items
+    ctx.outputs["audio_kind"] = "speech"
+    if not result.get("asr"):
+        ctx.validation.append({"artifact": None, "id": "AUDIO-ASR", "status": "NOT_TESTED",
+                               "detail": "transcript check off or the speech runtime is missing"
+                                         + (f": {result.get('asr_error')}" if result.get("asr_error") else "")})
+    ref = result.get("reference") or {}
+    detail = f"{len(items)} line(s) with {engine}, {takes} take(s) each"
+    if ref.get("designed"):
+        detail += f"; voice designed from the description (reference seed {ref.get('seed')})"
+    return {"status": "PASS", "detail": detail}
+
+
+def _audio_sfx(ctx: Context) -> dict:
+    runtime = _audio_runtime(ctx, "moss-sfx")
+    lines = _audio_lines(ctx, "prompts", "prompt")
+    work = _audio_work(ctx, "sfx")
+    takes = int(ctx.params.get("takes") or 3)
+    request = {
+        "job": "sfx", "engine": "moss-sfx", "out_dir": str(work), "items": lines, "takes": takes,
+        "seed": int(ctx.params.get("seed") or 0), "seconds": str(ctx.params.get("seconds") or "3"),
+        "steps": int(ctx.params.get("steps") or 100), "cfg": str(ctx.params.get("cfg") or "4.0"),
+        "clap": bool(ctx.params.get("check", True)),
+    }
+    try:
+        result = audio.run_worker(runtime, request, work, timeout=float(ctx.params.get("timeout") or 3600))
+    except audio.AudioError as exc:
+        raise RunFailed(str(exc)) from exc
+    _record_takes(ctx, result, work)
+    items = []
+    for item in result["items"]:
+        entry = {"name": item["name"], "source": Path(item["best"]), "text": item["text"], "kind": "sfx",
+                 "seed": item["seed"], "score": item["score"]}
+        if item.get("clap") is not None:
+            score = item["clap"]
+            status = "PASS" if score >= CLAP_PASS else "WARNING" if score >= CLAP_WARN else "FAIL"
+            entry["clap"] = {"artifact": item["name"], "id": "AUDIO-CLAP", "status": status,
+                             "detail": f"CLAP prompt match {score:.2f} (pass >= {CLAP_PASS}, best of {takes})"}
+        items.append(entry)
+    ctx.outputs["audio_items"] = items
+    ctx.outputs["audio_kind"] = "sfx"
+    if not result.get("clap"):
+        ctx.validation.append({"artifact": None, "id": "AUDIO-CLAP", "status": "NOT_TESTED",
+                               "detail": "prompt match off" + (f": {result.get('clap_error')}" if result.get("clap_error") else "")})
+    return {"status": "PASS", "detail": f"{len(items)} sound(s), {takes} take(s) each, {request['seconds']} s, {request['steps']} steps"}
+
+
+def _audio_source(ctx: Context) -> dict:
+    source = ctx.input("source")
+    if source.is_dir():
+        files = sorted(p for p in source.iterdir() if p.is_file() and p.suffix.lower() in audio.AUDIO_SUFFIXES)
+        if not files:
+            raise RunFailed(f"no audio files ({', '.join(sorted(audio.AUDIO_SUFFIXES))}) directly in {source}")
+        if len(files) > 200:
+            raise RunFailed("at most 200 audio files per run")
+        copies = []
+        for path in files:
+            record = ctx.asset.add_input(path, "audio")
+            copies.append(ctx.project.root / record["path"])
+    else:
+        if source.suffix.lower() not in audio.AUDIO_SUFFIXES:
+            raise RunFailed(f"{source.name} is not an audio file AssetForge finishes")
+        copies = [source]
+    names = [audio._item_name(p.stem) for p in copies]
+    if len(set(names)) != len(names):
+        raise RunFailed("two input files share a name; rename one so the outputs do not collide")
+    ctx.outputs["audio_items"] = [{"name": name, "source": p, "kind": "source"} for name, p in zip(names, copies)]
+    ctx.outputs["audio_kind"] = "source"
+    return {"status": "PASS", "detail": f"{len(copies)} audio file(s)"}
+
+
+def _audio_finish(ctx: Context) -> dict:
+    items = ctx.outputs.get("audio_items")
+    if not items:
+        raise RunFailed("audio.finish needs audio.voice, audio.sfx or audio.source first")
+    ffmpeg = _provider(ctx, "ffmpeg")["path"]
+    fmt = str(ctx.params.get("format") or "ogg")
+    loudness = str(ctx.params.get("loudness") or "peak").strip()
+    if loudness != "peak":
+        try:
+            float(loudness)
+        except ValueError as exc:
+            raise RunFailed("loudness must be a LUFS number such as -18, or peak") from exc
+    try:
+        true_peak = float(ctx.params.get("true_peak") or "-1")
+    except ValueError as exc:
+        raise RunFailed("true_peak must be a number of dBTP such as -1") from exc
+    sample_rate = int(ctx.params.get("sample_rate") or 44100)
+    channels = int(ctx.params.get("channels") or 1)
+    if sample_rate not in (22050, 24000, 32000, 44100, 48000) or channels not in (1, 2):
+        raise RunFailed("sample_rate must be 22050, 24000, 32000, 44100 or 48000 and channels 1 or 2")
+    trim = bool(ctx.params.get("trim", True))
+    work = _audio_work(ctx, "finish")
+    summary, failed, first = [], 0, None
+    for item in items:
+        target = ctx.asset.path("outputs", f"{item['name']}.{fmt}")
+        try:
+            applied = audio.finish(ffmpeg, Path(item["source"]), target, fmt=fmt, loudness=loudness, true_peak=true_peak,
+                                   sample_rate=sample_rate, channels=channels, trim=trim,
+                                   highpass=int(ctx.params.get("highpass") or 0), work=work)
+            found, info = audio.checks(ffmpeg, target, loudness=loudness, true_peak=true_peak, sample_rate=sample_rate, channels=channels)
+        except audio.AudioError as exc:
+            raise RunFailed(str(exc)) from exc
+        for extra in ("asr", "clap"):
+            if item.get(extra):
+                found.append(dict(item[extra], artifact=target.name))
+        ctx.validation.extend(found)
+        failed += sum(1 for check in found if check["status"] == "FAIL")
+        ctx.artifact(target, "audio", item["name"])
+        first = first or target
+        summary.append({"name": item["name"], "file": target.name, "text": item.get("text"), "seed": item.get("seed"),
+                        "score": item.get("score"), "seconds": info.get("seconds"), "lufs": info.get("lufs"),
+                        "true_peak": info.get("true_peak"), "gain_db": applied["gain_db"], "mode": applied["mode"],
+                        "checks": {check["id"]: check["status"] for check in found}})
+    shutil.rmtree(work, ignore_errors=True)
+    ctx.asset.set_primary("audio", first)
+    ctx.outputs["audio"] = first
+    ctx.report("audio.json", {"format": fmt, "loudness": loudness, "true_peak": true_peak, "sample_rate": sample_rate,
+                              "channels": channels, "items": summary})
+    ctx.validation.append({"artifact": first.name, "id": "AUDIO-LISTEN", "status": "NOT_TESTED",
+                           "detail": "checks measure levels, format and transcript or prompt match; nobody listened to the sound"})
+    status = "WARNING" if failed else "PASS"
+    return {"status": status, "detail": f"{len(summary)} {fmt} file(s)" + (f"; {failed} failed check(s), see validation" if failed else "")}
+
+
 def _asset_record(ctx: Context) -> dict:
     ctx.asset.manifest["provenance"]["versions"] = providers.tool_versions(ctx.project)
     ctx.asset.manifest["provenance"]["seed"] = ctx.params.get("seed")
@@ -996,6 +1222,10 @@ HANDLERS = {
     "img2threejs.codegen": _img2threejs_codegen,
     "teardown.build": _teardown_build,
     "teardown.capture": _teardown_capture,
+    "audio.voice": _audio_voice,
+    "audio.sfx": _audio_sfx,
+    "audio.source": _audio_source,
+    "audio.finish": _audio_finish,
     "asset.record": _asset_record,
 }
 
@@ -1030,6 +1260,13 @@ def plan(recipe: dict, inputs: dict[str, Path], params: dict, project: Project |
             needs.append("img2threejs")
         elif step == "img2threejs.codegen":
             needs.append("img2threejs")
+        elif step == "audio.voice":
+            engine = str(params.get("engine") or "qwen3-tts")
+            needs.append(f"audio-{audio.ENGINE_RUNTIME.get(engine, 'speech')}")
+        elif step == "audio.sfx":
+            needs.append("audio-sfx")
+        elif step == "audio.finish":
+            needs.append("ffmpeg")
     return {
         "recipe": recipe["id"],
         "asset": None,

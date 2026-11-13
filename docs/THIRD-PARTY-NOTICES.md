@@ -14,14 +14,29 @@ AssetForge is MIT-licensed. It does not vendor third-party source, binaries, dat
 | blender-skills (optional, external) | MIT (Copyright (c) 2026 EL4CTEO) | Blender skill catalog, materials, QA and export workflows |
 | comfy-kit (optional, external) | MIT | Delegated image generation |
 | img2threejs (optional, external) | Apache-2.0 | Technical image probe and deterministic spec-to-Three.js code generation |
+| teardown (optional, external) | MIT | Simulator pages and films |
+| FFmpeg (optional, external) | LGPL-2.1+/GPL | Audio finishing and measurement, video encoding |
+| uv (optional, external) | MIT / Apache-2.0 | Builds the audio runtimes |
+| PyTorch, transformers, qwen-tts, kokoro, MOSS-SoundEffect v2 code (audio runtimes, installed by `audio-setup`) | BSD-3, Apache-2.0, Apache-2.0, Apache-2.0, Apache-2.0 | Local audio generation in isolated runtimes outside this repository |
 
 `jsonschema` is used only by tests when available; it is not a runtime dependency.
 
 ## External owners
 
-Blender, blender-skills, comfy-kit, img2threejs, SwarmUI and ComfyUI remain independently maintained and are not distributed by AssetForge. Their licenses, model licenses and terms apply to their own installations and outputs. The tested blender-skills revision is recorded in `docs/PROVIDERS.md`; its MIT copyright notice is preserved here and in that provider document.
+Blender, blender-skills, comfy-kit, img2threejs, teardown, SwarmUI, ComfyUI and the audio model projects remain independently maintained and are not distributed by AssetForge. Their licenses, model licenses and terms apply to their own installations and outputs. The tested blender-skills revision is recorded in `docs/PROVIDERS.md`; its MIT copyright notice is preserved here and in that provider document.
 
-Model weights are never downloaded, bundled or redistributed. Users are responsible for the licenses of models, assets and references they supply.
+Model weights are never bundled or redistributed. The audio runtimes download these weights from Hugging Face on first use, into the audio home outside the repository:
+
+| Model | License |
+| --- | --- |
+| Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign, -Base | Apache-2.0 |
+| nari-labs/Dia-1.6B-0626 | Apache-2.0 |
+| hexgrad/Kokoro-82M | Apache-2.0 |
+| OpenMOSS-Team/MOSS-SoundEffect-v2.0 | Apache-2.0 |
+| openai/whisper-large-v3-turbo | MIT |
+| laion/larger_clap_general | Apache-2.0 |
+
+Users are responsible for the licenses of models, assets and references they supply, and for having the rights to any voice they clone.
 
 ## Test fixtures
 

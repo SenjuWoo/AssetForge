@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "id": "audio-sfx",
+  "title": "Make sound effects from text prompts",
+  "description": "Generates one sound (--set prompt=\"...\") or a prompts file (name: prompt per line, or JSON) with MOSS-SoundEffect v2 (48 kHz, up to 30 s). Each prompt gets several takes; CLAP scores each take against its prompt and the best is kept, then trimmed, peak-levelled and encoded. Describe the sound plainly: source, action, space, length.",
+  "input": {
+    "name": "prompts",
+    "kind": "file",
+    "required": false
+  },
+  "inputs": {
+    "prompts": {
+      "kind": "file",
+      "required": false
+    }
+  },
+  "params": {
+    "prompt": {
+      "type": "string",
+      "default": ""
+    },
+    "name": {
+      "type": "string",
+      "default": ""
+    },
+    "seconds": {
+      "type": "string",
+      "default": "3"
+    },
+    "steps": {
+      "type": "integer",
+      "default": 100
+    },
+    "cfg": {
+      "type": "string",
+      "default": "4.0"
+    },
+    "takes": {
+      "type": "integer",
+      "default": 3
+    },
+    "seed": {
+      "type": "integer",
+      "default": 0
+    },
+    "loudness": {
+      "type": "string",
+      "default": "peak"
+    },
+    "format": {
+      "type": "string",
+      "default": "ogg",
+      "choices": [
+        "ogg",
+        "wav",
+        "mp3",
+        "flac"
+      ]
+    },
+    "true_peak": {
+      "type": "string",
+      "default": "-1"
+    },
+    "sample_rate": {
+      "type": "integer",
+      "default": 44100
+    },
+    "channels": {
+      "type": "integer",
+      "default": 1
+    },
+    "trim": {
+      "type": "boolean",
+      "default": true
+    },
+    "highpass": {
+      "type": "integer",
+      "default": 0
+    },
+    "check": {
+      "type": "boolean",
+      "default": true
+    },
+    "timeout": {
+      "type": "integer",
+      "default": 3600
+    }
+  },
+  "steps": [
+    "audio.sfx",
+    "audio.finish",
+    "asset.record"
+  ]
+}

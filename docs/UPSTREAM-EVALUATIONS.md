@@ -36,6 +36,22 @@ Checked against upstream repository metadata on **2026-11-08**; integrated provi
 | [PyNifly](https://github.com/BadDogSkyrim/PyNifly) | GPL-3.0 | Active | **Planned** Skyrim/Fallout export path through Blender; separate GPL addon. |
 | [comfy-kit](https://github.com/SenjuWoo/comfy-kit) | MIT | Active owner | Optional generation/import adapter. AssetForge never owns its models, presets, nodes or configuration. |
 
+## 2026-11-13: audio
+
+| Candidate | Licence | Decision |
+| --- | --- | --- |
+| Qwen3-TTS 1.7B VoiceDesign + Base (`qwen-tts` 0.1.1) | Apache-2.0 | **Integrated (0.7.0)** as the default voice engine: voice design from text, then cloning for consistent line sets, 10 languages. |
+| Dia 1.6B (nari-labs, through transformers) | Apache-2.0 | **Integrated (0.7.0)** for nonverbals and dialogue; takes the Qwen-designed reference voice. |
+| Dia2 1B/2B | Apache-2.0 | Not adopted yet: voices vary per generation without a prefix, and its streaming server is still listed as upcoming. Recheck when it ships a stable API. |
+| Kokoro-82M | Apache-2.0 | **Integrated (0.7.0)** for fast preset voices. |
+| MOSS-SoundEffect v2.0 (OpenMOSS, 1.3B DiT) | Apache-2.0 | **Integrated (0.7.0)** for sound effects; installed at pinned commit `934d682` without upstream's numpy 1.26 and gradio pins. |
+| Whisper large-v3-turbo; CLAP (laion/larger_clap_general) | MIT; Apache-2.0 | **Integrated (0.7.0)** as take checks. |
+| Chatterbox (Resemble AI) | MIT, outputs watermarked | Not adopted: every output carries the PerTh watermark; Qwen3-TTS covers cloning. |
+| MOSS-TTS 8B family | Apache-2.0 | Not adopted: 8B is heavy on one GPU; only the 1.3B sound-effect model is used. |
+| Stable Audio Open / Stable Audio 3.0 SFX | Stability AI Community | Not adopted: free only under a revenue threshold. |
+| soundbox (desktop app with an MCP server) | MIT app, mixed model licences | Not adopted: unsigned Windows installer, unauthenticated local API, young project. |
+| ACE-Step 1.5 | MIT | Planned for music. |
+
 ## Licensing notes
 
 - **Model weights are separate from source licenses.** TripoSR, TRELLIS and Hunyuan weights must be reviewed and acknowledged independently.

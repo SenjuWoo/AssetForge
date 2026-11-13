@@ -57,6 +57,8 @@ Status values are strict: **VERIFIED** (executed with evidence), **IMPLEMENTED /
 | P3-01 | TripoSR image-to-3D provider, isolated environment | PLANNED |
 | P3-02 | Rigging validation interfaces and UniRig adapter | PLANNED |
 | P3-03 | teardown simulation/presentation module | VERIFIED (0.6.0: `teardown-build`, `teardown-film`) |
+| P3-04 | Audio: voice lines, sound effects, finishing, sound export | VERIFIED (0.7.0: `audio-voice`, `audio-sfx`, `audio-process`, `audio-setup`, `minecraft` target) |
+| P3-05 | Music generation (ACE-Step 1.5 candidate) | PLANNED |
 | P4-01 | Additional export profiles (Unity, Unreal, web, Skyrim) | PLANNED |
 | P4-02 | MCP server over the same service layer | PLANNED |
 | P4-03 | Remote GPU execution | PLANNED |

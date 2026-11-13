@@ -4,6 +4,32 @@ Verified working tree: 0.3.0 release candidate based on `9027141dc5680a29ed4d7d4
 
 Environment: Windows 11, Python 3.14.10, Node 26.13.0, Pillow 13.0.0, jsonschema 4.x, glTF-Transform 4.5.1, Khronos glTF Validator installed locally in `.tools`, current Blender reports 5.3.0. The project works without any optional provider.
 
+## 0.7.0 audio — 2026-11-13
+
+Environment: Windows 11, Python 3.14.10, uv 0.13.5, torch 2.9.1+cu128, NVIDIA RTX 4080 SUPER (16 GB), FFmpeg 9.0.2. Runtimes built by `assetforge audio-setup` under the audio home: speech (qwen-tts 0.1.1, transformers 4.57.3), sfx (MOSS-TTS `934d682`, transformers 4.57.1, diffusers 0.37.1), kokoro (kokoro 0.9.4). All three smoke tests passed with CUDA.
+
+- Full suite: `python -m unittest discover -s tests` → **180 tests OK, 2 skipped** (Blender installed; no symlink privilege). `test_audio` runs 23 tests. A stub runtime (a bare venv) and a stub worker cover line parsing, take scoring, runtime detection, worker errors, finishing, level checks, each recipe through the CLI, exit codes, the Minecraft, Godot and Roblox export rules, and probe routing. `RealKokoro` ran against the installed runtime.
+- Real recipe runs in a fresh project:
+  - **`audio-voice`, qwen3-tts.** Three lines took 2 takes each, with the voice designed from a text description (three auditions, all 100% Whisper match). Every line got `AUDIO-ASR PASS` at 100%, and loudness came out at -17.95, -17.95 and -17.75 LUFS against a -18 target. A take took 3.5 to 8 s after the models loaded.
+  - **`audio-voice`, dia, no reference.** The laugh line passed. The gasp line kept babbling (Whisper heard "Oh, oh, oh...") and was correctly marked `AUDIO-ASR FAIL`.
+  - **`audio-voice`, dia, with the Qwen-designed reference voice and 3 takes.** Both lines passed at 100% ("Ah! That hurt!", "Oh, you are too kind.").
+  - **`audio-voice`, kokoro.** The line passed at 100%. `AUDIO-004` gave a WARNING (-19.54 LUFS) because the -1 dBTP ceiling limited the gain, and the report says so.
+  - **`audio-sfx`.** Sword swing and door creak took 3 takes each with distinct seeds. CLAP was 0.49 and 0.41 for the kept takes, at about 17 s per take for 100 steps. Rain on a tin roof scored CLAP 0.29 and got an `AUDIO-CLAP WARNING`.
+  - **`export --target minecraft --namespace villageprincess`.** It wrote `assets/villageprincess/sounds/princess-voice/*.ogg` and `sounds.json`, with greet1 and greet2 grouped as variants of one event, and `AUDIO-POSITIONAL PASS` (mono).
+- CLAP calibration: six MOSS takes scored 0.29 to 0.49 against their own prompts and at most 0.26 (mostly under 0.18) against four unrelated prompts, which is where the 0.30 / 0.20 thresholds come from.
+- Bugs found by the real runs and fixed before release:
+  - MOSS ran out of VRAM, because its float32 DiT under autocast spilled past 16 GB. It now peaks near 10 GB with bf16 weights.
+  - All MOSS takes were identical, because the pipeline's own `seed` was not passed.
+  - torch.compile and the CUDA-graph marker failed on Python 3.14.
+  - Whisper returned dots for 44.1 kHz input. Audio is now resampled to 16 kHz first.
+  - huggingface_hub raced into `os.symlink` (WinError 1314) on a first download.
+  - misaki's spaCy download installed into the shared Python. It was removed there and is now shipped in the runtime.
+  - Minecraft resource paths were built from the timestamped asset id, which contains an uppercase `T`.
+- Not verified:
+  - Listening (`AUDIO-LISTEN NOT_TESTED`).
+  - Any game loading the sounds.
+  - The audio runtimes on Linux or macOS.
+
 ## 0.6.0 teardown — 2026-11-13
 
 Environment: Windows 11, Node 26.13.1, teardown `a91262ac1109051e014662d42ecb0b7bc1f113b1` with `npm ci` (Playwright 1.58.2, esbuild 0.28.1, three 0.186.1), Chromium 145.0.7632.6 and its headless shell, FFmpeg 9.0.2, NVIDIA RTX 4080 SUPER through ANGLE/D3D11.

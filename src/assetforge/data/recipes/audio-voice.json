@@ -1,0 +1,115 @@
+{
+  "schema": 1,
+  "id": "audio-voice",
+  "title": "Make voice lines from text",
+  "description": "Speaks one line (--set text=...) or a lines file (name: text per line, or JSON). qwen3-tts designs a voice from --set voice=\"description\" and clones it for every line so a set keeps one voice; pass --input reference=<wav> with ref_text to clone a recording you have rights to. dia speaks nonverbals written in parentheses, such as (laughs) (gasps) (screams). kokoro is fast with preset voices (af_heart, bf_emma, am_adam...). Each line gets several takes; Whisper checks each take's words and the best is kept, then trimmed, levelled and encoded.",
+  "input": {
+    "name": "lines",
+    "kind": "file",
+    "required": false
+  },
+  "inputs": {
+    "lines": {
+      "kind": "file",
+      "required": false
+    },
+    "reference": {
+      "kind": "file",
+      "required": false
+    }
+  },
+  "params": {
+    "text": {
+      "type": "string",
+      "default": ""
+    },
+    "name": {
+      "type": "string",
+      "default": ""
+    },
+    "engine": {
+      "type": "string",
+      "default": "qwen3-tts",
+      "choices": [
+        "qwen3-tts",
+        "dia",
+        "kokoro"
+      ]
+    },
+    "voice": {
+      "type": "string",
+      "default": ""
+    },
+    "language": {
+      "type": "string",
+      "default": "English"
+    },
+    "reference_text": {
+      "type": "string",
+      "default": ""
+    },
+    "ref_text": {
+      "type": "string",
+      "default": ""
+    },
+    "takes": {
+      "type": "integer",
+      "default": 0
+    },
+    "seed": {
+      "type": "integer",
+      "default": 0
+    },
+    "speed": {
+      "type": "string",
+      "default": "1.0"
+    },
+    "loudness": {
+      "type": "string",
+      "default": "-18"
+    },
+    "format": {
+      "type": "string",
+      "default": "ogg",
+      "choices": [
+        "ogg",
+        "wav",
+        "mp3",
+        "flac"
+      ]
+    },
+    "true_peak": {
+      "type": "string",
+      "default": "-1"
+    },
+    "sample_rate": {
+      "type": "integer",
+      "default": 44100
+    },
+    "channels": {
+      "type": "integer",
+      "default": 1
+    },
+    "trim": {
+      "type": "boolean",
+      "default": true
+    },
+    "highpass": {
+      "type": "integer",
+      "default": 0
+    },
+    "check": {
+      "type": "boolean",
+      "default": true
+    },
+    "timeout": {
+      "type": "integer",
+      "default": 3600
+    }
+  },
+  "steps": [
+    "audio.voice",
+    "audio.finish",
+    "asset.record"
+  ]
+}

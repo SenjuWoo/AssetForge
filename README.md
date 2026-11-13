@@ -1,6 +1,6 @@
 # AssetForge
 
-AssetForge is a standalone, agent-friendly toolkit for producing, validating and packaging game assets. It provides a Python CLI, versioned JSON contracts and optional adapters for Blender, blender-skills, glTF-Transform, the Khronos glTF Validator, comfy-kit and img2threejs.
+AssetForge is a standalone, agent-friendly toolkit for producing, validating and packaging game assets. It provides a Python CLI, versioned JSON contracts and optional adapters for Blender, blender-skills, glTF-Transform, the Khronos glTF Validator, comfy-kit, img2threejs, teardown and local audio models (voice lines and sound effects).
 
 It is designed to work on its own and can also be registered as a companion of the Ultimate AI Starter Bundle. The bundle is recommended, never required.
 
@@ -24,6 +24,17 @@ assetforge.cmd run mesh-gameready --input mesh=model.glb
 ```
 
 Rules: [docs/GAME-READY.md](docs/GAME-READY.md).
+
+## Voice lines and sound effects
+
+```bat
+assetforge.cmd audio-setup
+assetforge.cmd run audio-voice --input lines=lines.txt --set "voice=a warm, slightly haughty young princess"
+assetforge.cmd run audio-sfx --set "prompt=a steel sword swinging through the air" --set name=swing
+assetforge.cmd export ASSET --target minecraft --namespace mymod
+```
+
+`audio-setup` installs three isolated local runtimes. Qwen3-TTS designs a voice from a description and clones it for every line, Dia speaks nonverbals such as `(laughs)` and `(gasps)`, Kokoro gives fast preset voices, and MOSS-SoundEffect v2 makes sound effects. All of them are Apache-2.0. Whisper checks the words of each take, CLAP checks each effect against its prompt, and the best take is trimmed, levelled to a loudness target and encoded. `audio-process` finishes audio you already have. Details: [docs/AUDIO.md](docs/AUDIO.md).
 
 ## Quick start (Windows)
 
@@ -63,7 +74,8 @@ assetforge run RECIPE [--input PATH | NAME=PATH] [--set KEY=VALUE] [--dry-run] [
 assetforge status [JOB_ID | --last] [--json]
 assetforge inspect ASSET [--json]
 assetforge validate ASSET [--json]
-assetforge export ASSET --target roblox|godot|generic [--dry-run] [--json]
+assetforge export ASSET --target roblox|godot|generic|minecraft [--namespace NS] [--dry-run] [--json]
+assetforge audio-setup [speech|sfx|kokoro ...] [--list] [--device auto|cuda|cpu] [--json]
 assetforge engine-check FILE.glb [--json]
 ```
 
@@ -130,6 +142,9 @@ The concept exploration for this prop was generated locally through the comfy-ki
 | `img2threejs-codegen` | Generate an editable Three.js factory from an ObjectSculptSpec through upstream img2threejs. |
 | `teardown-build` | Bundle a teardown machine simulator into one offline HTML page. |
 | `teardown-film` | Render a teardown simulator to MP4, or to a labelled review sheet, in headless Chromium. |
+| `audio-voice` | Voice lines from text: Qwen3-TTS voice design and cloning, Dia nonverbals, Kokoro presets; Whisper-checked takes. |
+| `audio-sfx` | Sound effects from text prompts with MOSS-SoundEffect v2; CLAP-checked takes. |
+| `audio-process` | Trim, level, convert and measure existing audio files or a folder of them. |
 
 Every recipe writes a job record under `.assetforge/jobs/` with per-step status, errors and tool versions. Assets keep copied inputs, a JSON manifest, relative artifact paths and provenance. A manifest-defined primary artifact decides what gets exported.
 
@@ -166,7 +181,12 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | Godot import check | VERIFIED | `engine-check`: Godot 4.7.2 headless imports the GLB, then loads and instantiates it; rendering and playback are not tested |
 | teardown simulator page | VERIFIED | Upstream example bundled through `teardown-build`; page opens offline (`PAGE-001`) |
 | teardown film | VERIFIED | Upstream example rendered to MP4 in headless Chromium through `teardown-film`; visual review stays `NOT_TESTED` |
-| FFmpeg | USED | `teardown-film` encodes through it; `doctor` reports version and purpose |
+| Voice lines | VERIFIED | Qwen3-TTS designed a voice and cloned it for 3 lines, 100% Whisper word match; Dia and Kokoro lines also passed. Nobody listened: `AUDIO-LISTEN` stays `NOT_TESTED` |
+| Sound effects | VERIFIED | MOSS-SoundEffect v2 through `audio-sfx` with CLAP prompt scores; listening stays `NOT_TESTED` |
+| Audio finishing and checks | VERIFIED | Trim, fixed-gain loudness/peak levelling, encode; decode, level, true-peak, loudness, edge-silence and format checks |
+| Minecraft sound export | VERIFIED packaging | Ogg files plus `sounds.json` with numbered variants grouped; game load `NOT_TESTED` |
+| Music generation | PLANNED | ACE-Step 1.5 is the candidate |
+| FFmpeg | USED | Audio finishing and measurement; `teardown-film` encodes through it; `doctor` reports version and purpose |
 | ImageMagick | DETECTED | Reported by `doctor` and `providers` with version and purpose; no recipe calls it yet |
 | AI 3D providers, rig deformation preview, MCP, Graphite | PLANNED | Not implemented yet |
 
@@ -186,6 +206,8 @@ AssetForge detects providers without installing or reconfiguring them.
 | comfy-kit | Free local texture generation (recommended companion) | `comfy-generate` exits with code `4` |
 | img2threejs | Technical image probe and spec-to-Three.js codegen | `img2threejs-probe` / `img2threejs-codegen` exit with code `4` |
 | teardown | Offline simulator pages and their films | `teardown-build` / `teardown-film` exit with code `4` |
+| audio-speech / audio-sfx / audio-kokoro | Local voice and sound-effect models, installed by `assetforge audio-setup` | `audio-voice` / `audio-sfx` exit with code `4` and name the setup command |
+| FFmpeg | Audio finishing and measurement, video encoding | Audio recipes exit with code `4` |
 
 Detection paths and environment variables are documented in [docs/PROVIDERS.md](docs/PROVIDERS.md).
 
@@ -213,7 +235,7 @@ Artifact paths in `asset.json` are project-relative and are validated against pa
 - External tools run through structured argument lists with explicit working directories and timeouts. AssetForge does not install them silently.
 - Asset inputs are copied into the project. Artifact paths are rejected if absolute, missing or outside the project, including `..` and symlink escapes.
 - Validation and export never claim an engine import was tested. `engine_import` is always `NOT_TESTED` until a real editor run is recorded.
-- AssetForge does not upload assets to Roblox, Godot or any account, and never stores credentials.
+- AssetForge does not upload assets to Roblox, Godot or any account, and never stores credentials. Audio models run locally; their weights download from Hugging Face on first use.
 
 ## Adding to the Ultimate AI Starter Bundle
 
@@ -226,6 +248,7 @@ No bundle files are modified by this repository.
 - [Architecture](docs/ARCHITECTURE.md)
 - [Providers](docs/PROVIDERS.md)
 - [Game-ready meshes](docs/GAME-READY.md)
+- [Audio](docs/AUDIO.md)
 - [Recipes](docs/RECIPES.md)
 - [Upstream evaluations](docs/UPSTREAM-EVALUATIONS.md)
 - [Bundle integration](docs/UABS-INTEGRATION.md)

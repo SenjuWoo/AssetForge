@@ -10,5 +10,17 @@
     "texture_size": 1024
   },
   "notes": "Roblox Studio's Importer accepts .fbx, .obj, .gltf and .glb (verified against the current Creator Hub page on 2026-11-07). The numeric budgets here are project defaults, not published hard limits.",
-  "source": "https://create.roblox.com/docs/studio/importer"
+  "source": "https://create.roblox.com/docs/studio/importer",
+  "audio": {
+    "formats": [
+      "mp3",
+      "ogg",
+      "wav",
+      "flac"
+    ],
+    "max_seconds": 420,
+    "max_bytes": 20000000,
+    "max_sample_rate": 48000
+  },
+  "audio_source": "https://create.roblox.com/docs/sound/assets (checked 2026-11-13: .mp3/.ogg/.wav/.flac, under 20 MB and 7 minutes, at most 48 kHz)"
 }

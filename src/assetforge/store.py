@@ -32,6 +32,10 @@ def _media_type(path: Path) -> str:
         ".webp": "image/webp",
         ".json": "application/json",
         ".md": "text/markdown",
+        ".wav": "audio/wav",
+        ".ogg": "audio/ogg",
+        ".mp3": "audio/mpeg",
+        ".flac": "audio/flac",
     }.get(path.suffix.lower(), "application/octet-stream")
 
 
