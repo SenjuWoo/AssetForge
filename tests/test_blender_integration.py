@@ -53,6 +53,9 @@ class BlenderPipelineIntegrationTests(unittest.TestCase):
             self.assertEqual(path.stat().st_size, item["bytes"], item["path"])
             self.assertEqual(sha256(path), item["sha256"], item["path"])
 
+        # Blender's save backups are not deliverables and must not pile up.
+        self.assertEqual(sorted(self.asset.folder.rglob("*.blend1")), [])
+
         manifest_text = self.asset.manifest_path.read_text(encoding="utf-8")
         self.assertNotIn(str(self.project.root), manifest_text)
         self.assertNotIn("C:\\", manifest_text)

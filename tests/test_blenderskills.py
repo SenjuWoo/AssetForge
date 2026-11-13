@@ -64,6 +64,34 @@ class BlenderSkillsTests(unittest.TestCase):
             self.assertEqual(reason, "")
             self.assertEqual(found[1], (root / "skills").resolve())
 
+    def test_a_checkout_in_a_declared_tool_root_is_found(self):
+        # A plain clone beside other tools must be found without a variable,
+        # the same way comfy-kit and img2threejs are.
+        with tempfile.TemporaryDirectory() as tmp:
+            tools = Path(tmp) / "tools"
+            tools.mkdir()
+            root = make_skills(tools)
+            home = Path(tmp) / "home"
+            home.mkdir()
+            env = {"ASSETFORGE_ROOTS": str(tools)}
+            with mock.patch.dict(os.environ, env), mock.patch.object(Path, "home", return_value=home):
+                os.environ.pop("BLENDER_SKILLS_ROOT", None)
+                found, reason = blenderskills.locate()
+            self.assertEqual(reason, "")
+            self.assertEqual(found[1], (root / "skills").resolve())
+
+    def test_release_version_comes_from_the_plugin_manifest(self):
+        # Upstream 1.3.0 bumped .claude-plugin/plugin.json but left the
+        # per-skill metadata at 1.2.0; the release is what we tested.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_skills(Path(tmp))
+            (root / ".claude-plugin").mkdir()
+            (root / ".claude-plugin" / "plugin.json").write_text(json.dumps({"name": "x", "version": "1.3.0"}), encoding="utf-8")
+            with mock.patch.dict(os.environ, {"BLENDER_SKILLS_ROOT": str(root)}):
+                provider = providers.get("blender-skills")
+            self.assertEqual(provider["version"], "1.3.0")
+            self.assertEqual(provider["details"]["skill_version"], "1.2.0")
+
     def test_route_materials(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = make_skills(Path(tmp))

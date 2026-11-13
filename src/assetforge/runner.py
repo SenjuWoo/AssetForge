@@ -414,6 +414,15 @@ def _blender_skills_build(ctx: Context) -> dict:
     return {"status": "PASS", "detail": f"{data.get('polygons', 0)} polygons; {target.name}"}
 
 
+def _drop_save_backup(blend: Path) -> None:
+    """Saving over an existing .blend makes Blender write `<name>.blend1`.
+    That copy is the pre-step file, already kept as its own artifact, so it is
+    removed instead of left unrecorded in the asset."""
+    backup = blend.with_name(blend.name + "1")
+    if backup.is_file():
+        backup.unlink()
+
+
 def _blender_skills_material(ctx: Context) -> dict:
     skills, blender, skills_dir = _blender_skills(ctx)
     built = _blender_blend(ctx)
@@ -428,6 +437,7 @@ def _blender_skills_material(ctx: Context) -> dict:
         ["--name", "M_BlenderAsset", "--preset", preset, "--objects", "SM_Crate", "--save", str(blend)],
         blend=blend, timeout=float(ctx.params.get("timeout") or 300), cwd=ctx.project.root,
     )
+    _drop_save_backup(blend)
     assigned = data.get("assigned") or []
     if "SM_Crate" not in assigned:
         raise RunFailed(f"blender-skills did not assign the material: {data}")
@@ -672,6 +682,7 @@ def _blender_skills_run(ctx: Context) -> dict:
         "detail": f"{recipe_id} {operation}",
     })
     if result_blend is not None:
+        _drop_save_backup(result_blend)
         if not result_blend.is_file() or result_blend.stat().st_size < 1000:
             raise RunFailed(f"blender-skills {operation} wrote no output .blend")
         ctx.outputs["blend"] = result_blend

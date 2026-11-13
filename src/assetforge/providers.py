@@ -21,6 +21,7 @@ from . import blenderskills
 MARKERS = {
     "comfy-kit": ("TOOLS/image-stack.ps1", "presets/presets.json"),
     "img2threejs": ("SKILL.md", "forge/stage1_intake/probe_image.py"),
+    "blender-skills": ("skills/blender-core/SKILL.md", "skills/blender-asset-qa/SKILL.md"),
 }
 
 
@@ -78,10 +79,20 @@ def _breadth_first(roots: list[Path], name: str, depth: int = 3, limit: int = 40
     return None
 
 
+def explicit_problem(name: str, env: str) -> str:
+    """Reason text when the selecting variable is set but points at the wrong
+    folder. A set variable is a decision; it is reported, not bypassed."""
+    explicit = _env_path(env)
+    if explicit is None or _looks_like(explicit, name):
+        return ""
+    return f"{env} does not contain {' and '.join(MARKERS[name])}: {explicit}"
+
+
 def find_owner(name: str, project=None, defaults: tuple[Path, ...] = (), env: str | None = None) -> Path | None:
     explicit = _env_path(env) if env else None
-    if explicit and _looks_like(explicit, name):
-        return explicit
+    if explicit:
+        # No silent fallback to another copy when the variable is wrong.
+        return explicit if _looks_like(explicit, name) else None
     if project is not None:
         configured = (project.data.get("integrations") or {}).get(name.replace("-", "_"))
         if configured:
@@ -101,6 +112,17 @@ def _version_file(root: Path) -> str | None:
             return path.read_text(encoding="utf-8").strip().splitlines()[0]
         except OSError:
             return None
+    # Skill owners such as img2threejs carry the release in SKILL.md frontmatter.
+    skill = root / "SKILL.md"
+    if skill.is_file():
+        try:
+            head = skill.read_text(encoding="utf-8-sig")[:2000]
+        except OSError:
+            return None
+        if head.startswith("---"):
+            match = re.search(r"^version:\s*[\"']?([^\"'\s]+)", head.split("\n---", 1)[0], re.M)
+            if match:
+                return match.group(1)
     return None
 
 
@@ -441,7 +463,7 @@ def detect(project=None) -> list[dict]:
         "available": comfy is not None,
         "version": comfy_version,
         "path": str(comfy) if comfy else None,
-        "reason": "" if comfy else "comfy-kit was not found; set COMFY_KIT_ROOT or integrations.comfy_kit",
+        "reason": "" if comfy else (explicit_problem("comfy-kit", "COMFY_KIT_ROOT") or "comfy-kit was not found; set COMFY_KIT_ROOT or integrations.comfy_kit"),
         "capabilities": ["image.generate.delegated", "image.presets"],
         "details": {"presets": presets, "swarmui": state.get("swarm_root") or state.get("swarmRoot")},
     })
@@ -464,7 +486,11 @@ def detect(project=None) -> list[dict]:
         "available": img2 is not None,
         "version": _version_file(img2) if img2 else None,
         "path": str(img2) if img2 else None,
-        "reason": "" if img2 else "img2threejs was not found; install it with npx or set IMG2THREEJS_ROOT",
+        "reason": "" if img2 else (
+            explicit_problem("img2threejs", "IMG2THREEJS_ROOT")
+            or "img2threejs was not found; clone https://github.com/img2threejs/img2threejs into a tool root, "
+            "run `npx img2threejs install`, or set IMG2THREEJS_ROOT"
+        ),
         "capabilities": ["image.probe", "image.reconstruct.agent"],
     })
 

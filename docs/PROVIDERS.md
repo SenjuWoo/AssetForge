@@ -55,8 +55,9 @@ When absent, validation reports `GLB-014 NOT_TESTED`; when present, the official
 
 - Kind: optional external skill owner.
 - Upstream: [EL4CTEO/blender-skills](https://github.com/EL4CTEO/blender-skills), MIT License, Copyright (c) 2026 EL4CTEO.
-- Tested revision: `389f28addc79b87b28764898e38e7bf408d14b77` (v1.2.0), with Blender 5.2.3 LTS on Windows. Upstream `validate_skills.py` passed and its 69 headless tests passed with Blender.
-- Detect: `BLENDER_SKILLS_ROOT`, project `integrations.blender_skills`, `~/blender-skills`, `~/.claude/skills`, or `~/.agents/skills`. Both a checkout (`<root>/skills/<name>/SKILL.md`) and an installed folder (`<root>/<name>/SKILL.md`) are accepted. Required markers are `blender-core` and `blender-asset-qa`.
+- Tested release: **v1.3.0**, revision `3e481ad1b8e301defced7369e4254022abe0821e`, with Blender 5.3.0 on Windows (2026-11-13). Upstream `validate_skills.py` passed and its 69 headless tests passed with Blender 5.3.0 and with Blender 5.2.4 LTS; AssetForge's own pipeline, QA and runner tests passed against it. v1.3.0 adds Blender 5.3 notes and KTX2 export guidance; the scripts AssetForge calls are unchanged from v1.2.0 (revision `389f28a`, Blender 5.2.3), which remains compatible.
+- Detect: `BLENDER_SKILLS_ROOT`, project `integrations.blender_skills`, `~/blender-skills`, `~/.claude/skills`, `~/.agents/skills`, then a checkout under a declared tool root (same bounded search as comfy-kit). Both a checkout (`<root>/skills/<name>/SKILL.md`) and an installed folder (`<root>/<name>/SKILL.md`) are accepted. Required markers are `blender-core` and `blender-asset-qa`. A set variable that points at the wrong folder is reported, never bypassed.
+- Version: the release number comes from upstream `.claude-plugin/plugin.json`; the per-skill metadata version, which can lag a release, is reported as `details.skill_version`.
 - All 28 discovered skills are exposed in the catalog. The verified surface executes six upstream skills: `blender-core` (headless runner), `blender-pbr-materials`, `blender-asset-qa`, `blender-export-pipelines`, `blender-game-optimization` (`mesh_stats.py`, `make_lods.py`) and `blender-retopology-uv` (`auto_retopo.py`, `uv_pack.py`, `texel_density.py`). Other skills are cataloged and tested upstream, not claimed as executed by AssetForge.
 - AssetForge reports the detected commit when the root is a Git checkout. It never installs, updates or rewrites upstream skills.
 - Catalog and routing:
@@ -88,15 +89,20 @@ Then restart the Hermes session. External dirs are scanned alongside the local p
 
 ### Install blender-skills
 
-Use the upstream installer; AssetForge does not duplicate it:
+A plain clone is enough for AssetForge. Put it in a declared tool root, or anywhere and set `BLENDER_SKILLS_ROOT`:
 
 ```bash
-git clone https://github.com/EL4CTEO/blender-skills
+git clone --branch v1.3.0 https://github.com/EL4CTEO/blender-skills
+```
+
+To also load the skills into your agents, run the upstream installer; AssetForge does not duplicate it:
+
+```bash
 ./blender-skills/install/install.sh          # macOS / Linux
 .\blender-skills\install\install.ps1          # Windows
 ```
 
-Then set `BLENDER_SKILLS_ROOT` to the checkout or to the installed skills directory (`~/.agents/skills` or `~/.claude/skills`).
+Update with `git -C blender-skills fetch --tags` and check out the new tag, then rerun `python tools/validate_skills.py` and `python tools/run_tests.py` in the checkout before relying on it.
 
 
 ## comfy-kit
@@ -110,9 +116,12 @@ Then set `BLENDER_SKILLS_ROOT` to the checkout or to the installed skills direct
 ## img2threejs
 
 - Kind: external skill checkout.
-- Detect: `IMG2THREEJS_ROOT`, project `integrations.img2threejs`, standard skill directories, or declared roots. Required markers: `SKILL.md` and `forge/stage1_intake/probe_image.py`.
-- Used by: `img2threejs-probe`, which runs the upstream technical image probe only.
-- Full reference-image reconstruction and procedural Three.js generation are agent-driven upstream workflows and are **not** automated by AssetForge.
+- Upstream: [img2threejs/img2threejs](https://github.com/img2threejs/img2threejs), Apache-2.0.
+- Tested release: **v2.0.1**, revision `0c0c49bc168e648dbaf9c8c080474de0b3a941b6` (2026-11-13). Upstream suite: 1,416 tests, no assertion failures; 3 fixture errors were Windows symlink-privilege errors (`WinError 1314`) and 64 tests skipped. The probe (`forge/stage1_intake/probe_image.py IMAGE --out JSON`) and generator (`forge/stage3_build/generate_threejs_factory.py SPEC --out TS`) keep the command lines AssetForge uses.
+- Detect: `IMG2THREEJS_ROOT`, project `integrations.img2threejs`, standard skill directories, or declared roots. Required markers: `SKILL.md` and `forge/stage1_intake/probe_image.py`. A pointer skill without `forge/` is not accepted. The version comes from the `version:` line of its `SKILL.md`. A set variable that points at the wrong folder is reported, never bypassed.
+- Install: `git clone --branch v2.0.1 https://github.com/img2threejs/img2threejs` into a declared tool root, or set `IMG2THREEJS_ROOT`. Upstream's `npx img2threejs install` links the skill into every agent it finds; use it only if you want that.
+- Used by: `img2threejs-probe` (technical image probe) and `img2threejs-codegen` (deterministic ObjectSculptSpec to Three.js TypeScript).
+- Full reference-image reconstruction is an agent-driven upstream workflow and is **not** automated by AssetForge.
 
 ## Godot
 

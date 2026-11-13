@@ -11,7 +11,7 @@ import os
 import re
 from pathlib import Path
 
-from .util import first_line, run
+from .util import first_line, read_json, run
 
 CORE = "blender-core"
 QA = "blender-asset-qa"
@@ -87,7 +87,29 @@ def locate(project=None) -> tuple[tuple[Path, Path] | None, str]:
         found = _layout(candidate)
         if found:
             return found, ""
-    return None, "blender-skills was not found; set BLENDER_SKILLS_ROOT or integrations.blender_skills"
+    # A clone beside other tools, found the same bounded way as comfy-kit.
+    # Imported here because providers imports this module.
+    from . import providers
+
+    checkout = providers._breadth_first(providers._declared_roots(project), "blender-skills")
+    if checkout is not None:
+        found = _layout(checkout)
+        if found:
+            return found, ""
+    return None, (
+        "blender-skills was not found; clone https://github.com/EL4CTEO/blender-skills into a tool root, "
+        "or set BLENDER_SKILLS_ROOT or integrations.blender_skills"
+    )
+
+
+def release_version(root: Path) -> str | None:
+    """The upstream release number lives in the plugin manifest; per-skill
+    metadata can lag a release (1.3.0 shipped with 1.2.0 skill metadata)."""
+    try:
+        value = read_json(root / ".claude-plugin" / "plugin.json").get("version")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return str(value) if value else None
 
 
 def _frontmatter(path: Path) -> dict:
@@ -158,17 +180,18 @@ def describe(project=None) -> dict:
         }
     root, skills_dir = found
     skills = catalog(skills_dir)
-    version = next((item["version"] for item in skills if item["name"] == CORE), None)
+    skill_version = next((item["version"] for item in skills if item["name"] == CORE), None)
     return {
         "id": "blender-skills",
         "title": "blender-skills agent workflows",
         "kind": "skill",
         "available": True,
-        "version": version,
+        "version": release_version(root) or skill_version,
         "path": str(root),
         "reason": "",
         "capabilities": [f"blender.skill.{name}" for name in ROUTES],
         "details": {
+            "skill_version": skill_version,
             "skills": len(skills),
             "skills_dir": str(skills_dir),
             "revision": revision(root),

@@ -98,7 +98,7 @@ assetforge.cmd export ASSET --target godot
 
 Blender 5.2+ is required. `BLENDER_EXE` selects the executable; detection also checks `PATH`, the Blender Foundation folders, the uninstall registry, every Steam library and a portable copy under a declared tool root. Blender MCP is optional and not required; every step runs headless.
 
-Upstream was tested at revision `389f28addc79b87b28764898e38e7bf408d14b77` (v1.2.0) with Blender 5.2.3. AssetForge reports the detected revision but never updates upstream automatically. Installation, Hermes `skills.external_dirs` setup, routing and the tested evidence are in [docs/PROVIDERS.md](docs/PROVIDERS.md).
+Upstream was tested at v1.3.0 (revision `3e481ad1b8e301defced7369e4254022abe0821e`) with Blender 5.3.0; v1.2.0 with Blender 5.2.3 remains compatible. AssetForge finds a plain clone in a declared tool root, reports the detected release and revision, and never updates upstream automatically. Installation, Hermes `skills.external_dirs` setup, routing and the tested evidence are in [docs/PROVIDERS.md](docs/PROVIDERS.md).
 
 ## Showcase
 
@@ -151,12 +151,12 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | Khronos glTF validation | VERIFIED when installed | Optional Node package in `.tools`; otherwise `NOT_TESTED` |
 | Conservative GLB optimization | VERIFIED | glTF-Transform; source and optimized structure compared |
 | Game-ready mesh collapse | IMPLEMENTED | `mesh-gameready` decimates a GLB in Blender and fails above the budget cap. Default is 20,000 triangles. Engine import remains `NOT_TESTED` |
-| Blender background export | VERIFIED | Real Blender 5.2.3; `blender-sample` and upstream export pipeline executed |
-| blender-skills catalog and routing | VERIFIED | 28 skills detected at upstream revision `389f28a`; CLI list/route tested |
+| Blender background export | VERIFIED | Real Blender 5.3.0 (earlier 5.2.3); `blender-sample` and upstream export pipeline executed |
+| blender-skills catalog and routing | VERIFIED | 28 skills detected at upstream v1.3.0 (`3e481ad`); CLI list/route tested |
 | Blender asset QA gate | VERIFIED | Upstream `blender-asset-qa`: 108 tris, 0 errors, 0 warnings; review sheets generated and explicitly approved after inspection |
 | Blender optimization and retopo/UV | VERIFIED | `blender-optimize` and `blender-retopo-uv` execute whitelisted `blender-game-optimization` and `blender-retopology-uv` scripts on real Blender; mutating operations create new `.blend` artifacts |
 | comfy-kit generation | VERIFIED | Exercised against a running comfy-kit; generation is delegated |
-| img2threejs probe | VERIFIED | Technical probe only; reconstruction remains agent-driven |
+| img2threejs probe | VERIFIED | Upstream v2.0.1; technical probe only; reconstruction remains agent-driven |
 | img2threejs spec-to-Three.js codegen | VERIFIED | Upstream deterministic generator; consumes an ObjectSculptSpec, not a raw image |
 | Roblox Studio import | NOT TESTED | No Studio run is automated |
 | img2threejs reconstruction | PLANNED | Image-to-spec review gates remain agent-driven |

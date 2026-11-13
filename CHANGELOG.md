@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.1 — 2026-11-13
+
+- Providers brought up to date and re-verified: blender-skills **v1.3.0** (Blender 5.3 support; upstream validation and 69/69 headless tests pass on Blender 5.3.0) and img2threejs **v2.0.1** (upstream suite has no assertion failures; probe and codegen recipes succeed). glTF-Transform 4.5.1 and gltf-validator 2.0.0-dev.3.10 are already the latest releases.
+- blender-skills is found in a declared tool root (`ASSETFORGE_ROOTS`, the profile's tool roots, a project's integration roots) like comfy-kit and img2threejs. Before this a plain clone beside other tools was reported missing unless `BLENDER_SKILLS_ROOT` was set.
+- blender-skills reports its release from the upstream plugin manifest; v1.3.0 shipped with 1.2.0 per-skill metadata and was shown as 1.2.0. The per-skill value is kept as `details.skill_version`.
+- img2threejs reports its version from its `SKILL.md`; it was always shown as unknown.
+- A set `COMFY_KIT_ROOT` or `IMG2THREEJS_ROOT` that points at the wrong folder is now reported with the markers it lacks. Before this, detection quietly used another copy it found elsewhere.
+- Fix: `blender-pipeline` left Blender's save backup `blender-asset-material.blend1` in the asset's outputs. Backups from saving over a project-owned `.blend` are removed; the pre-step file is already its own artifact.
+- CI uses `actions/checkout@v7` and `actions/setup-python@v7`; Dependabot proposes Action updates monthly.
+- `docs/UPSTREAM-EVALUATIONS.md` records the 2026-11-13 recheck and decisions for new companion tools (CLI-Anything, MCP for Unity, Unity-MCP, awesome-gamedev-agent-skills, OBS MCP and others). None is vendored.
+
 ## 0.5.0 — 2026-11-12
 
 - Add `assetforge engine-check FILE.glb`: a real engine import. Godot 4 runs headless against a throwaway project, imports the GLB, then loads and instantiates the imported scene and reports the node classes, meshes, skeletons and animation names it found. `PASS` needs at least one mesh and no engine error line; a file Godot cannot import fails with exit 5. Rendering, on-screen materials, animation playback and physics are listed as not tested. The source file is copied, never modified, and the temporary project is removed.

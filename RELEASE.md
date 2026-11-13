@@ -1,4 +1,4 @@
-# Release checklist — AssetForge 0.5.0
+# Release checklist — AssetForge 0.5.1
 
 Public stable release. Earlier tags remain unchanged.
 
@@ -10,11 +10,11 @@ Public stable release. Earlier tags remain unchanged.
 
 **Release title**
 
-`AssetForge 0.5.0 — A real engine import`
+`AssetForge 0.5.1 — Providers brought current`
 
 ## Pre-publication checklist
 
-- [ ] Working tree is clean; `VERSION`, `pyproject.toml`, `__init__.py` and `CHANGELOG.md` agree on `0.5.0`.
+- [ ] Working tree is clean; `VERSION`, `pyproject.toml`, `__init__.py` and `CHANGELOG.md` agree on `0.5.1`.
 - [ ] Full local suite passes with real Blender installed (the conversion and game-ready tests run, not skip).
 - [ ] Showcase GLB inspection/validation passes and the generator reproduces the committed GLB SHA-256.
 - [ ] Fresh wheel and source distributions build successfully.
@@ -25,16 +25,16 @@ Public stable release. Earlier tags remain unchanged.
 
 ## Publication steps
 
-The release is published from the green `main` commit as `v0.5.0`. Build `AssetForge-0.5.0.zip` from the tagged source snapshot with:
+The release is published from the green `main` commit as `v0.5.1`. Build `AssetForge-0.5.1.zip` from the tagged source snapshot with:
 
 ```bash
-git archive --format=zip --prefix=AssetForge-0.5.0/ -o AssetForge-0.5.0.zip v0.5.0 \
+git archive --format=zip --prefix=AssetForge-0.5.1/ -o AssetForge-0.5.1.zip v0.5.1 \
   VERSION CHANGELOG.md LICENSE README.md ROADMAP.md RELEASE-NOTES.md pyproject.toml \
   AGENTS.md START-HERE.bat Install.ps1 Update.ps1 assetforge.cmd assetforge src schemas docs examples integration
 
-gh release create v0.5.0 --repo SenjuWoo/AssetForge \
-  --title "AssetForge 0.5.0 — A real engine import" \
-  --notes-file RELEASE-NOTES.md AssetForge-0.5.0.zip
+gh release create v0.5.1 --repo SenjuWoo/AssetForge \
+  --title "AssetForge 0.5.1 — Providers brought current" \
+  --notes-file RELEASE-NOTES.md AssetForge-0.5.1.zip
 ```
 
-Verify the tag resolves to the release commit, download the asset, compare its SHA-256, extract it and run `Install.ps1`, then confirm `assetforge.cmd --version` reports `0.5.0`.
+Verify the tag resolves to the release commit, download the asset, compare its SHA-256, extract it and run `Install.ps1`, then confirm `assetforge.cmd --version` reports `0.5.1`.

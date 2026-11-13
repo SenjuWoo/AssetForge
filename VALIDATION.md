@@ -4,6 +4,22 @@ Verified working tree: 0.3.0 release candidate based on `9027141dc5680a29ed4d7d4
 
 Environment: Windows 11, Python 3.14.10, Node 26.13.0, Pillow 13.0.0, jsonschema 4.x, glTF-Transform 4.5.1, Khronos glTF Validator installed locally in `.tools`, current Blender reports 5.3.0. The project works without any optional provider.
 
+## 0.5.1 provider recheck — 2026-11-13
+
+Environment: Windows 11, Python 3.14.10, Node 26.13.1, Blender 5.3.0 (Steam), Godot 4.7.2, glTF-Transform 4.5.1, gltf-validator 2.0.0-dev.3.10.
+
+Upstream suites, run in the provider checkouts:
+
+- blender-skills v1.3.0 (`3e481ad1b8e301defced7369e4254022abe0821e`): `python tools/validate_skills.py` → `OK`; `BLENDER_EXE=<Blender 5.3.0> python tools/run_tests.py` → **69 passed, 0 failed, 0 skipped**; the same run with Blender 5.2.4 LTS → **69 passed, 0 failed, 0 skipped**.
+- img2threejs v2.0.1 (`0c0c49bc168e648dbaf9c8c080474de0b3a941b6`): `python -X utf8 -m unittest discover -s forge/tests -p "test_*.py"` → **1,416 tests**, 0 failures, 3 errors, 64 skipped. All 3 errors are `WinError 1314` (an unprivileged Windows process cannot create the fixtures' symlinks).
+
+AssetForge:
+
+- `assetforge doctor` → every provider `PASS`: blender-skills `1.3.0` and img2threejs `2.0.1` found in a declared tool root without a variable.
+- `python -m unittest discover -s tests -v` → **144 tests OK, 2 skipped** (`test_missing_provider_exit_code`: Blender is installed; `test_symlink_escape_is_rejected`: no symlink privilege). The Blender pipeline, QA gate and whitelisted runner tests executed against blender-skills v1.3.0.
+- Real recipe runs in a fresh project: `img2threejs-probe` SUCCEEDED; `img2threejs-codegen` SUCCEEDED with a 64,589-byte TypeScript factory from the upstream conformance spec; `blender-pipeline` SUCCEEDED (108 triangles, 0 QA errors, 0 warnings, `GLB-014 PASS`); `engine-check` on its optimized GLB → `PASS`; `glb-optimize` and `mesh-convert` on the showcase sword SUCCEEDED.
+- Regression: the pipeline used to leave `blender-asset-material.blend1` in the asset; the integration test now asserts no `*.blend1` remains and passes.
+
 ## Test suite
 
 Command:

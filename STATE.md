@@ -1,13 +1,14 @@
 # State
 
-- **Version:** 0.5.0
-- **Milestone:** 0.4.0: source probe, mesh conversion, rig/material/texture validation
+- **Version:** 0.5.1
+- **Milestone:** 0.5.1: providers current (blender-skills 1.3.0, img2threejs 2.0.1)
 - **Active task:** none
-- **Current revision:** 0.5.0 on main
-- **Last known-good:** tag `v0.4.1`
+- **Current revision:** 0.5.1 on main
+- **Last known-good:** tag `v0.5.0`
 
 ## Completed
 
+- Provider recheck (0.5.1, 2026-11-13): blender-skills v1.3.0 and img2threejs v2.0.1 installed as clones in a declared tool root, each upstream suite run (69/69 on Blender 5.3.0; 1,416 img2threejs tests, 0 failures, 3 Windows symlink errors), AssetForge suite 144 OK / 2 skipped with every provider present, real pipeline/probe/codegen/engine-check runs. blender-skills is now found in tool roots and reports its release version; img2threejs reports its version; a wrong provider variable is reported instead of bypassed; pipeline `.blend1` backups removed; CI Actions v7 plus Dependabot. Companion tools evaluated in `docs/UPSTREAM-EVALUATIONS.md`.
 - `engine-check` (0.5.0): Godot 4 headless imports a GLB, then loads and instantiates it. On 2026-11-12 Godot 4.7.2 passed the showcase sword (61 meshes) and the test triangle and failed a non-GLB file. Rendering is not tested.
 - Godot, FFmpeg and ImageMagick detection (0.5.0) with a stated purpose each; FFmpeg and ImageMagick are not called by any recipe.
 - Blender discovery (0.4.1): Steam libraries, uninstall registry, tool roots; a Hermes profile wrapper named `blender` is skipped. Proven on 2026-11-12 with Steam Blender 5.3 that was not on PATH.
@@ -30,7 +31,7 @@
 - Conservative glTF-Transform optimization with before/after comparison.
 - Roblox/Godot/generic export packaging with engine import marked `NOT_TESTED`.
 - External adapters: Blender headless export (verified), blender-skills catalog/QA/export (verified), comfy-kit generate/import (verified), img2threejs probe and codegen (verified).
-- blender-skills 28-skill catalog, route CLI and Hermes external-dir documentation; tested upstream revision `389f28a`.
+- blender-skills 28-skill catalog, route CLI and Hermes external-dir documentation; tested upstream v1.3.0 (`3e481ad`), earlier v1.2.0 (`389f28a`).
 - `blender-pipeline` and `blender-qa`; mandatory upstream QA gate with numeric and random/wire review evidence.
 - Whitelisted `blender-optimize` (`mesh-stats`, `make-lods`) and `blender-retopo-uv` (`auto-retopo`, `uv-pack`, `texel-density`); immutable input `.blend`, new project-owned outputs and upstream reports in provenance.
 - Windows installer, updater, start script, local launcher; CI definition; examples; documentation.
@@ -74,11 +75,11 @@ assetforge.cmd doctor
 
 ## Next action
 
-None queued. Candidates: engine import evidence (Roblox Studio, Godot), a rendered rig deformation preview, texture compression (KTX2) as an opt-in recipe.
+None queued. Candidates: Roblox Studio import evidence; a Unity import check (MCP for Unity or Unity-MCP, see `docs/UPSTREAM-EVALUATIONS.md`); a rendered rig deformation preview; KTX2 texture compression as an opt-in recipe (Blender 5.3's glTF exporter writes KTX2 natively, per blender-skills 1.3.0).
 
 ## Integration status
 
 - Ultimate AI Starter Bundle: proposal only; no bundle file modified.
 - comfy-kit: recommended free local texture-generation companion; read-only delegation, verified generation and import; no owner files modified.
-- blender-skills: recommended optional Blender skills provider; read-only catalog and delegation; tested revision `389f28a`; optimization/retopo/UV runner verified on the current Blender 5.3.0 installation; no upstream files modified.
+- blender-skills: recommended optional Blender skills provider; read-only catalog and delegation; tested v1.3.0 (`3e481ad`) on Blender 5.3.0; optimization/retopo/UV runner verified on the current Blender 5.3.0 installation; no upstream files modified.
 - img2threejs/teardown candidate checkouts: inspected and documented; not vendored, modified or deleted.
