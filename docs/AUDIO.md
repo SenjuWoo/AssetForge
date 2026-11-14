@@ -115,6 +115,8 @@ Engine import stays NOT_TESTED: an export launches no game.
 
 ## Known limits
 
+- Genre coverage of the `aio` turbo variant is uneven. In testing on 2026-11-14, tavern folk scored CLAP 0.36 to 0.44 and EDM 0.34. Four takes for "boss battle music, epic orchestra, fast drums, choir" scored only 0.10 to 0.15, and they matched folk tags better than their own, so `AUDIO-CLAP` failed them. The tags reached the model intact. For orchestral music, try the `xl-sft` variant (install its weights in comfy-forge) or plainer tags, and listen.
+- Short tracks often stop early: three 20 s requests ended at 14.4 to 18.4 s. Ask for a few seconds more than you need, or use `loop=true`.
 - A loop's crossfade is equal-power, which suits two different bars of music. Nobody listened to the seams, so check a loop by ear before shipping it.
 - MOSS-SoundEffect v2 runs eagerly. Upstream compiles its sampler with `torch.compile` and CUDA graphs, which PyTorch does not support on Python 3.14 and which need Triton, absent on Windows. The worker turns both off and stores the DiT weights in bf16 so the 30-second window fits in about 10 GB of VRAM. Generation is slower than upstream's published numbers.
 - Dia sometimes keeps talking after the line ends, or turns a short gasp into repeated sounds. In testing this happened without a reference voice. With the Qwen-designed reference, both test lines passed at a 100% word match. The transcript check catches the worst cases, and more takes help.
