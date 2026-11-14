@@ -38,7 +38,7 @@
 - Conservative glTF-Transform optimization with before/after comparison.
 - Roblox/Godot/generic export packaging with engine import marked `NOT_TESTED`.
 - External adapters: Blender headless export (verified), blender-skills catalog/QA/export (verified), comfy-kit generate/import (verified), img2threejs probe and codegen (verified).
-- blender-skills 28-skill catalog, route CLI and Hermes external-dir documentation; tested upstream v1.3.0 (`3e481ad`), earlier v1.2.0 (`389f28a`).
+- blender-skills 28-skill catalog, route CLI and Hermes external-dir documentation; tested upstream v1.3.1 (`b1b21df`), earlier v1.3.0 (`3e481ad`) and v1.2.0 (`389f28a`).
 - `blender-pipeline` and `blender-qa`; mandatory upstream QA gate with numeric and random/wire review evidence.
 - Whitelisted `blender-optimize` (`mesh-stats`, `make-lods`) and `blender-retopo-uv` (`auto-retopo`, `uv-pack`, `texel-density`); immutable input `.blend`, new project-owned outputs and upstream reports in provenance.
 - Windows installer, updater, start script, local launcher; CI definition; examples; documentation.
@@ -88,5 +88,5 @@ None queued. Candidates: Roblox Studio import evidence; a Unity import check (MC
 
 - Ultimate AI Starter Bundle: proposal only; no bundle file modified.
 - comfy-kit: recommended free local texture-generation companion; read-only delegation, verified generation and import; no owner files modified.
-- blender-skills: recommended optional Blender skills provider; read-only catalog and delegation; tested v1.3.0 (`3e481ad`) on Blender 5.3.0; optimization/retopo/UV runner verified on the current Blender 5.3.0 installation; no upstream files modified.
+- blender-skills: recommended optional Blender skills provider; read-only catalog and delegation; tested v1.3.1 (`b1b21df`) on Blender 5.3.0; optimization/retopo/UV runner verified on the current Blender 5.3.0 installation; no upstream files modified.
 - img2threejs and teardown: provider Git clones (v2.0.1, `a91262a`); the earlier candidate snapshots matched upstream and were retired to the Recycle Bin on 2026-11-13.

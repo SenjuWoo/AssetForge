@@ -9,7 +9,7 @@ Checked against upstream repository metadata on **2026-11-08**; integrated provi
 | [image-js](https://github.com/image-js/image-js) | MIT | Active | Not integrated. Pillow covers the MVP image operations; image-js remains a Node-side option. |
 | [Graphite](https://github.com/GraphiteEditor/Graphite) | Apache-2.0 | Alpha, active | **Planned** manual/interchange integration. No verified headless automation contract; no invented CLI. |
 | [Blender](https://www.blender.org/) | GPL-2.0-or-later (Blender Foundation) | Optional external | **Integrated and executed** with Blender 5.2.3 LTS and again with 5.3.0 (2026-11-13): background smoke, procedural build, material, QA, export, conversion and game-ready collapse. Runs as an external process; AssetForge does not link or redistribute Blender. |
-| [blender-skills](https://github.com/EL4CTEO/blender-skills) | MIT (Copyright (c) 2026 EL4CTEO) | v1.3.0, revision `3e481ad` (earlier v1.2.0 `389f28a`) | **Recommended Blender skills provider.** 28 skills validated, 69 upstream headless tests passed on Blender 5.3.0, catalog/routing, optimization, retopology/UV and QA gate integrated. Never vendored or auto-updated. |
+| [blender-skills](https://github.com/EL4CTEO/blender-skills) | MIT (Copyright (c) 2026 EL4CTEO) | v1.3.1, revision `b1b21df` (earlier v1.3.0 `3e481ad`, v1.2.0 `389f28a`) | **Recommended Blender skills provider.** 28 skills validated, 69 upstream headless tests passed on Blender 5.3.0, catalog/routing, optimization, retopology/UV and QA gate integrated. Never vendored or auto-updated. |
 | [glTF-Transform](https://github.com/donmccurdy/glTF-Transform) | MIT | CLI 4.5.1 = npm latest (2026-11-13) | **Integrated** for conservative GLB optimization. |
 | [meshoptimizer](https://github.com/zeux/meshoptimizer) | MIT | Active | Used through glTF-Transform; no separate integration. |
 | [glTF-Validator](https://github.com/KhronosGroup/glTF-Validator) | Apache-2.0 | npm 2.0.0-dev.3.10 = latest (2026-11-13) | **Integrated** as an optional Khronos conformance check. |
@@ -71,7 +71,8 @@ Integrated providers were compared with their upstream releases and each update 
 
 | Provider | Was | Now | Evidence | Decision |
 | --- | --- | --- | --- | --- |
-| blender-skills | v1.2.0 `389f28a` | **v1.3.0** `3e481ad` | `validate_skills.py` OK; 69/69 upstream headless tests on Blender 5.3.0 and on 5.2.4 LTS; AssetForge pipeline, QA and runner tests pass | **Updated.** Blender 5.3 notes and KTX2 export guidance; the scripts AssetForge runs only changed in their docstrings. |
+| blender-skills | v1.3.0 `3e481ad` | **v1.3.1** `b1b21df` | `validate_skills.py` OK; 72/72 upstream headless tests on Blender 5.3.0; AssetForge full suite and real-Blender runner tests pass | **Updated (0.7.1).** Voxel-first auto-retopo, review grid, UV seam warning; same command lines. |
+| blender-skills | v1.2.0 `389f28a` | v1.3.0 `3e481ad` | `validate_skills.py` OK; 69/69 upstream headless tests on Blender 5.3.0 and on 5.2.4 LTS; AssetForge pipeline, QA and runner tests pass | **Updated.** Blender 5.3 notes and KTX2 export guidance; the scripts AssetForge runs only changed in their docstrings. |
 | img2threejs | v1.5.1 era | **v2.0.1** `0c0c49b` | upstream 1,416 tests, no assertion failures (3 Windows symlink-privilege fixture errors, 64 skipped); `img2threejs-probe` and `img2threejs-codegen` recipes succeed | **Updated.** Probe and generator keep the command lines the adapters call. |
 | glTF-Transform CLI | 4.5.1 | 4.5.1 | npm latest | No change. |
 | gltf-validator | 2.0.0-dev.3.10 | 2.0.0-dev.3.10 | npm latest | No change. |

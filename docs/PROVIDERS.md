@@ -55,7 +55,7 @@ When absent, validation reports `GLB-014 NOT_TESTED`; when present, the official
 
 - Kind: optional external skill owner.
 - Upstream: [EL4CTEO/blender-skills](https://github.com/EL4CTEO/blender-skills), MIT License, Copyright (c) 2026 EL4CTEO.
-- Tested release: **v1.3.0**, revision `3e481ad1b8e301defced7369e4254022abe0821e`, with Blender 5.3.0 on Windows (2026-11-13). Upstream `validate_skills.py` passed and its 69 headless tests passed with Blender 5.3.0 and with Blender 5.2.4 LTS; AssetForge's own pipeline, QA and runner tests passed against it. v1.3.0 adds Blender 5.3 notes and KTX2 export guidance; the scripts AssetForge calls are unchanged from v1.2.0 (revision `389f28a`, Blender 5.2.3), which remains compatible.
+- Tested release: **v1.3.1**, revision `b1b21dfb73bc40b874ebf2aa12645931bfed3523`, with Blender 5.3.0 on Windows (2026-11-13). Upstream `validate_skills.py` passed and its 72 headless tests passed with Blender 5.3.0; AssetForge's full suite and its real-Blender runner tests (LODs, auto-retopo, UV pack, texel density, mesh stats) passed against it. v1.3.1 makes auto-retopo try voxel remesh first, adds a review grid to `review_shots.py` and warns about seams in `uv_pack.py`; the command lines AssetForge passes are unchanged. v1.3.0 (`3e481ad`) and v1.2.0 (`389f28a`) remain compatible.
 - Detect: `BLENDER_SKILLS_ROOT`, project `integrations.blender_skills`, `~/blender-skills`, `~/.claude/skills`, `~/.agents/skills`, then a checkout under a declared tool root (same bounded search as comfy-kit). Both a checkout (`<root>/skills/<name>/SKILL.md`) and an installed folder (`<root>/<name>/SKILL.md`) are accepted. Required markers are `blender-core` and `blender-asset-qa`. A set variable that points at the wrong folder is reported, never bypassed.
 - Version: the release number comes from upstream `.claude-plugin/plugin.json`; the per-skill metadata version, which can lag a release, is reported as `details.skill_version`.
 - All 28 discovered skills are exposed in the catalog. The verified surface executes six upstream skills: `blender-core` (headless runner), `blender-pbr-materials`, `blender-asset-qa`, `blender-export-pipelines`, `blender-game-optimization` (`mesh_stats.py`, `make_lods.py`) and `blender-retopology-uv` (`auto_retopo.py`, `uv_pack.py`, `texel_density.py`). Other skills are cataloged and tested upstream, not claimed as executed by AssetForge.
@@ -92,7 +92,7 @@ Then restart the Hermes session. External dirs are scanned alongside the local p
 A plain clone is enough for AssetForge. Put it in a declared tool root, or anywhere and set `BLENDER_SKILLS_ROOT`:
 
 ```bash
-git clone --branch v1.3.0 https://github.com/EL4CTEO/blender-skills
+git clone --branch v1.3.1 https://github.com/EL4CTEO/blender-skills
 ```
 
 To also load the skills into your agents, run the upstream installer; AssetForge does not duplicate it:

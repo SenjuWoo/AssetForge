@@ -242,3 +242,9 @@ A fresh clone of the committed source was installed into a new virtual environme
 | AI 3D, rigging, MCP, Graphite | Planned, not implemented. |
 | teardown visual quality | Frames are rendered, not reviewed; `TEARDOWN-VISUAL` stays `NOT_TESTED`. |
 | Windows symlink-escape test | Skipped without symlink privilege; policy logic is covered by absolute/`../`/missing tests and runs on Linux CI. |
+
+## blender-skills 1.3.1 (2026-11-13, AssetForge 0.7.1)
+
+- Upstream v1.3.1 (`b1b21dfb73bc40b874ebf2aa12645931bfed3523`) in a separate worktree: `python tools/validate_skills.py` → `OK`; `BLENDER_EXE=<Blender 5.3.0> python tools/run_tests.py` → **72 passed, 0 failed, 0 skipped**.
+- The declared-root clone was fast-forwarded to v1.3.1; `assetforge doctor` reports blender-skills `1.3.1` `PASS`.
+- `tests/test_blender_skill_runner.py` (real Blender: LODs, auto-retopo, UV pack, texel density report and set, mesh stats) → **6 OK**. Full `python -m unittest discover -s tests` → 180 tests, 2 skipped; one run had a single transient error that did not reproduce on the next full run.

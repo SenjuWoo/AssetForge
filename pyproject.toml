@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "assetforge"
-version = "0.7.0"
+version = "0.7.1"
 description = "Standalone asset production, validation and export toolkit for AI-assisted game work"
 readme = "README.md"
 requires-python = ">=3.10"

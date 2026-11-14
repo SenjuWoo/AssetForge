@@ -1,4 +1,10 @@
-# AssetForge 0.7.0 — Sound
+# AssetForge 0.7.1 — Provider refresh
+
+- blender-skills v1.3.1 verified on Blender 5.3.0 (72/72 upstream tests; AssetForge runner tests on real Blender). Voxel-first auto-retopo, a review grid for QA shots and a UV seam warning come with it.
+
+Everything from 0.7.0 below is unchanged.
+
+## AssetForge 0.7.0 — Sound
 
 AssetForge made meshes, textures and simulator films. It now makes the sounds too: voice lines and sound effects from text, with local open-weight models and the same evidence rules as every other recipe.
 

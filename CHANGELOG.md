@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.1 — 2026-11-13
+
+- blender-skills provider re-verified at **v1.3.1** (`b1b21df`): upstream validation and 72/72 headless tests pass on Blender 5.3.0, and AssetForge's real-Blender runner tests (LODs, auto-retopo, UV pack, texel density, mesh stats) pass against it. v1.3.1 tries voxel remesh first in auto-retopo, adds a review grid to QA shots and warns about UV seams; the command lines AssetForge passes did not change.
+
 ## 0.7.0 — 2026-11-13
 
 - Add audio. `audio-voice` makes voice lines from one line or a lines file, `audio-sfx` makes sound effects from text prompts, and `audio-process` trims, levels, converts and measures audio you already have. Details: `docs/AUDIO.md`.
