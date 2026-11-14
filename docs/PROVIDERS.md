@@ -105,13 +105,15 @@ To also load the skills into your agents, run the upstream installer; AssetForge
 Update with `git -C blender-skills fetch --tags` and check out the new tag, then rerun `python tools/validate_skills.py` and `python tools/run_tests.py` in the checkout before relying on it.
 
 
-## comfy-kit
+## comfy-forge (formerly comfy-kit)
 
-- Kind: external owner folder.
-- Detect: `COMFY_KIT_ROOT`, project `integrations.comfy_kit`, `~/comfy-kit`, or declared roots. Required markers: `TOOLS/image-stack.ps1` and `presets/presets.json`.
-- Used by: `comfy-generate` and `comfy-import`.
-- Generation delegates to the owner's `TOOLS/image-stack.ps1 generate` and directs output into the AssetForge asset. No model files, presets, nodes or SwarmUI configuration are modified.
-- If the owner's default model is unavailable, pass `--set model=<model-name>` or configure comfy-kit itself.
+- Kind: external owner folder. It owns SwarmUI/ComfyUI, models, presets and its music generator.
+- Detect: `COMFY_FORGE_ROOT` (or the older `COMFY_KIT_ROOT`), project `integrations.comfy_forge` (or `comfy_kit`), `~/comfy-forge`, `~/comfy-kit`, or a declared tool root. Required markers: `TOOLS/image-stack.ps1` and `presets/presets.json`. `providers.get("comfy-kit")` still answers with this provider.
+- Used by: `comfy-generate` and `comfy-import` (images), and `audio-music` (songs, when `TOOLS/music.py` is present: comfy-forge 0.8.0 or later).
+- Images delegate to the owner's `TOOLS/image-stack.ps1 generate` with output directed into the AssetForge asset. No model files, presets, nodes or SwarmUI configuration are modified.
+- Music runs the owner's `TOOLS/music.py generate` (standard-library Python, run by AssetForge's interpreter) against a ComfyUI API, with output directed into the asset's `work/music/`. `backend=auto` (the default) uses a running ComfyUI (`COMFYUI_URL`, 8188, or SwarmUI's 7820-7832, the ports comfy-forge checks). When none answers, it asks comfy-forge for its interpreter (`image-stack.ps1 python`), starts that ComfyUI headless on a free local port, and stops it, process tree included, when the job ends. `backend=running` refuses to start one and exits 4; `backend=start` always starts its own.
+- Tested 2026-11-14 with comfy-forge 0.8.0 and ComfyUI 0.44.0, `aio` variant on an RTX 4080 SUPER. A temporary backend was up in 18 s, and a 45 s instrumental took 2 takes in 98 s including startup. Through the running SwarmUI backend, a 40 s vocal song took 2 takes in 34 s.
+- If the owner's default image model is unavailable, pass `--set model=<model-name>` or configure comfy-forge itself.
 
 ## img2threejs
 
@@ -178,7 +180,7 @@ npx playwright install chromium
 ## FFmpeg
 
 - Kind: command-line tool. Detect: `FFMPEG_EXE`, `FFMPEG`, `PATH`, the winget links and package folders, `%ProgramFiles%\ffmpeg\bin`.
-- Used by: every `audio-*` recipe (trim, gain, resample, encode; `loudnorm`, `volumedetect` and `silencedetect` for the measurements; `ffprobe` for format facts) and `teardown-film` (video encoding).
+- Used by: every `audio-*` recipe, `audio-music` included (trim, gain, resample, encode; `loudnorm`, `volumedetect` and `silencedetect` for the measurements; `ffprobe` for format facts) and `teardown-film` (video encoding).
 - Also useful to an agent: a preview or turntable video from rendered frames.
 
 ## ImageMagick

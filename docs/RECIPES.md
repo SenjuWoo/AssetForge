@@ -219,7 +219,7 @@ assetforge run blender-retopo-uv --input blend=asset.blend --set operation=texel
 
 ## `comfy-generate`
 
-Delegate one render to an installed comfy-kit.
+Delegate one render to an installed comfy-forge.
 
 | Parameter | Type | Default |
 | --- | --- | --- |
@@ -238,11 +238,11 @@ assetforge run comfy-generate --set "prompt=weathered steel texture, top-down"
 
 Output is written inside the asset. The owner's presets and models are not changed. If the owner's default model is invalid, pass `--set model=<model-name>`.
 
-**Recommended for free local texture work:** comfy-kit owns installation, models and presets; AssetForge delegates the render, then `texture-pack` can combine the generated maps into an ORM texture. AssetForge never installs or redistributes models.
+**Recommended for free local texture work:** comfy-forge owns installation, models and presets; AssetForge delegates the render, then `texture-pack` can combine the generated maps into an ORM texture. AssetForge never installs or redistributes models.
 
 ## `comfy-import`
 
-Copy the newest images from a comfy-kit output folder into an asset.
+Copy the newest images from a comfy-forge output folder into an asset.
 
 | Parameter | Type | Default |
 | --- | --- | --- |
@@ -250,7 +250,7 @@ Copy the newest images from a comfy-kit output folder into an asset.
 | `thumbnail` | integer | `256` |
 
 ```bash
-assetforge run comfy-import --input path/to/comfy-kit/out
+assetforge run comfy-import --input path/to/comfy-forge/out
 ```
 
 ## `img2threejs-probe`
@@ -346,6 +346,28 @@ Sound effects from prompts. Input: `--input prompts=<file>` or `--set prompt=...
 | `check` | true | run the CLAP prompt check |
 
 Steps: `audio.sfx` → `audio.finish` → `asset.record`. Validation adds `AUDIO-CLAP` per sound.
+
+## `audio-music`
+
+Songs and instrumentals from style tags with ACE-Step 1.5, rendered by comfy-forge. Input: an optional lyrics file (`--input song.txt`, with `[Verse]` / `[Chorus]` tags) or `--set lyrics=...`. With neither, the track is instrumental.
+
+| Param | Default | Meaning |
+| --- | --- | --- |
+| `tags` | (required) | genre, mood, instruments, production |
+| `name` | track | names the file and the asset |
+| `seconds` | 60 | 1-600 |
+| `bpm`, `key`, `time_signature`, `language` | 120, C major, 4, en | musical settings passed to ACE-Step |
+| `loop` | false | make a seamless loop from the full-level bars, with the last bar crossfaded into the first (`AUDIO-LOOP`) |
+| `variant` | aio | comfy-forge variant (`aio`, `turbo`, `turbo-4b`, `xl-turbo`, `xl-sft`, `xl-base`); its weights must be installed by comfy-forge |
+| `steps`, `cfg` | variant default | sampler overrides |
+| `takes` | 2 | seeds tried. A take that fills the asked length beats one that stops early, and CLAP breaks ties |
+| `seed` | 0 | base seed |
+| `backend` | auto | `auto` (running ComfyUI, else start one for the job), `running`, `start` |
+| `url` | (empty) | a specific ComfyUI API |
+| `loudness`, `sample_rate`, `channels` | -16, 48000, 2 | finishing for music |
+| other finishing params, `check`, `timeout` | as for the other audio recipes | |
+
+Steps: `comfyforge.music` → `audio.finish` → `asset.record`. Validation adds `AUDIO-CLAP` (needs the `sfx` runtime), `AUDIO-LENGTH` (WARNING when the take is under 90% of the asked length after trimming the trailing silence) and, with lyrics, `AUDIO-LYRICS` `NOT_TESTED`.
 
 ## `audio-process`
 

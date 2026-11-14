@@ -1,6 +1,6 @@
 # AssetForge
 
-AssetForge is a standalone, agent-friendly toolkit for producing, validating and packaging game assets. It provides a Python CLI, versioned JSON contracts and optional adapters for Blender, blender-skills, glTF-Transform, the Khronos glTF Validator, comfy-kit, img2threejs, teardown and local audio models (voice lines and sound effects).
+AssetForge is a standalone, agent-friendly toolkit for producing, validating and packaging game assets. It provides a Python CLI, versioned JSON contracts and optional adapters for Blender, blender-skills, glTF-Transform, the Khronos glTF Validator, comfy-forge (ComfyUI images and music), img2threejs, teardown and local audio models (voice lines and sound effects).
 
 It is designed to work on its own and can also be registered as a companion of the Ultimate AI Starter Bundle. The bundle is recommended, never required.
 
@@ -31,10 +31,11 @@ Rules: [docs/GAME-READY.md](docs/GAME-READY.md).
 assetforge.cmd audio-setup
 assetforge.cmd run audio-voice --input lines=lines.txt --set "voice=a warm, slightly haughty young princess"
 assetforge.cmd run audio-sfx --set "prompt=a steel sword swinging through the air" --set name=swing
+assetforge.cmd run audio-music --set "tags=medieval tavern music, lute, flute, cheerful" --set seconds=60 --set name=tavern
 assetforge.cmd export ASSET --target minecraft --namespace mymod
 ```
 
-`audio-setup` installs three isolated local runtimes. Qwen3-TTS designs a voice from a description and clones it for every line, Dia speaks nonverbals such as `(laughs)` and `(gasps)`, Kokoro gives fast preset voices, and MOSS-SoundEffect v2 makes sound effects. All of them are Apache-2.0. Whisper checks the words of each take, CLAP checks each effect against its prompt, and the best take is trimmed, levelled to a loudness target and encoded. `audio-process` finishes audio you already have. Details: [docs/AUDIO.md](docs/AUDIO.md).
+`audio-setup` installs three isolated local runtimes. Qwen3-TTS designs a voice from a description and clones it for every line, Dia speaks nonverbals such as `(laughs)` and `(gasps)`, Kokoro gives fast preset voices, and MOSS-SoundEffect v2 makes sound effects. All of them are Apache-2.0. `audio-music` renders songs and instrumentals with ACE-Step 1.5 through comfy-forge's ComfyUI: a running one, or one AssetForge starts for the job and stops afterwards. Whisper checks the words of each take, CLAP checks each effect against its prompt, and the best take is trimmed, levelled to a loudness target and encoded. `audio-process` finishes audio you already have. Details: [docs/AUDIO.md](docs/AUDIO.md).
 
 ## Quick start (Windows)
 
@@ -81,9 +82,9 @@ assetforge engine-check FILE.glb [--json]
 
 Exit codes are stable: `0` success, `2` usage/recipe error, `3` missing project/asset/job, `4` provider unavailable, `5` validation or budget failure, `6` run failure.
 
-## Recommended texture workflow (comfy-kit)
+## Recommended texture workflow (comfy-forge)
 
-For free local texture generation, the recommended companion is **comfy-kit**. It owns the SwarmUI/ComfyUI installation, models, presets and MCP configuration; AssetForge only delegates a render and keeps the result inside the asset.
+For free local texture generation, the recommended companion is **comfy-forge** (formerly comfy-kit). It owns the SwarmUI/ComfyUI installation, models, presets and MCP configuration; AssetForge only delegates a render and keeps the result inside the asset.
 
 ```bat
 assetforge.cmd run comfy-generate --set "prompt=seamless weathered steel, top-down, tileable" --set width=1024 --set height=1024
@@ -91,7 +92,7 @@ assetforge.cmd run texture-pack --input occlusion=ao.png --input roughness=rough
 assetforge.cmd export ASSET --target godot
 ```
 
-`comfy-import` also accepts an existing comfy-kit output folder. If comfy-kit is not installed, `comfy-generate` exits with code `4` and a clear provider message; AssetForge never installs models or changes comfy-kit configuration.
+`comfy-import` also accepts an existing comfy-forge output folder. If comfy-forge is not installed, `comfy-generate` exits with code `4` and a clear provider message; AssetForge never installs models or changes comfy-kit configuration.
 
 ## Recommended Blender workflow (blender-skills)
 
@@ -118,7 +119,7 @@ Upstream was tested at v1.3.1 (revision `b1b21dfb73bc40b874ebf2aa12645931bfed352
 
 This low-poly enchanted-fire sword is the AssetForge showcase for stylized game props. It is built directly in Blender and included at `examples/assets/enchanted-fire-sword.glb`, with a reproducible generator (`examples/generate-enchanted-fire-sword.py`) producing the faceted blade shell, ember layers, raised runes and scrollwork, bat-wing crossguard, wrapped hilt, finial and floating sparks. It is a strong reference for low-poly stylized games such as Roblox-style worlds and games; Roblox Studio import was not run, so engine integration remains `NOT_TESTED`.
 
-The concept exploration for this prop was generated locally through the comfy-kit / SwarmUI workflow; the shipped GLB itself is project-owned procedural geometry and does not depend on the generated reference images. comfy-kit remains the recommended free local companion for texture work.
+The concept exploration for this prop was generated locally through the comfy-forge / SwarmUI workflow; the shipped GLB itself is project-owned procedural geometry and does not depend on the generated reference images. comfy-kit remains the recommended free local companion for texture work.
 
 ## Built-in recipes
 
@@ -136,14 +137,15 @@ The concept exploration for this prop was generated locally through the comfy-ki
 | `blender-qa` | Run upstream `blender-asset-qa` and review sheets on an existing `.blend`. |
 | `blender-optimize` | Run whitelisted `blender-game-optimization` operations (`mesh-stats`, `make-lods`). |
 | `blender-retopo-uv` | Run whitelisted `blender-retopology-uv` operations (`auto-retopo`, `uv-pack`, `texel-density`). |
-| `comfy-generate` | Delegate one render to an installed comfy-kit. |
-| `comfy-import` | Copy newest images from a comfy-kit output folder. |
+| `comfy-generate` | Delegate one render to an installed comfy-forge. |
+| `comfy-import` | Copy newest images from a comfy-forge output folder. |
 | `img2threejs-probe` | Run the external img2threejs technical image probe. |
 | `img2threejs-codegen` | Generate an editable Three.js factory from an ObjectSculptSpec through upstream img2threejs. |
 | `teardown-build` | Bundle a teardown machine simulator into one offline HTML page. |
 | `teardown-film` | Render a teardown simulator to MP4, or to a labelled review sheet, in headless Chromium. |
 | `audio-voice` | Voice lines from text: Qwen3-TTS voice design and cloning, Dia nonverbals, Kokoro presets; Whisper-checked takes. |
 | `audio-sfx` | Sound effects from text prompts with MOSS-SoundEffect v2; CLAP-checked takes. |
+| `audio-music` | Songs and instrumentals from style tags (and lyrics): ACE-Step 1.5 through comfy-forge; CLAP-checked takes. |
 | `audio-process` | Trim, level, convert and measure existing audio files or a folder of them. |
 
 Every recipe writes a job record under `.assetforge/jobs/` with per-step status, errors and tool versions. Assets keep copied inputs, a JSON manifest, relative artifact paths and provenance. A manifest-defined primary artifact decides what gets exported.
@@ -172,7 +174,7 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | blender-skills catalog and routing | VERIFIED | 28 skills detected at upstream v1.3.1 (`b1b21df`); CLI list/route tested |
 | Blender asset QA gate | VERIFIED | Upstream `blender-asset-qa`: 108 tris, 0 errors, 0 warnings; review sheets generated and explicitly approved after inspection |
 | Blender optimization and retopo/UV | VERIFIED | `blender-optimize` and `blender-retopo-uv` execute whitelisted `blender-game-optimization` and `blender-retopology-uv` scripts on real Blender; mutating operations create new `.blend` artifacts |
-| comfy-kit generation | VERIFIED | Exercised against a running comfy-kit; generation is delegated |
+| comfy-forge image generation | VERIFIED | Exercised against a running comfy-forge (then named comfy-kit); generation is delegated |
 | img2threejs probe | VERIFIED | Upstream v2.0.1; technical probe only; reconstruction remains agent-driven |
 | img2threejs spec-to-Three.js codegen | VERIFIED | Upstream deterministic generator; consumes an ObjectSculptSpec, not a raw image |
 | Roblox Studio import | NOT TESTED | No Studio run is automated |
@@ -185,7 +187,7 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | Sound effects | VERIFIED | MOSS-SoundEffect v2 through `audio-sfx` with CLAP prompt scores; listening stays `NOT_TESTED` |
 | Audio finishing and checks | VERIFIED | Trim, fixed-gain loudness/peak levelling, encode; decode, level, true-peak, loudness, edge-silence and format checks |
 | Minecraft sound export | VERIFIED packaging | Ogg files plus `sounds.json` with numbered variants grouped; game load `NOT_TESTED` |
-| Music generation | PLANNED | ACE-Step 1.5 is the candidate |
+| Music generation | VERIFIED | `audio-music`: ACE-Step 1.5 through comfy-forge, via a running SwarmUI backend and via a ComfyUI started for the job; instrumental and vocal takes passed CLAP and loudness checks. Listening and sung words stay `NOT_TESTED` |
 | FFmpeg | USED | Audio finishing and measurement; `teardown-film` encodes through it; `doctor` reports version and purpose |
 | ImageMagick | DETECTED | Reported by `doctor` and `providers` with version and purpose; no recipe calls it yet |
 | AI 3D providers, rig deformation preview, MCP, Graphite | PLANNED | Not implemented yet |
@@ -203,7 +205,7 @@ AssetForge detects providers without installing or reconfiguring them.
 | Khronos glTF Validator | Official conformance check | Recorded as `NOT_TESTED` |
 | Blender | Background execution and export | `blender-sample` exits with code `4` |
 | blender-skills | Recommended Blender skills catalog, QA and export | Blender steps exit with code `4` |
-| comfy-kit | Free local texture generation (recommended companion) | `comfy-generate` exits with code `4` |
+| comfy-forge (formerly comfy-kit) | Free local texture generation and ACE-Step music through ComfyUI | `comfy-generate` / `audio-music` exit with code `4` |
 | img2threejs | Technical image probe and spec-to-Three.js codegen | `img2threejs-probe` / `img2threejs-codegen` exit with code `4` |
 | teardown | Offline simulator pages and their films | `teardown-build` / `teardown-film` exit with code `4` |
 | audio-speech / audio-sfx / audio-kokoro | Local voice and sound-effect models, installed by `assetforge audio-setup` | `audio-voice` / `audio-sfx` exit with code `4` and name the setup command |

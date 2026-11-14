@@ -4,6 +4,27 @@ Verified working tree: 0.3.0 release candidate based on `9027141dc5680a29ed4d7d4
 
 Environment: Windows 11, Python 3.14.10, Node 26.13.0, Pillow 13.0.0, jsonschema 4.x, glTF-Transform 4.5.1, Khronos glTF Validator installed locally in `.tools`, current Blender reports 5.3.0. The project works without any optional provider.
 
+## 0.8.0 music — 2026-11-14
+
+Environment: Windows 11, Python 3.14.10, comfy-forge 0.8.0 with ComfyUI 0.44.0 (SwarmUI's bundled backend), ACE-Step 1.5 `aio` checkpoint, RTX 4080 SUPER, FFmpeg 9.0.2, AssetForge audio runtimes from 0.7.0 (CLAP in `sfx`).
+
+- Full suite: `python -m unittest discover -s tests` gave **190 tests OK, 2 skipped** (Blender installed; no symlink privilege). `test_audio` has 33 tests, adding:
+  - **Music through the recipe:** a stub comfy-forge (its `music.py` interface), a stub ComfyUI `/system_stats` server and a stub CLAP worker cover argument passing, instrumental vs lyrics, take ranking (a full-length take beats a higher-CLAP take that stopped halfway), `AUDIO-LENGTH`, Minecraft `"stream": true` with stereo music accepted, and refusing bad key/seconds/bpm before any backend.
+  - **Exit 4:** when `backend=running` finds no ComfyUI.
+  - **Loops:** whole bars, a quiet outro left out, and refusing a track under 4 bars.
+  - **Locating ComfyUI:** its folder found beside the interpreter.
+  - **Provider names:** `comfy-forge`, with the old `COMFY_KIT_ROOT` still working.
+- Real runs:
+  - **45 s instrumental, nothing running.** AssetForge asked comfy-forge for its interpreter, started ComfyUI on a free port (up in 18 s) and made two takes. The kept take scored CLAP 0.44 and -15.97 LUFS. The backend was stopped, and no `main.py` process remained.
+  - **40 s vocal song through the running SwarmUI backend (7821), with a lyrics file.** Two takes in 34 s. The kept take scored CLAP 0.41. Both takes ended about 5 s early, so `AUDIO-LENGTH` gave a WARNING, and `AUDIO-LYRICS` stayed NOT_TESTED.
+  - **60 s at 90 bpm with `loop=true`, temporary backend.** It produced 19 bars of 2.667 s (50.7 s) from bars 1 to 20, leaving out the trailing partial bar. `AUDIO-LOOP` passed, the kept take scored CLAP 0.38, and loudness came out at -16.89 LUFS.
+  - **Minecraft export of the loop.** It wrote `sounds.json` with `"stream": true` and `AUDIO-POSITIONAL PASS` (music, stereo).
+- CLAP on music: two tavern takes scored 0.36 and 0.44 against their tags, and at most 0.03 against heavy metal, dark ambient and rain tags.
+- Found and fixed by the real runs:
+  - A loop seam metric that compared 100 ms on either side of the wrap. Since the wrap is continuous by construction, it measured the music, not the seam. It was replaced by bar-level selection.
+  - Assets from text-only recipes were named after the recipe; they now take their `name`.
+- Not verified: listening (tracks and loop seams), sung words, variants other than `aio`, and any game loading the files.
+
 ## 0.7.0 audio — 2026-11-13
 
 Environment: Windows 11, Python 3.14.10, uv 0.13.5, torch 2.9.1+cu128, NVIDIA RTX 4080 SUPER (16 GB), FFmpeg 9.0.2. Runtimes built by `assetforge audio-setup` under the audio home: speech (qwen-tts 0.1.1, transformers 4.57.3), sfx (MOSS-TTS `934d682`, transformers 4.57.1, diffusers 0.37.1), kokoro (kokoro 0.9.4). All three smoke tests passed with CUDA.

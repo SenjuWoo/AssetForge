@@ -12,7 +12,7 @@ AssetForge is MIT-licensed. It does not vendor third-party source, binaries, dat
 | Khronos glTF Validator (optional) | Apache-2.0 | Official conformance report |
 | Blender (optional, external) | GPL-2.0-or-later | Background execution and export |
 | blender-skills (optional, external) | MIT (Copyright (c) 2026 EL4CTEO) | Blender skill catalog, materials, QA and export workflows |
-| comfy-kit (optional, external) | MIT | Delegated image generation |
+| comfy-forge, formerly comfy-kit (optional, external) | MIT | Delegated image generation and ACE-Step 1.5 music through its ComfyUI |
 | img2threejs (optional, external) | Apache-2.0 | Technical image probe and deterministic spec-to-Three.js code generation |
 | teardown (optional, external) | MIT | Simulator pages and films |
 | FFmpeg (optional, external) | LGPL-2.1+/GPL | Audio finishing and measurement, video encoding |
@@ -23,7 +23,7 @@ AssetForge is MIT-licensed. It does not vendor third-party source, binaries, dat
 
 ## External owners
 
-Blender, blender-skills, comfy-kit, img2threejs, teardown, SwarmUI, ComfyUI and the audio model projects remain independently maintained and are not distributed by AssetForge. Their licenses, model licenses and terms apply to their own installations and outputs. The tested blender-skills revision is recorded in `docs/PROVIDERS.md`; its MIT copyright notice is preserved here and in that provider document.
+Blender, blender-skills, comfy-forge, img2threejs, teardown, SwarmUI, ComfyUI and the audio model projects remain independently maintained and are not distributed by AssetForge. Their licenses, model licenses and terms apply to their own installations and outputs. The tested blender-skills revision is recorded in `docs/PROVIDERS.md`; its MIT copyright notice is preserved here and in that provider document.
 
 Model weights are never bundled or redistributed. The audio runtimes download these weights from Hugging Face on first use, into the audio home outside the repository:
 

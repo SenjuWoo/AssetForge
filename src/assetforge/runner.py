@@ -11,7 +11,7 @@ import re
 import shutil
 from pathlib import Path
 
-from . import adapters, audio, gameready, images, official, providers
+from . import adapters, audio, comfybackend, gameready, images, official, providers
 from .glb import GlbError, compare_glb, inspect_glb, validate_glb
 from .recipes import RecipeError, asset_name
 from .store import Asset, Job, Project, StoreError
@@ -713,24 +713,24 @@ def _blender_skills_export(ctx: Context) -> dict:
 
 
 def _comfykit_check(ctx: Context) -> dict:
-    provider = _provider(ctx, "comfy-kit")
+    provider = _provider(ctx, "comfy-forge")
     details = provider.get("details") or {}
-    return {"status": "PASS", "detail": f"comfy-kit {provider.get('version') or 'unknown'}; {details.get('presets', 0)} presets"}
+    return {"status": "PASS", "detail": f"comfy-forge {provider.get('version') or 'unknown'}; {details.get('presets', 0)} presets"}
 
 
 def _comfykit_generate(ctx: Context) -> dict:
-    provider = _provider(ctx, "comfy-kit")
+    provider = _provider(ctx, "comfy-forge")
     root = Path(provider["path"])
     out_dir = ctx.asset.path("outputs", "generated").resolve()
     try:
         out_dir.relative_to(ctx.project.root.resolve())
     except ValueError as exc:
-        raise RunFailed("refusing to write comfy-kit output outside the project") from exc
+        raise RunFailed("refusing to write comfy-forge output outside the project") from exc
     out_dir.mkdir(parents=True, exist_ok=True)
     result = adapters.comfykit_generate(root, ctx.params, out_dir, timeout=float(ctx.params.get("timeout") or 900))
     files = adapters.comfykit_images(out_dir)
     if not files:
-        raise RunFailed("comfy-kit reported success but produced no images in the assigned output folder")
+        raise RunFailed("comfy-forge reported success but produced no images in the assigned output folder")
     for path in files:
         ctx.artifact(path, "image", "generated")
     ctx.outputs["images"] = files
@@ -740,7 +740,7 @@ def _comfykit_generate(ctx: Context) -> dict:
 
 
 def _comfykit_import(ctx: Context) -> dict:
-    _provider(ctx, "comfy-kit")
+    _provider(ctx, "comfy-forge")
     source_dir = Path(ctx.input("source"))
     if not source_dir.is_dir():
         raise RunFailed(f"not a directory: {source_dir}")
@@ -760,7 +760,7 @@ def _comfykit_import(ctx: Context) -> dict:
     ctx.outputs["images"] = [Path(ctx.project.root) / item["path"] for item in imported]
     ctx.outputs["image"] = ctx.outputs["images"][0]
     ctx.asset.set_primary("image", ctx.outputs["image"])
-    return {"status": "PASS", "detail": f"imported {len(imported)} image(s) from comfy-kit output"}
+    return {"status": "PASS", "detail": f"imported {len(imported)} image(s) from comfy-forge output"}
 
 
 def _img2threejs_probe(ctx: Context) -> dict:
@@ -1161,18 +1161,35 @@ def _audio_finish(ctx: Context) -> dict:
         try:
             applied = audio.finish(ffmpeg, Path(item["source"]), target, fmt=fmt, loudness=loudness, true_peak=true_peak,
                                    sample_rate=sample_rate, channels=channels, trim=trim,
-                                   highpass=int(ctx.params.get("highpass") or 0), work=work)
+                                   highpass=int(ctx.params.get("highpass") or 0), work=work,
+                                   loop_bar=float(item.get("loop_bar") or 0.0))
             found, info = audio.checks(ffmpeg, target, loudness=loudness, true_peak=true_peak, sample_rate=sample_rate, channels=channels)
         except audio.AudioError as exc:
             raise RunFailed(str(exc)) from exc
-        for extra in ("asr", "clap"):
+        for extra in ("asr", "clap", "lyrics"):
             if item.get(extra):
                 found.append(dict(item[extra], artifact=target.name))
+        if applied.get("loop"):
+            loop = applied["loop"]
+            trimmed = loop["source_bars"] - (loop["last_bar"] - loop["first_bar"] + 1)
+            quiet = loop["quiet_inside"]
+            found.append({"artifact": target.name, "id": "AUDIO-LOOP", "status": "WARNING" if quiet else "PASS",
+                          "detail": f"{loop['bars']} bars of {loop['bar_seconds']} s ({loop['seconds']} s) from bars {loop['first_bar'] + 1}-{loop['last_bar'] + 1}"
+                                    f" of {loop['source_bars']}, last bar crossfaded into the first"
+                                    + (f"; {trimmed} quiet intro/outro bar(s) left out" if trimmed else "")
+                                    + (f"; bars {', '.join(str(b + 1) for b in quiet)} inside the loop are quiet" if quiet else "")})
+        elif item.get("requested_seconds") and info.get("seconds"):
+            # ACE-Step can end a song early and pad the rest with silence,
+            # which trimming removes; a game cue may need the full length.
+            asked, got = float(item["requested_seconds"]), float(info["seconds"])
+            found.append({"artifact": target.name, "id": "AUDIO-LENGTH", "status": "PASS" if got >= 0.9 * asked else "WARNING",
+                          "detail": f"{got:.1f} s of {asked:g} s asked" + ("" if got >= 0.9 * asked else
+                                    "; the take ended early and the trailing silence was trimmed (another seed, or trim=false to keep the silence)")})
         ctx.validation.extend(found)
         failed += sum(1 for check in found if check["status"] == "FAIL")
         ctx.artifact(target, "audio", item["name"])
         first = first or target
-        summary.append({"name": item["name"], "file": target.name, "text": item.get("text"), "seed": item.get("seed"),
+        summary.append({"name": item["name"], "file": target.name, "kind": item.get("kind"), "text": item.get("text"), "seed": item.get("seed"),
                         "score": item.get("score"), "seconds": info.get("seconds"), "lufs": info.get("lufs"),
                         "true_peak": info.get("true_peak"), "gain_db": applied["gain_db"], "mode": applied["mode"],
                         "checks": {check["id"]: check["status"] for check in found}})
@@ -1185,6 +1202,122 @@ def _audio_finish(ctx: Context) -> dict:
                            "detail": "checks measure levels, format and transcript or prompt match; nobody listened to the sound"})
     status = "WARNING" if failed else "PASS"
     return {"status": status, "detail": f"{len(summary)} {fmt} file(s)" + (f"; {failed} failed check(s), see validation" if failed else "")}
+
+
+MUSIC_KEY = re.compile(r"^[A-G](?:#|b)? (?:major|minor)$")
+
+
+def _clap_scores(ctx: Context, items: list[dict], work: Path) -> dict[str, float] | None:
+    """CLAP similarity for files made outside the sfx runtime (music). None
+    when the check is off or the runtime is missing."""
+    if not bool(ctx.params.get("check", True)) or not providers.get("audio-sfx", ctx.project).get("available"):
+        return None
+    try:
+        result = audio.run_worker("sfx", {"job": "clap", "engine": "clap", "items": items}, work, timeout=1800)
+    except audio.AudioError as exc:
+        ctx.validation.append({"artifact": None, "id": "AUDIO-CLAP", "status": "NOT_TESTED", "detail": f"prompt match failed to run: {exc}"})
+        return {}
+    return {item["path"]: item["clap"] for item in result.get("items", [])}
+
+
+def _comfyforge_music(ctx: Context) -> dict:
+    provider = _provider(ctx, "comfy-forge")
+    root = Path(provider["path"])
+    if not (root / "TOOLS" / "music.py").is_file():
+        raise ProviderMissing(f"comfy-forge {provider.get('version') or ''} has no TOOLS/music.py; update comfy-forge to 0.8.0 or later")
+    tags = str(ctx.params.get("tags") or "").strip()
+    if not tags:
+        raise RunFailed('describe the music with --set "tags=genre, mood, instruments, production"')
+    lyrics_file = ctx.copied.get("lyrics")
+    lyrics = str(ctx.params.get("lyrics") or "").strip()
+    instrumental = bool(ctx.params.get("instrumental")) or (not lyrics and lyrics_file is None)
+    try:
+        seconds = float(ctx.params.get("seconds") or 60)
+    except ValueError as exc:
+        raise RunFailed("seconds must be a number") from exc
+    if not 1 <= seconds <= 600:
+        raise RunFailed("seconds must be 1-600")
+    bpm = int(ctx.params.get("bpm") or 120)
+    if not 30 <= bpm <= 300:
+        raise RunFailed("bpm must be 30-300")
+    key = str(ctx.params.get("key") or "C major").strip()
+    if not MUSIC_KEY.match(key):
+        raise RunFailed("key must read like 'C major', 'F# minor' or 'Bb major'")
+    takes = max(1, min(int(ctx.params.get("takes") or 2), 8))
+    name = audio._item_name(str(ctx.params.get("name") or "track"))
+    work = _audio_work(ctx, "music")
+    args = ["--tags", tags, "--duration", f"{seconds:g}", "--bpm", str(bpm), "--key", key,
+            "--time-signature", str(ctx.params.get("time_signature") or "4"),
+            "--language", str(ctx.params.get("language") or "en"),
+            "--variant", str(ctx.params.get("variant") or "aio"), "--format", "flac"]
+    if instrumental:
+        args.append("--instrumental")
+    elif lyrics_file is not None:
+        args += ["--lyrics-file", str(lyrics_file)]
+    else:
+        args += ["--lyrics", lyrics]
+    for param, flag in (("steps", "--steps"), ("cfg", "--cfg")):
+        if str(ctx.params.get(param) or "").strip():
+            args += [flag, str(ctx.params[param])]
+    base_seed = int(ctx.params.get("seed") or 0)
+    timeout = float(ctx.params.get("timeout") or 1800)
+    takes_made: list[dict] = []
+    try:
+        with comfybackend.backend(root, str(ctx.params.get("backend") or "auto"), work / "comfyui.log",
+                                  explicit=str(ctx.params.get("url") or "")) as (url, how):
+            for k in range(takes):
+                seed = base_seed + 17 * k + 1
+                out = work / f"take{k + 1}"
+                result = adapters.comfy_music(root, url, args + ["--seed", str(seed)], out, timeout=timeout)
+                for path in result["files"]:
+                    takes_made.append({"seed": seed, "path": str(path), "variant": result.get("variant")})
+    except comfybackend.BackendError as exc:
+        raise ProviderMissing(str(exc)) from exc
+    except adapters.AdapterError as exc:
+        raise RunFailed(str(exc)) from exc
+    if not takes_made:
+        raise RunFailed("comfy-forge reported success but wrote no audio")
+    scores = _clap_scores(ctx, [{"name": name, "text": tags, "path": take["path"]} for take in takes_made], work / "clap")
+    ffmpeg = providers.get("ffmpeg", ctx.project).get("path")
+    for take in takes_made:
+        take["clap"] = (scores or {}).get(take["path"])
+        # Where the music stops: ACE-Step sometimes ends early and pads with silence.
+        take["music_seconds"] = None
+        if ffmpeg:
+            try:
+                level = audio.measure(ffmpeg, Path(take["path"]))
+                tail = [start for start, end in level["silence"] if end is None or end >= seconds - 0.05]
+                take["music_seconds"] = round(min(tail), 2) if tail else seconds
+            except audio.AudioError:
+                pass
+        ctx.artifact(Path(take["path"]), "audio-take", f"takes/{Path(take['path']).parent.name}-{Path(take['path']).name}")
+
+    def rank(take: dict) -> tuple:
+        full = take["music_seconds"] is None or take["music_seconds"] >= 0.9 * seconds
+        return (full, take["clap"] if take["clap"] is not None else -1.0)
+
+    # A take that fills the asked length wins over one that stops early; CLAP decides among equals.
+    best = max(takes_made, key=rank)
+    entry = {"name": name, "source": Path(best["path"]), "text": tags, "kind": "music", "seed": best["seed"], "score": best["clap"],
+             "requested_seconds": seconds}
+    if bool(ctx.params.get("loop")):
+        beats = int(str(ctx.params.get("time_signature") or "4"))
+        entry["loop_bar"] = beats * 60.0 / bpm
+    if best["clap"] is not None:
+        status = "PASS" if best["clap"] >= CLAP_PASS else "WARNING" if best["clap"] >= CLAP_WARN else "FAIL"
+        entry["clap"] = {"artifact": name, "id": "AUDIO-CLAP", "status": status,
+                         "detail": f"CLAP match to the tags {best['clap']:.2f} (pass >= {CLAP_PASS}, best of {len(takes_made)})"}
+    elif scores is None:
+        ctx.validation.append({"artifact": None, "id": "AUDIO-CLAP", "status": "NOT_TESTED",
+                               "detail": "tag match off, or the sfx runtime (CLAP) is not installed"})
+    if not instrumental:
+        entry["lyrics"] = {"artifact": name, "id": "AUDIO-LYRICS", "status": "NOT_TESTED",
+                           "detail": "sung words are not checked; speech recognition is unreliable on singing"}
+    ctx.report("music-generation.json", {"backend": how, "tags": tags, "instrumental": instrumental, "seconds": seconds,
+                                          "bpm": bpm, "key": key, "takes": takes_made, "best": best["path"]})
+    ctx.outputs["audio_items"] = [entry]
+    ctx.outputs["audio_kind"] = "music"
+    return {"status": "PASS", "detail": f"{len(takes_made)} take(s) of {seconds:g} s through {how}"}
 
 
 def _asset_record(ctx: Context) -> dict:
@@ -1226,6 +1359,7 @@ HANDLERS = {
     "audio.sfx": _audio_sfx,
     "audio.source": _audio_source,
     "audio.finish": _audio_finish,
+    "comfyforge.music": _comfyforge_music,
     "asset.record": _asset_record,
 }
 
@@ -1254,8 +1388,8 @@ def plan(recipe: dict, inputs: dict[str, Path], params: dict, project: Project |
             needs.append("blender")
         elif step.startswith("blender.skills."):
             needs.extend(["blender-skills", "blender"])
-        elif step.startswith("comfykit."):
-            needs.append("comfy-kit")
+        elif step.startswith("comfykit.") or step == "comfyforge.music":
+            needs.append("comfy-forge")
         elif step == "img2threejs.probe":
             needs.append("img2threejs")
         elif step == "img2threejs.codegen":
@@ -1284,7 +1418,12 @@ def execute(project: Project, recipe: dict, inputs: dict[str, Path], params: dic
         return plan(recipe, inputs, params, project), None, None
 
     # Name the asset after what went in, so a folder of results is readable.
-    asset = project.create_asset(name or (asset_name(recipe, inputs) if inputs else recipe["id"]), recipe["id"], params)
+    # A `name` the caller chose (a voice line, an effect, a track) names the
+    # asset; otherwise the first input does, and with neither the recipe does.
+    chosen = str(params.get("name") or "").strip()
+    if chosen and chosen == str((recipe.get("params", {}).get("name") or {}).get("default") or "") and inputs:
+        chosen = ""
+    asset = project.create_asset(name or chosen or (asset_name(recipe, inputs) if inputs else recipe["id"]), recipe["id"], params)
     copied: dict[str, Path] = {}
     sources: dict[str, dict] = {}
     for input_name, path in inputs.items():

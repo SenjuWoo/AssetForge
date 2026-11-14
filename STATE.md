@@ -1,12 +1,19 @@
 # State
 
-- **Version:** 0.7.0
-- **Milestone:** 0.7.0: audio (voice lines, sound effects, finishing, Minecraft sound export)
+- **Version:** 0.8.0
+- **Milestone:** 0.8.0: music (`audio-music` through comfy-forge, seamless loops); the comfy provider renamed comfy-forge
 - **Active task:** none
-- **Current revision:** 0.7.0 on main
-- **Last known-good:** tag `v0.6.0`
+- **Current revision:** 0.8.0 on main
+- **Last known-good:** tag `v0.7.1`
 
 ## Completed
+
+- Music (0.8.0, 2026-11-14):
+  - `audio-music` renders ACE-Step 1.5 through comfy-forge 0.8.0's `TOOLS/music.py`, using a running ComfyUI or one started for the job and stopped afterwards (`comfybackend.py`).
+  - Takes are ranked by length, then CLAP. `loop=true` builds bar-aligned seamless loops from the full-level bars. `AUDIO-LENGTH`, `AUDIO-LOOP` and `AUDIO-LYRICS` added.
+  - Minecraft export streams music.
+  - The provider id is now `comfy-forge`, with the old names still accepted.
+  - Real instrumental, vocal and loop runs; evidence in `VALIDATION.md`.
 
 - Audio (0.7.0, 2026-11-13):
   - Recipes `audio-voice` (Qwen3-TTS voice design and cloning, Dia nonverbals, Kokoro), `audio-sfx` (MOSS-SoundEffect v2) and `audio-process`.

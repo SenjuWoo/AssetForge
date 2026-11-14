@@ -19,7 +19,7 @@ from .util import first_line, read_json, run
 from . import blenderskills
 
 MARKERS = {
-    "comfy-kit": ("TOOLS/image-stack.ps1", "presets/presets.json"),
+    "comfy-forge": ("TOOLS/image-stack.ps1", "presets/presets.json"),
     "img2threejs": ("SKILL.md", "forge/stage1_intake/probe_image.py"),
     "blender-skills": ("skills/blender-core/SKILL.md", "skills/blender-asset-qa/SKILL.md"),
     "teardown": ("SKILL.md", "paths.mjs", "sims/build.mjs"),
@@ -332,6 +332,7 @@ def _official_validator(project):
 
 
 def _comfy_state():
+    # comfy-forge still keeps its state under the comfy-kit folder name.
     path = Path(os.environ.get("LOCALAPPDATA", "")) / "comfy-kit" / "anima-swarmui.json"
     if not path.exists():
         legacy = Path(os.environ.get("LOCALAPPDATA", "")) / "Ultimate-AI-Starter-Bundle" / "anima-swarmui.json"
@@ -443,12 +444,19 @@ def detect(project=None) -> list[dict]:
 
     providers.append(blenderskills.describe(project))
 
+    # comfy-kit was renamed comfy-forge (its 0.6.0). The old variable and
+    # project key still select it; COMFY_FORGE_ROOT wins when both are set.
+    comfy_env = "COMFY_FORGE_ROOT" if os.environ.get("COMFY_FORGE_ROOT") else "COMFY_KIT_ROOT"
     comfy = find_owner(
-        "comfy-kit",
+        "comfy-forge",
         project,
-        defaults=(home / "comfy-kit", local / "comfy-kit"),
-        env="COMFY_KIT_ROOT",
+        defaults=(home / "comfy-forge", local / "comfy-forge", home / "comfy-kit", local / "comfy-kit"),
+        env=comfy_env,
     )
+    if comfy is None and project is not None and not os.environ.get(comfy_env):
+        legacy = (project.data.get("integrations") or {}).get("comfy_kit")
+        if legacy and _looks_like(Path(str(legacy)).expanduser(), "comfy-forge"):
+            comfy = Path(str(legacy)).expanduser()
     presets = 0
     comfy_version = _version_file(comfy) if comfy else None
     if comfy:
@@ -457,16 +465,20 @@ def detect(project=None) -> list[dict]:
         except (OSError, ValueError):
             presets = 0
     state = _comfy_state() if comfy else {}
+    music = bool(comfy and (comfy / "TOOLS" / "music.py").is_file())
     providers.append({
-        "id": "comfy-kit",
-        "title": "comfy-kit (image generation)",
+        "id": "comfy-forge",
+        "title": "comfy-forge (ComfyUI images and music)",
         "kind": "owner",
         "available": comfy is not None,
         "version": comfy_version,
         "path": str(comfy) if comfy else None,
-        "reason": "" if comfy else (explicit_problem("comfy-kit", "COMFY_KIT_ROOT") or "comfy-kit was not found; set COMFY_KIT_ROOT or integrations.comfy_kit"),
-        "capabilities": ["image.generate.delegated", "image.presets"],
-        "details": {"presets": presets, "swarmui": state.get("swarm_root") or state.get("swarmRoot")},
+        "reason": "" if comfy else (explicit_problem("comfy-forge", comfy_env)
+                                    or "comfy-forge was not found; set COMFY_FORGE_ROOT or integrations.comfy_forge"),
+        "capabilities": ["image.generate.delegated", "image.presets"] + (["music.generate.delegated"] if music else []),
+        "details": {"presets": presets, "music": music, "swarmui": state.get("swarm_root") or state.get("swarmRoot")},
+        "use": "comfy-generate renders images through its SwarmUI; audio-music renders ACE-Step 1.5 songs through its ComfyUI"
+               + ("" if music or not comfy else " (this comfy-forge has no TOOLS/music.py; update it to 0.8.0 or later)"),
     })
 
     img2 = find_owner(
@@ -602,7 +614,11 @@ def _teardown(project, home: Path, node: str | None) -> dict:
     }
 
 
+ALIASES = {"comfy-kit": "comfy-forge"}
+
+
 def get(provider_id: str, project=None) -> dict:
+    provider_id = ALIASES.get(provider_id, provider_id)
     for item in detect(project):
         if item["id"] == provider_id:
             return item

@@ -525,6 +525,21 @@ def sfx_job(request: dict, result: dict) -> None:
     result["clap"] = bool(clap)
 
 
+def clap_job(request: dict, result: dict) -> None:
+    """CLAP similarity for files made elsewhere (music from comfy-forge)."""
+    import soundfile as sf
+
+    clap = Clap()
+    for item in request["items"]:
+        data, sr = sf.read(item["path"], dtype="float32")
+        data, sr = to_mono(data, sr)
+        # CLAP reads about 10 s; score the middle of a long track, not its intro.
+        if len(data) > sr * 12:
+            mid = len(data) // 2
+            data = data[max(0, mid - sr * 5): mid + sr * 5]
+        result["items"].append({"name": item["name"], "path": item["path"], "clap": clap.similarity(item["text"], data, sr)})
+
+
 def transcribe_job(request: dict, result: dict) -> None:
     """Whisper check for files made elsewhere (Kokoro runs in its own runtime)."""
     import soundfile as sf
@@ -574,6 +589,8 @@ def main() -> int:
             sfx_job(request, result)
         elif kind == "transcribe":
             transcribe_job(request, result)
+        elif kind == "clap":
+            clap_job(request, result)
         else:
             raise RuntimeError(f"unknown job {kind!r}")
         result["ok"] = True

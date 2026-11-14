@@ -1,38 +1,30 @@
-# AssetForge 0.7.1 — Provider refresh
+# AssetForge 0.8.0 — Music
 
-- blender-skills v1.3.1 verified on Blender 5.3.0 (72/72 upstream tests; AssetForge runner tests on real Blender). Voxel-first auto-retopo, a review grid for QA shots and a UV seam warning come with it.
-
-Everything from 0.7.0 below is unchanged.
-
-## AssetForge 0.7.0 — Sound
-
-AssetForge made meshes, textures and simulator films. It now makes the sounds too: voice lines and sound effects from text, with local open-weight models and the same evidence rules as every other recipe.
+0.7.0 added voices and sound effects. This release adds music. Describe a style, optionally add lyrics, and `audio-music` renders the track with ACE-Step 1.5 through comfy-forge. Then it is checked, levelled and packaged like every other sound.
 
 ## Included
 
-- `audio-voice`:
-  - Qwen3-TTS designs a voice from a description and keeps it across a whole set of lines, or clones a recording you supply.
-  - Dia adds laughs, gasps and other nonverbals in the same voice.
-  - Kokoro gives fast preset voices.
-  - Whisper checks the words of every take.
-- `audio-sfx`: MOSS-SoundEffect v2 makes 48 kHz effects from a prompt. CLAP checks every take against the prompt.
-- `audio-process`: trims, levels, converts and measures audio you already have.
-- `assetforge audio-setup` installs the three local runtimes with uv and smoke-tests them. All the model weights are Apache-2.0 or MIT.
-- Exporting audio: the new `minecraft` target writes `sounds.json` and Ogg files, and the `godot`, `roblox` and `generic` targets now take audio.
+- **`audio-music`:** songs and instrumentals from style tags, with optional lyrics.
+  - It runs on comfy-forge's ComfyUI: a running one (SwarmUI's backend counts), or one AssetForge starts for the job and stops afterwards.
+  - Several takes are made. The one that fills the asked length and best matches the tags (CLAP) is kept, then finished to -16 LUFS stereo.
+- **Loops for game music:** `loop=true` cuts the track to whole bars, leaves out a quiet intro or outro, and crossfades the last bar into the first so it repeats without a seam.
+- **`AUDIO-LENGTH`:** says when the model ended a song early.
+- **Minecraft export:** music is streamed (`"stream": true`) and keeps its stereo.
+- **comfy-forge naming:** the provider uses comfy-forge's current name, and the old comfy-kit variable and keys still work.
+- Everything from 0.7.x: Qwen3-TTS, Dia and Kokoro voices; MOSS-SoundEffect v2 effects; `audio-process`; blender-skills v1.3.1.
 
 ## Verified
 
-Windows 11, RTX 4080 SUPER, Python 3.14, PyTorch 2.9.1 (CUDA 12.8), FFmpeg 9.0.2:
+Windows 11, RTX 4080 SUPER, comfy-forge 0.8.0, ComfyUI 0.44.0, ACE-Step 1.5 `aio`:
 
-- **Qwen3-TTS:** designed a voice from a description and cloned it for three lines. All three had a 100% Whisper word match and came out within 0.25 LU of -18 LUFS.
-- **Dia:** given that designed voice as a reference, it spoke a gasp line and a laugh line, both at a 100% word match.
-- **Kokoro:** one line at a 100% word match.
-- **MOSS-SoundEffect v2:** made a sword swing and a door creak, three takes each, with CLAP 0.49 and 0.41 for the kept takes. Each take took about 17 seconds.
-- **Tests:** the full AssetForge suite passed, with stub runtimes covering the contract on any machine.
+- **Instrumental, temporary ComfyUI:** 45 s asked. The backend started in 18 s and was stopped afterwards. Two takes; the kept one scored CLAP 0.44 and -15.97 LUFS.
+- **Vocal song, running SwarmUI backend:** 40 s asked with a lyrics file, done in 34 s for two takes. The kept take scored CLAP 0.41. Both takes ended about 5 s early, which `AUDIO-LENGTH` reported as a WARNING.
+- **Loop:** 60 s at 90 bpm with `loop=true` gave a 50.7 s loop of 19 bars from bars 1 to 20. The fading partial bar at the end was left out, and the kept take scored CLAP 0.38.
+- **CLAP on music:** the right tags scored 0.36 to 0.44, and unrelated tags at most 0.03.
+- **Tests:** the full suite passed. Stub comfy-forge and stub ComfyUI tests cover the music contract on any machine.
 
 ## Not verified
 
-- **Listening:** nobody listened to the generated sounds. `AUDIO-LISTEN` stays `NOT_TESTED`. Listen before you ship.
-- **Loading in a game:** no Minecraft, Godot or Roblox game loaded the exported sounds.
-- **Linux and macOS:** the audio runtimes were not run there. `audio-setup` resolves the top-level pins on those systems instead of the Windows lock files.
-- **Music:** not covered. ACE-Step 1.5 is the planned candidate.
+- **Listening and lyrics:** nobody listened to the tracks or the loop seams, and the sung words were not checked.
+- **Loading in a game:** no game loaded the exported files.
+- **Other variants:** only `aio` was rendered; the others need their weights installed in comfy-forge.

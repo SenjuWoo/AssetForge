@@ -366,11 +366,66 @@ def edge_silence(silence: list, seconds: float) -> tuple[float, float]:
     return round(max(lead, 0.0), 3), round(max(trail, 0.0), 3)
 
 
+def bar_levels(ffmpeg: str, path: Path, bar_seconds: float) -> list[float]:
+    """RMS level (dB) of each whole bar, measured by FFmpeg in one pass."""
+    samples = max(1, round(48000 * bar_seconds))
+    result = run([ffmpeg, "-hide_banner", "-nostats", "-loglevel", "error", "-i", str(path), "-af",
+                  f"aresample=48000,asetnsamples=n={samples}:p=0,astats=metadata=1:reset=1,"
+                  "ametadata=mode=print:key=lavfi.astats.Overall.RMS_level:file=-",
+                  "-f", "null", "-"], timeout=300)
+    text = (result.get("stdout") or "") + (result.get("stderr") or "")
+    levels = []
+    for value in re.findall(r"RMS_level=(-?[\d.]+|-inf)", text):
+        levels.append(-120.0 if value == "-inf" else float(value))
+    return levels
+
+
+def make_loop(ffmpeg: str, source: Path, target: Path, bar_seconds: float) -> dict:
+    """Make a seamless loop from whole bars. The loop runs from the first to
+    the last bar at full level, so a quiet intro or a fading outro is left
+    out. Its last bar is crossfaded into its first: playback wraps from where
+    the body ends straight into the blend that begins with that same audio."""
+    ffprobe = ffprobe_for(ffmpeg)
+    seconds = (probe(ffprobe, source) if ffprobe else {}).get("seconds") or 0.0
+    whole = int(seconds // bar_seconds) if bar_seconds > 0 else 0
+    levels = bar_levels(ffmpeg, source, bar_seconds)[:whole]
+    if len(levels) < 4:
+        raise AudioError(f"{seconds:.1f} s is under 4 bars of {bar_seconds:.2f} s; make the track longer or the tempo faster to loop it")
+    ordered = sorted(levels)
+    median = ordered[len(ordered) // 2]
+    full = [index for index, level in enumerate(levels) if level >= median - 6.0]
+    first, last = full[0], full[-1]
+    if last - first + 1 < 4:
+        raise AudioError(f"only {last - first + 1} bars of {bar_seconds:.2f} s are at full level; make the track longer to loop it")
+    start, end, fade = first * bar_seconds, (last + 1) * bar_seconds, bar_seconds
+    graph = (
+        f"[0:a]asplit=3[a][b][c];"
+        f"[a]atrim={start:.6f}:{start + fade:.6f},asetpts=PTS-STARTPTS,afade=t=in:st=0:d={fade:.6f}:curve=qsin[head];"
+        f"[b]atrim={end - fade:.6f}:{end:.6f},asetpts=PTS-STARTPTS,afade=t=out:st=0:d={fade:.6f}:curve=qsin[tail];"
+        f"[c]atrim={start + fade:.6f}:{end - fade:.6f},asetpts=PTS-STARTPTS[body];"
+        f"[head][tail]amix=inputs=2:normalize=0:duration=first[seam];"
+        f"[seam][body]concat=n=2:v=0:a=1[out]"
+    )
+    result = run([ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-i", str(source), "-filter_complex", graph,
+                  "-map", "[out]", "-c:a", "pcm_f32le", str(target)], timeout=300)
+    if result["returncode"] != 0 or not target.is_file():
+        raise AudioError(f"ffmpeg could not build the loop: {(result.get('stderr') or result.get('error') or '').strip()[-300:]}")
+    kept = levels[first:last + 1]
+    return {"bars": last - first, "bar_seconds": round(bar_seconds, 4), "seconds": round(end - start - fade, 3),
+            "first_bar": first, "last_bar": last, "source_bars": len(levels), "source_seconds": round(seconds, 3),
+            "quiet_inside": [first + i for i, level in enumerate(kept) if level < median - 6.0],
+            "median_db": round(median, 1)}
+
+
 def finish(ffmpeg: str, source: Path, target: Path, fmt: str = "ogg", loudness="peak", true_peak: float = -1.0,
-           sample_rate: int = 44100, channels: int = 1, trim: bool = True, highpass: int = 0, work: Path | None = None) -> dict:
+           sample_rate: int = 44100, channels: int = 1, trim: bool = True, highpass: int = 0, work: Path | None = None,
+           loop_bar: float = 0.0) -> dict:
     """Trim edge silence, fade the cut ends, then apply one fixed gain that
     reaches the loudness target without passing the true-peak ceiling, and
-    encode. No compressor or limiter touches the sound."""
+    encode. No compressor or limiter touches the sound. With loop_bar (the
+    length of one bar in seconds) the file is made into a seamless loop
+    instead: only trailing silence is trimmed, so the bar grid that starts at
+    0 s stays put, and no edge fades are applied."""
     if fmt not in FORMATS:
         raise AudioError(f"format must be one of {', '.join(FORMATS)}")
     work = work or target.parent
@@ -379,14 +434,27 @@ def finish(ffmpeg: str, source: Path, target: Path, fmt: str = "ogg", loudness="
     filters = []
     if highpass:
         filters.append(f"highpass=f={int(highpass)}")
-    if trim:
-        edge = "silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.03"
-        filters += [edge, "areverse", edge.replace("0.03", "0.08"), "areverse"]
-    filters += ["afade=t=in:d=0.004", "areverse", "afade=t=in:d=0.015", "areverse"]
+    edge = "silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.03"
+    if loop_bar:
+        if trim:
+            filters += ["areverse", edge.replace("0.03", "0.08"), "areverse"]
+        filters = filters or ["anull"]
+    else:
+        if trim:
+            filters += [edge, "areverse", edge.replace("0.03", "0.08"), "areverse"]
+        filters += ["afade=t=in:d=0.004", "areverse", "afade=t=in:d=0.015", "areverse"]
     first = run([ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-i", str(source), "-af", ",".join(filters),
                  "-ac", str(channels), "-ar", str(sample_rate), "-c:a", "pcm_f32le", str(stage)], timeout=300)
     if first["returncode"] != 0 or not stage.is_file():
         raise AudioError(f"ffmpeg could not prepare {source.name}: {(first.get('stderr') or first.get('error') or '').strip()[-300:]}")
+    looped = None
+    if loop_bar:
+        loop_stage = work / f"{target.stem}.loop.wav"
+        try:
+            looped = make_loop(ffmpeg, stage, loop_stage, float(loop_bar))
+        finally:
+            stage.unlink(missing_ok=True)
+        stage = loop_stage
     before = measure(ffmpeg, stage)
     if before.get("max_db") is None or before["max_db"] <= -60:
         stage.unlink(missing_ok=True)
@@ -404,7 +472,7 @@ def finish(ffmpeg: str, source: Path, target: Path, fmt: str = "ogg", loudness="
     stage.unlink(missing_ok=True)
     if second["returncode"] != 0 or not target.is_file():
         raise AudioError(f"ffmpeg could not encode {target.name}: {(second.get('stderr') or second.get('error') or '').strip()[-300:]}")
-    return {"gain_db": round(gain, 2), "mode": mode, "before": {k: before.get(k) for k in ("lufs", "true_peak", "max_db")}}
+    return {"gain_db": round(gain, 2), "mode": mode, "before": {k: before.get(k) for k in ("lufs", "true_peak", "max_db")}, "loop": looped}
 
 
 def checks(ffmpeg: str, path: Path, loudness=None, true_peak: float = -1.0, sample_rate: int | None = None,

@@ -50,7 +50,7 @@ Checked against upstream repository metadata on **2026-11-08**; integrated provi
 | MOSS-TTS 8B family | Apache-2.0 | Not adopted: 8B is heavy on one GPU; only the 1.3B sound-effect model is used. |
 | Stable Audio Open / Stable Audio 3.0 SFX | Stability AI Community | Not adopted: free only under a revenue threshold. |
 | soundbox (desktop app with an MCP server) | MIT app, mixed model licences | Not adopted: unsigned Windows installer, unauthenticated local API, young project. |
-| ACE-Step 1.5 | MIT | Planned for music. |
+| ACE-Step 1.5 | MIT | **Integrated (0.8.0)** through comfy-forge, which owns the model and its ComfyUI; AssetForge adds take ranking, loops, finishing and export. |
 
 ## Licensing notes
 

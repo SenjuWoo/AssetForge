@@ -1,6 +1,6 @@
 # AssetForge agent runbook
 
-AssetForge turns source art into validated, engine-ready assets. It is a CLI; every command takes `--json`. It owns orchestration and validation. Blender, glTF-Transform, the Khronos validator, comfy-kit and img2threejs stay with their owners and are only detected and called.
+AssetForge turns source art into validated, engine-ready assets. It is a CLI; every command takes `--json`. It owns orchestration and validation. Blender, glTF-Transform, the Khronos validator, comfy-forge (formerly comfy-kit), img2threejs, teardown and the audio models stay with their owners and are only detected and called.
 
 ## Cold start
 
@@ -44,6 +44,7 @@ Exit codes: `0` ok, `2` usage or recipe error, `3` missing project/asset/job, `4
 | ImageMagick (`magick`) | nothing yet | formats Pillow does not write (DDS, EXR), contact sheets (`magick montage`), resizing and atlases in one command | ask to install ImageMagick, or set `MAGICK_EXE` |
 | uv (`uv`) | `audio-setup` builds the audio runtimes with it | any isolated Python environment | ask to install uv |
 | Audio runtimes (`~/.assetforge/audio`) | `audio-voice`, `audio-sfx`: Qwen3-TTS, Dia, Kokoro, MOSS-SoundEffect v2, Whisper and CLAP checks | voice lines, grunts, sound effects for any game | run `assetforge audio-setup` yourself; it needs uv and about 20 GB for runtimes and models |
+| comfy-forge (`COMFY_FORGE_ROOT`) | `comfy-generate` images; `audio-music` songs (ACE-Step 1.5 through its ComfyUI, started for the job when none runs) | anything ComfyUI does: its own `TOOLS/image-stack.ps1` and `TOOLS/music.ps1` | ask to install comfy-forge, or set `COMFY_FORGE_ROOT` |
 | Node.js | glTF-Transform, the Khronos validator | | `Install.ps1` reports it |
 | Pillow | image recipes, atlases, PBR packing | | installed with AssetForge |
 

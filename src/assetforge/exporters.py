@@ -378,12 +378,15 @@ def _export_audio(project: Project, asset: Asset, profile: dict, validation: dic
     ffmpeg = providers.get("ffmpeg", project).get("path")
     ffprobe = audio.ffprobe_for(ffmpeg) if ffmpeg else None
     sources = [asset.resolve_artifact(item["path"]) for item in _audio_artifacts(asset)]
+    kinds = {item.get("file"): item.get("kind") for item in _audio_settings(asset).get("items", [])}
+    lengths: dict[str, float] = {}
     checks = []
     for path in sources:
         fmt = path.suffix.lower().lstrip(".")
         checks.append({"artifact": path.name, "id": "FORMAT-003", "status": "PASS" if fmt in allowed else "FAIL",
                        "detail": f".{fmt}" + ("" if fmt in allowed else f" is not accepted; {profile['title']} takes {', '.join('.' + f for f in allowed)} (re-run with --set format={allowed[0]})")})
         info = audio.probe(ffprobe, path) if ffprobe else {}
+        lengths[path.name] = info.get("seconds") or 0.0
         if rules.get("max_seconds"):
             seconds = info.get("seconds")
             checks.append({"artifact": path.name, "id": "BUDGET-AUDIO_SECONDS", "status": "NOT_TESTED" if seconds is None else "PASS" if seconds <= rules["max_seconds"] else "FAIL",
@@ -396,8 +399,12 @@ def _export_audio(project: Project, asset: Asset, profile: dict, validation: dic
             checks.append({"artifact": path.name, "id": "BUDGET-SAMPLE_RATE", "status": "PASS" if info["sample_rate"] <= rules["max_sample_rate"] else "FAIL",
                            "detail": f"{info['sample_rate']} Hz / limit {rules['max_sample_rate']} Hz"})
         if rules.get("positional_mono") and info.get("channels"):
-            checks.append({"artifact": path.name, "id": "AUDIO-POSITIONAL", "status": "PASS" if info["channels"] == 1 else "WARNING",
-                           "detail": "mono: plays from its position in the world" if info["channels"] == 1 else "stereo: the game plays it without distance falloff"})
+            if kinds.get(path.name) == "music":
+                checks.append({"artifact": path.name, "id": "AUDIO-POSITIONAL", "status": "PASS",
+                               "detail": f"music, {info['channels']} ch: played without a position, so stereo is kept"})
+            else:
+                checks.append({"artifact": path.name, "id": "AUDIO-POSITIONAL", "status": "PASS" if info["channels"] == 1 else "WARNING",
+                               "detail": "mono: plays from its position in the world" if info["channels"] == 1 else "stereo: the game plays it without distance falloff"})
     ns = namespace.strip().lower()
     if profile["id"] == "minecraft":
         if not ns:
@@ -433,7 +440,12 @@ def _export_audio(project: Project, asset: Asset, profile: dict, validation: dic
             copy.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, copy)
             files.append({"path": copy.relative_to(out_dir).as_posix(), "sha256": sha256_file(copy), "bytes": copy.stat().st_size})
-            events.setdefault(f"{group}.{_event_name(stem)}", []).append({"name": f"{ns}:{group}/{stem}"})
+            entry = {"name": f"{ns}:{group}/{stem}"}
+            # Minecraft recommends streaming anything longer than a few
+            # seconds so it is not loaded into memory whole.
+            if kinds.get(path.name) == "music" or lengths.get(path.name, 0.0) > 10.0:
+                entry["stream"] = True
+            events.setdefault(f"{group}.{_event_name(stem)}", []).append(entry)
         sounds_json = out_dir / "assets" / ns / "sounds.json"
         write_json(sounds_json, {event: {"sounds": variants, "subtitle": f"subtitles.{ns}.{event}"} for event, variants in sorted(events.items())})
         files.append({"path": sounds_json.relative_to(out_dir).as_posix(), "sha256": sha256_file(sounds_json), "bytes": sounds_json.stat().st_size})

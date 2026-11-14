@@ -68,7 +68,7 @@
           "img2threejs.probe",
           "img2threejs.codegen",
           "teardown.build",
-          "teardown.capture", "audio.voice", "audio.sfx", "audio.source", "audio.finish",
+          "teardown.capture", "audio.voice", "audio.sfx", "audio.source", "audio.finish", "comfyforge.music",
           "asset.record"
         ]
       }

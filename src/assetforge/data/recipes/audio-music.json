@@ -1,0 +1,148 @@
+{
+  "schema": 1,
+  "id": "audio-music",
+  "title": "Make a music track from tags (and lyrics) through comfy-forge",
+  "description": "Renders ACE-Step 1.5 songs or instrumentals through comfy-forge's ComfyUI: describe the style in tags (genre, mood, instruments, production), optionally give lyrics with [Verse]/[Chorus] tags or a lyrics file; with no lyrics the track is instrumental. Uses a running ComfyUI (8188 or SwarmUI's 7820-7832) or, with backend=auto, starts comfy-forge's ComfyUI headless for the job and stops it after. Each take gets its own seed; CLAP scores each against the tags when the sfx runtime is installed, and the best is trimmed, levelled (-16 LUFS, stereo) and encoded. With loop=true the track is cut to whole bars and its last bar crossfaded into its first, so it repeats without a seam.",
+  "input": {
+    "name": "lyrics",
+    "kind": "file",
+    "required": false
+  },
+  "params": {
+    "tags": {
+      "type": "string",
+      "default": "",
+      "required": true
+    },
+    "lyrics": {
+      "type": "string",
+      "default": ""
+    },
+    "instrumental": {
+      "type": "boolean",
+      "default": false
+    },
+    "name": {
+      "type": "string",
+      "default": "track"
+    },
+    "seconds": {
+      "type": "string",
+      "default": "60"
+    },
+    "bpm": {
+      "type": "integer",
+      "default": 120
+    },
+    "key": {
+      "type": "string",
+      "default": "C major"
+    },
+    "time_signature": {
+      "type": "string",
+      "default": "4",
+      "choices": [
+        "2",
+        "3",
+        "4",
+        "6"
+      ]
+    },
+    "loop": {
+      "type": "boolean",
+      "default": false
+    },
+    "language": {
+      "type": "string",
+      "default": "en"
+    },
+    "variant": {
+      "type": "string",
+      "default": "aio",
+      "choices": [
+        "aio",
+        "turbo",
+        "turbo-4b",
+        "xl-turbo",
+        "xl-sft",
+        "xl-base"
+      ]
+    },
+    "steps": {
+      "type": "string",
+      "default": ""
+    },
+    "cfg": {
+      "type": "string",
+      "default": ""
+    },
+    "takes": {
+      "type": "integer",
+      "default": 2
+    },
+    "seed": {
+      "type": "integer",
+      "default": 0
+    },
+    "backend": {
+      "type": "string",
+      "default": "auto",
+      "choices": [
+        "auto",
+        "running",
+        "start"
+      ]
+    },
+    "url": {
+      "type": "string",
+      "default": ""
+    },
+    "loudness": {
+      "type": "string",
+      "default": "-16"
+    },
+    "format": {
+      "type": "string",
+      "default": "ogg",
+      "choices": [
+        "ogg",
+        "wav",
+        "mp3",
+        "flac"
+      ]
+    },
+    "true_peak": {
+      "type": "string",
+      "default": "-1"
+    },
+    "sample_rate": {
+      "type": "integer",
+      "default": 48000
+    },
+    "channels": {
+      "type": "integer",
+      "default": 2
+    },
+    "trim": {
+      "type": "boolean",
+      "default": true
+    },
+    "highpass": {
+      "type": "integer",
+      "default": 0
+    },
+    "check": {
+      "type": "boolean",
+      "default": true
+    },
+    "timeout": {
+      "type": "integer",
+      "default": 1800
+    }
+  },
+  "steps": [
+    "comfyforge.music",
+    "audio.finish",
+    "asset.record"
+  ]
+}

@@ -13,7 +13,7 @@ AssetForge is a small orchestration core with optional adapters. The core must s
 | Container | `src/assetforge/glb.py` | GLB parsing, statistics, structural checks. No third-party dependency. |
 | Images | `src/assetforge/images.py` | Pillow operations with a clear error when Pillow is absent. |
 | Providers | `src/assetforge/providers.py` | Read-only detection of external tools and owner folders. |
-| Adapters | `src/assetforge/adapters.py` | Argument-list construction and output verification for Blender, comfy-kit and img2threejs. |
+| Adapters | `src/assetforge/adapters.py` | Argument-list construction and output verification for Blender, comfy-forge, img2threejs and teardown; `comfybackend.py` reaches or starts comfy-forge's ComfyUI; `audio.py` and `audio_worker.py` run the audio runtimes. |
 | Validation | `src/assetforge/official.py`, `src/assetforge/exporters.py` | Optional Khronos validation and export packaging. |
 | Schemas | `schemas/*.json` | Versioned public contracts. |
 

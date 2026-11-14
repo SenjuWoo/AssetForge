@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.8.0 — 2026-11-14
+
+- Add `audio-music`: songs and instrumentals from style tags, with optional lyrics, rendered by ACE-Step 1.5 through comfy-forge 0.8.0's `TOOLS/music.py`.
+  - Each take gets its own seed. A take that fills the asked length beats one that stops early, CLAP breaks ties (when the sfx runtime is installed), and the kept take is finished to -16 LUFS stereo at 48 kHz.
+  - New checks: `AUDIO-LENGTH` warns when the model ended the song early, and `AUDIO-LYRICS` stays `NOT_TESTED`.
+- `loop=true` makes game-ready loops. It uses `bpm` and `time_signature` to cut the track to whole bars, keeps the first through the last full-level bar (dropping a quiet intro or fading outro), and crossfades the last bar into the first. `AUDIO-LOOP` reports the bars kept and warns about quiet bars inside the loop.
+- Music needs no manual server start. `backend=auto` uses a running ComfyUI (`COMFYUI_URL`, 8188, or SwarmUI's 7820-7832). Otherwise it starts comfy-forge's own ComfyUI headless on a free local port for the job and stops it, process tree included, afterwards. `backend=running` and `backend=start` force either path.
+- The comfy provider is now `comfy-forge` (the project renamed itself from comfy-kit):
+  - `COMFY_FORGE_ROOT` and `integrations.comfy_forge` select it, and the old `COMFY_KIT_ROOT` / `comfy_kit` still work.
+  - `providers.get("comfy-kit")` answers with it.
+  - It reports `music.generate.delegated` when comfy-forge has its music generator.
+  - The capability `comfy-kit-generation` is now `comfy-forge-images`.
+- Minecraft export marks music and anything over 10 seconds `"stream": true` in `sounds.json`, and treats stereo music as correct rather than as a positional-sound warning.
+- A recipe run with `--set name=...` names its asset after that name, instead of after the input file or the recipe.
+
 ## 0.7.1 — 2026-11-13
 
 - blender-skills provider re-verified at **v1.3.1** (`b1b21df`): upstream validation and 72/72 headless tests pass on Blender 5.3.0, and AssetForge's real-Blender runner tests (LODs, auto-retopo, UV pack, texel density, mesh stats) pass against it. v1.3.1 tries voxel remesh first in auto-retopo, adds a review grid to QA shots and warns about UV seams; the command lines AssetForge passes did not change.

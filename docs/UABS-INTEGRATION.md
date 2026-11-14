@@ -53,7 +53,7 @@ The bundle's registry reads entries from `BUNDLED-TOOLS/COMPANIONS.json`. This i
       "Pillow optional",
       "glTF-Transform optional",
       "Blender optional",
-      "comfy-kit optional"
+      "comfy-forge optional"
     ],
     "platforms": ["windows", "linux", "macos"],
     "notes": "Owns asset production, validation and export. Optional providers are detected, never installed by the bundle."

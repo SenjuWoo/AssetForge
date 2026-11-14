@@ -223,6 +223,38 @@ def comfykit_generate(root: Path, params: dict, out_dir: Path, timeout: float = 
     return result
 
 
+def comfy_music(root: Path, url: str, args: list[str], out_dir: Path, timeout: float = 1800) -> dict:
+    """Run comfy-forge's `TOOLS/music.py generate` (stdlib only, so AssetForge's
+    own interpreter runs it) and return its closing JSON line."""
+    script = root / "TOOLS" / "music.py"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    command = [sys.executable, str(script), "generate", "--url", url, "--out", str(out_dir),
+               "--timeout", str(int(timeout)), *args]
+    result = run(command, timeout=timeout + 60, cwd=root)
+    if result.get("timed_out"):
+        raise AdapterError(f"comfy-forge music timed out after {timeout:g}s")
+    lines = [line for line in (result.get("stdout") or "").splitlines() if line.strip()]
+    if result["returncode"] != 0:
+        reason = "; ".join(line.strip() for line in lines if line.startswith(("FAIL", "UNVERIFIED", "error")))
+        raise AdapterError(f"comfy-forge music exited {result['returncode']}: {reason or _tail(result)}")
+    try:
+        data = json.loads(lines[-1])
+    except (IndexError, ValueError) as exc:
+        raise AdapterError(f"comfy-forge music printed no result line: {_tail(result)}") from exc
+    files = [Path(item) for item in data.get("files") or []]
+    missing = [str(item) for item in files if not item.is_file()]
+    if not files or missing:
+        raise AdapterError(f"comfy-forge music reported files that are not there: {missing or 'none'}")
+    try:
+        inside = all(item.resolve().is_relative_to(out_dir.resolve()) for item in files)
+    except OSError:
+        inside = False
+    if not inside:
+        raise AdapterError("comfy-forge music wrote outside the assigned folder")
+    data["files"] = files
+    return data
+
+
 def comfykit_images(out_dir: Path) -> list[Path]:
     if not out_dir.exists():
         return []

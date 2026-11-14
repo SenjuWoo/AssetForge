@@ -34,7 +34,8 @@ AssetForge is built around one priority: a genuine reference-image → 3D → en
 
 - **Done (0.6.0):** Teardown simulator pages and films (`teardown-build`, `teardown-film`), separate from game-engine meshes.
 - **Done (0.7.0):** Audio. Voice lines (Qwen3-TTS voice design and cloning, Dia nonverbals, Kokoro), sound effects (MOSS-SoundEffect v2), finishing and level checks, and Minecraft sound export.
-- Music generation: ACE-Step 1.5 (MIT) is the candidate; planned.
+- **Done (0.8.0):** Music. `audio-music` renders ACE-Step 1.5 through comfy-forge.
+- Loop points for game music: planned.
 - Graphite: documented manual/interchange workflow; no invented headless CLI.
 - Rigging validation and UniRig after the core mesh path is stable.
 

@@ -40,6 +40,7 @@ STEP_NAMES = {
     "audio.sfx",
     "audio.source",
     "audio.finish",
+    "comfyforge.music",
     "asset.record",
 }
 
