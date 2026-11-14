@@ -96,7 +96,7 @@ Engine import stays NOT_TESTED: an export launches no game.
 
 ## Known limits
 
-- Music is not covered yet. ACE-Step 1.5 (MIT) is the candidate.
+- Music comes from comfy-forge 0.8.0 (ACE-Step 1.5, MIT: `TOOLS\music.ps1 generate`). Finish a track here with `assetforge.cmd run audio-process --input source=<track.flac> --set loudness=-14 --set channels=2`, then export it like any other sound.
 - MOSS-SoundEffect v2 runs eagerly. Upstream compiles its sampler with `torch.compile` and CUDA graphs, which PyTorch does not support on Python 3.14 and which need Triton, absent on Windows. The worker turns both off and stores the DiT weights in bf16 so the 30-second window fits in about 10 GB of VRAM. Generation is slower than upstream's published numbers.
 - Dia sometimes keeps talking after the line ends, or turns a short gasp into repeated sounds. In testing this happened without a reference voice. With the Qwen-designed reference, both test lines passed at a 100% word match. The transcript check catches the worst cases, and more takes help.
 - Whisper can hallucinate on nonverbal-only audio. Lines with no words are not scored on words.
