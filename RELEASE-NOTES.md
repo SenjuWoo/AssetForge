@@ -20,7 +20,7 @@ A maintenance release from a full audit of 0.8.0. Nothing was removed and no for
 
 ## Verified
 
-Windows 11, Python 3.14, Blender 5.3.0, Godot 4.7.2, FFmpeg 9.0.2, glTF-Transform 4.5.1, the Khronos validator, teardown, and the three audio runtimes: the full suite passed with every provider present, plus 29 new regression tests that failed before their fixes. `Install.ps1` was run twice in a copy of the release in a folder whose name has spaces, parentheses and `!`.
+Windows 11, Python 3.14, Blender 5.3.0, Godot 4.7.2, FFmpeg 9.0.2, glTF-Transform 4.5.1, the Khronos validator, teardown, and the three audio runtimes: the full suite passed with every provider present, plus 30 new regression tests that failed before their fixes. `Install.ps1` was run twice in a copy of the release in a folder whose name has spaces, parentheses and `!`.
 
 ## Not verified
 

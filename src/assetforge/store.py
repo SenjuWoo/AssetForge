@@ -272,6 +272,18 @@ class Project:
         return [Asset(self, folder) for folder in sorted(self.assets_dir.iterdir()) if (folder / "asset.json").exists()]
 
 
+_LAST_NS = 0
+
+
+def _creation_ns() -> int:
+    """A wall-clock stamp that never repeats in this process. The system clock
+    can tick in ~15 ms steps (Windows on Python 3.12), so two jobs created in
+    one tick would otherwise tie."""
+    global _LAST_NS
+    _LAST_NS = max(time.time_ns(), _LAST_NS + 1)
+    return _LAST_NS
+
+
 class Job:
     def __init__(self, project: Project, job_id: str, data: dict):
         self.project = project
@@ -298,7 +310,7 @@ class Job:
             "steps": [],
             "error": None,
             # Orders jobs started within the same second; the id has 1 s resolution.
-            "created_ns": time.time_ns(),
+            "created_ns": _creation_ns(),
         }
         job = cls(project, job_id, data)
         job.save()

@@ -253,6 +253,14 @@ class JobLifecycle(Temp):
             ids = [Job.create(self.project, "r", {}).id for _ in range(12)]
             self.assertEqual(Job.latest(self.project).id, ids[-1])
 
+    def test_latest_is_exact_on_a_coarse_clock(self):
+        # Windows on Python 3.12 ticks in ~15 ms steps; every job here gets the same reading.
+        from assetforge import store
+
+        with mock.patch.object(store.time, "time_ns", return_value=1_000_000):
+            ids = [Job.create(self.project, "r", {}).id for _ in range(12)]
+        self.assertEqual(Job.latest(self.project).id, ids[-1])
+
     def test_latest_still_reads_jobs_written_before_this_version(self):
         old = Job.create(self.project, "r", {})
         del old.data["created_ns"]

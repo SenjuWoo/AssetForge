@@ -8,7 +8,7 @@
 
 ## Completed
 
-- Audit (0.8.1, 2026-11-15): baseline 190 tests OK / 2 skipped with every provider present, doctor exit 0, CI green on `e434715`, 0 open Dependabot/secret alerts. 18 findings, each reproduced; fixes listed in CHANGELOG 0.8.1. New `tests/test_audit_regressions.py` (29 tests) failed before the fixes and passes after. Real runs: `blender-qa` on a `.blend` without `SM_Crate` now checks its mesh; `Install.ps1` twice in a copy under a path with spaces, `()` and `!`.
+- Audit (0.8.1, 2026-11-15): baseline 190 tests OK / 2 skipped with every provider present, doctor exit 0, CI green on `e434715`, 0 open Dependabot/secret alerts. 18 findings, each reproduced; fixes listed in CHANGELOG 0.8.1. New `tests/test_audit_regressions.py` (30 tests) failed before the fixes and passes after. Real runs: `blender-qa` on a `.blend` without `SM_Crate` now checks its mesh; `Install.ps1` twice in a copy under a path with spaces, `()` and `!`.
 - Music (0.8.0, 2026-11-14):
   - `audio-music` renders ACE-Step 1.5 through comfy-forge 0.8.0's `TOOLS/music.py`, using a running ComfyUI or one started for the job and stopped afterwards (`comfybackend.py`).
   - Takes are ranked by length, then CLAP. `loop=true` builds bar-aligned seamless loops from the full-level bars. `AUDIO-LENGTH`, `AUDIO-LOOP` and `AUDIO-LYRICS` added.

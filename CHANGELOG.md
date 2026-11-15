@@ -15,7 +15,7 @@ Audit release: wrong results and silent failures fixed, nothing removed.
 - A global npm `gltf-transform.cmd` on Windows is detected; it was reported as not installed.
 - `true_peak=0` is honoured by `validate` instead of being read as unset.
 - Ctrl+C during a run ends the job `CANCELLED` (the reserved state) instead of leaving it `RUNNING`.
-- `status --last` returns the job started last even when several start within one second (`created_ns` in the job record).
+- `status --last` returns the job started last even when several start within one second (`created_ns` in the job record, strictly increasing even where the system clock ticks in 15 ms steps).
 - `inspect` and `status` refuse an id that is a path (`../x`, an absolute path) instead of reading outside the project.
 - Providers are detected once per command or recipe run instead of on every lookup (about 1.3 s each); a `glb-inspect` run went from about 4 s to about 1.6 s.
 - `probe` on a folder stops reading at its 5,000-file cap instead of listing and sorting the whole tree first.
