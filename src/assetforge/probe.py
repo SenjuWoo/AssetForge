@@ -7,6 +7,7 @@ recipes that fit. It writes nothing and needs no project.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -169,19 +170,40 @@ def _probe_audio(path: Path) -> dict:
     return {"facts": facts, "findings": findings, "recommend": recommend}
 
 
+def _walk_files(root: Path):
+    """Files under root, lazily: a folder's own files (sorted), then each
+    subfolder in name order. Linked folders are not followed. The caller stops
+    at MAX_WALK, so a huge tree is never listed whole."""
+    pending = [Path(root)]
+    while pending:
+        folder = pending.pop()
+        try:
+            entries = sorted(os.scandir(folder), key=lambda entry: entry.name)
+        except OSError:
+            continue
+        folders = []
+        for entry in entries:
+            try:
+                if entry.is_dir(follow_symlinks=False):
+                    folders.append(Path(entry.path))
+                elif entry.is_file():
+                    yield Path(entry.path)
+            except OSError:
+                continue
+        pending.extend(reversed(folders))  # depth-first, in name order
+
+
 def _probe_directory(path: Path) -> dict:
     counts: dict[str, int] = {}
     listed: dict[str, list[str]] = {"glb": [], "mesh": [], "image": [], "audio": []}
     channels: dict[str, str] = {}
     total = 0
     truncated = False
-    for item in sorted(path.rglob("*")):
-        if not item.is_file():
-            continue
-        total += 1
-        if total > MAX_WALK:
+    for item in _walk_files(path):
+        if total >= MAX_WALK:
             truncated = True
             break
+        total += 1
         kind = classify(item)
         counts[kind] = counts.get(kind, 0) + 1
         if kind in listed and len(listed[kind]) < MAX_LISTED:

@@ -32,7 +32,10 @@ if (Test-Path -LiteralPath $stage) {
     Remove-Item -LiteralPath $stage -Recurse -Force
 }
 
-& python -m venv $stage --system-site-packages
+# No pip of its own: a venv's pip.exe records the folder it was made in, and
+# this one is made in .venv.new and renamed. pip still runs as `python -m pip`
+# through the system site packages.
+& python -m venv $stage --system-site-packages --without-pip
 if ($LASTEXITCODE -ne 0) { throw 'Could not create the virtual environment.' }
 
 $stagePython = Join-Path $stage 'Scripts\python.exe'
@@ -66,6 +69,15 @@ try {
         Rename-Item -LiteralPath $previous -NewName '.venv'
     }
     throw 'Could not activate the staged environment; the previous environment was restored.'
+}
+# The activate scripts and pyvenv.cfg were written for .venv.new; point them at .venv.
+$utf8 = New-Object Text.UTF8Encoding($false)
+foreach ($name in 'pyvenv.cfg', 'Scripts\activate', 'Scripts\activate.bat', 'Scripts\activate.fish') {
+    $file = Join-Path $venv $name
+    if (Test-Path -LiteralPath $file) {
+        $text = [IO.File]::ReadAllText($file).Replace($stage, $venv).Replace('.venv.new', '.venv')
+        [IO.File]::WriteAllText($file, $text, $utf8)
+    }
 }
 
 $state = [ordered]@{

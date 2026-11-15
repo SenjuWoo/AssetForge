@@ -30,10 +30,6 @@ def sha256_file(path: Path, chunk: int = 1 << 20) -> str:
     return digest.hexdigest()
 
 
-def sha256_bytes(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
-
 def read_json(path: Path):
     with open(path, encoding="utf-8-sig") as fh:
         return json.load(fh)
@@ -85,12 +81,6 @@ def human_bytes(size: int) -> str:
             return f"{value:.1f} {unit}"
         value /= 1024
     return f"{value:.1f} GiB"
-
-
-def which(name: str):
-    import shutil
-
-    return shutil.which(name)
 
 
 def _windows_shim(cmd):
@@ -165,6 +155,3 @@ def first_line(text: str) -> str:
             return line.strip()
     return ""
 
-
-def clamp_int(value, low: int, high: int) -> int:
-    return max(low, min(high, int(value)))

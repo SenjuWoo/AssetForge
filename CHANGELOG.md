@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.8.1 — 2026-11-15
+
+Audit release: wrong results and silent failures fixed, nothing removed.
+
+- `blender-qa` checks every mesh when `object` is empty, as documented. It used to look for `SM_Crate` (the pipeline's crate) in any `.blend` and fail with "objects not found". `object` also takes several names.
+- `validate` and `export` keep the evidence only the run can make (`BLENDER-QA*`, `TEARDOWN-*`, `AUDIO-ASR/CLAP/LENGTH/LOOP/LYRICS/LISTEN`). They used to drop most of it, so an asset with a pending visual review or a song that ended early read as a plain `PASS`. Checks recomputed from the files (`GLB-*`, `IMG-*`, `AUDIO-001`–`006`, `PAGE-001`, `VIDEO-001`) are replaced, not duplicated.
+- The structural GLB validator reports `GLB-001 FAIL` for JSON that parses but is not shaped like glTF, instead of crashing with a Python traceback (`validate`, `probe`, `glb-inspect`).
+- Percent-encoded external image URIs (`my%20tex.png`) resolve; `GLB-012` no longer fails them.
+- Triangle strips and fans are counted (n − 2 triangles). They counted as 0, so a strip mesh passed every triangle budget.
+- A boolean `--set` value that is not `true/false/yes/no/on/off/1/0` is a usage error. `loop=ture` used to mean `false` silently.
+- `--dry-run` lists the providers of every step: teardown recipes listed none, and the Khronos validator, Pillow and CLAP were missing.
+- `audio-music --set url=...` uses only that ComfyUI. A dead explicit URL is an error (exit 4) instead of quietly sending the job to another server on a default port.
+- A global npm `gltf-transform.cmd` on Windows is detected; it was reported as not installed.
+- `true_peak=0` is honoured by `validate` instead of being read as unset.
+- Ctrl+C during a run ends the job `CANCELLED` (the reserved state) instead of leaving it `RUNNING`.
+- `status --last` returns the job started last even when several start within one second (`created_ns` in the job record).
+- `inspect` and `status` refuse an id that is a path (`../x`, an absolute path) instead of reading outside the project.
+- Providers are detected once per command or recipe run instead of on every lookup (about 1.3 s each); a `glb-inspect` run went from about 4 s to about 1.6 s.
+- `probe` on a folder stops reading at its 5,000-file cap instead of listing and sorting the whole tree first.
+- `Install.ps1` points the activate scripts and `pyvenv.cfg` at `.venv`, not the `.venv.new` staging folder, and no longer leaves a `pip.exe` that names a deleted path.
+- `Update.ps1` stops on uncommitted changes, as its header always said.
+- Removed unused helpers (`util.sha256_bytes`, `util.clamp_int`, `util.which`, `images.write_report`, `cli._print`, `providers._tree_size_files`).
+- README: update and uninstall notes; typed `--set` values.
+
 ## 0.8.0 — 2026-11-14
 
 - Add `audio-music`: songs and instrumentals from style tags, with optional lyrics, rendered by ACE-Step 1.5 through comfy-forge 0.8.0's `TOOLS/music.py`.

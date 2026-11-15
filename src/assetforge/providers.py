@@ -7,12 +7,15 @@ are reported with a reason and a capability list, never silently replaced.
 
 from __future__ import annotations
 
+import contextvars
+import copy
 import glob
 import importlib.metadata
 import os
 import re
 import shutil
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 from .util import first_line, read_json, run
@@ -125,15 +128,6 @@ def _version_file(root: Path) -> str | None:
             if match:
                 return match.group(1)
     return None
-
-
-def _tree_size_files(root: Path, limit: int = 5000) -> int:
-    count = 0
-    for _ in root.rglob("*"):
-        count += 1
-        if count >= limit:
-            break
-    return count
 
 
 def _is_profile_wrapper(path: Path) -> bool:
@@ -310,8 +304,10 @@ def _gltf_transform(project):
             result = run(command + ["--version"], timeout=25)
             if result["returncode"] == 0:
                 return command, first_line(result["stdout"] + result["stderr"]), str(cli)
+    # On Windows a global npm install is a .cmd shim; util.run launches those
+    # through cmd.exe safely, so the shim counts.
     found = shutil.which("gltf-transform")
-    if found and not str(found).lower().endswith((".cmd", ".bat")):
+    if found:
         result = run([found, "--version"], timeout=25)
         if result["returncode"] == 0:
             return [str(found)], first_line(result["stdout"] + result["stderr"]), str(found)
@@ -358,7 +354,35 @@ def _pillow_version() -> str | None:
             return None
 
 
+_SNAPSHOT: contextvars.ContextVar = contextvars.ContextVar("assetforge_providers", default=None)
+
+
+@contextmanager
+def snapshot():
+    """Detect providers once for everything inside the block (one CLI command
+    or one recipe run) instead of re-probing every tool on each lookup.
+    Detection runs about a dozen subprocesses; nested blocks share the outer one."""
+    if _SNAPSHOT.get() is not None:
+        yield
+        return
+    token = _SNAPSHOT.set({})
+    try:
+        yield
+    finally:
+        _SNAPSHOT.reset(token)
+
+
 def detect(project=None) -> list[dict]:
+    cache = _SNAPSHOT.get()
+    if cache is None:
+        return _detect(project)
+    key = str(project.root) if project is not None else ""
+    if key not in cache:
+        cache[key] = _detect(project)
+    return copy.deepcopy(cache[key])
+
+
+def _detect(project=None) -> list[dict]:
     home = Path.home()
     local = Path(os.environ.get("LOCALAPPDATA", ""))
     providers = []

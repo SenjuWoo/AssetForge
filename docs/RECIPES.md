@@ -150,7 +150,7 @@ Run `blender-asset-qa` and review shots against an existing `.blend`. Use this a
 
 | Parameter | Type | Default |
 | --- | --- | --- |
-| `object` | string | empty (all visible meshes) |
+| `object` | string, space-separated | empty (every mesh in the file) |
 | `warning_note` | string | empty (warnings fail the gate) |
 | `visual_review` | `pending`, `approved` | `pending` |
 | `approval_note` | string | empty (required when approved) |

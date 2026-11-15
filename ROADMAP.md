@@ -5,7 +5,7 @@ AssetForge is built around one priority: a genuine reference-image → 3D → en
 ## Priority 0 — release gate
 
 - Keep the standalone CLI, installer, schemas and tests green.
-- Publish `0.1.0` only after the exact commit passes local checks and hosted CI.
+- Publish a release only after its exact commit passes the local suite and hosted CI.
 - Keep every optional provider optional and independently installed.
 
 ## Priority 1 — reference image to 3D to engine
@@ -35,7 +35,7 @@ AssetForge is built around one priority: a genuine reference-image → 3D → en
 - **Done (0.6.0):** Teardown simulator pages and films (`teardown-build`, `teardown-film`), separate from game-engine meshes.
 - **Done (0.7.0):** Audio. Voice lines (Qwen3-TTS voice design and cloning, Dia nonverbals, Kokoro), sound effects (MOSS-SoundEffect v2), finishing and level checks, and Minecraft sound export.
 - **Done (0.8.0):** Music. `audio-music` renders ACE-Step 1.5 through comfy-forge.
-- Loop points for game music: planned.
+- **Done (0.8.0):** seamless bar-aligned loops for game music (`audio-music loop=true`).
 - Graphite: documented manual/interchange workflow; no invented headless CLI.
 - Rigging validation and UniRig after the core mesh path is stable.
 

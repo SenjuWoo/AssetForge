@@ -7,7 +7,9 @@ inside the JSON. Jobs are append-only records that survive a crash.
 
 from __future__ import annotations
 
+import re
 import shutil
+import time
 import uuid
 from pathlib import Path
 
@@ -19,6 +21,18 @@ PROJECT_SCHEMA = 1
 
 class StoreError(RuntimeError):
     pass
+
+
+# Asset and job ids are folder names. A lookup must name one folder inside
+# its parent, never a path ("../x", an absolute path) that leaves it.
+LOOKUP = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+
+
+def _lookup(kind: str, query: str) -> str:
+    value = str(query or "").strip()
+    if not LOOKUP.match(value):
+        raise StoreError(f"{kind} id {query!r} is not a plain id (letters, digits, '.', '_', '-')")
+    return value
 
 
 def _media_type(path: Path) -> str:
@@ -241,6 +255,7 @@ class Project:
         return Asset(self, folder)
 
     def asset(self, query: str) -> Asset:
+        query = _lookup("asset", query)
         exact = self.asset_folder(query)
         if (exact / "asset.json").exists():
             return Asset(self, exact)
@@ -282,6 +297,8 @@ class Job:
             "sources": sources or {},
             "steps": [],
             "error": None,
+            # Orders jobs started within the same second; the id has 1 s resolution.
+            "created_ns": time.time_ns(),
         }
         job = cls(project, job_id, data)
         job.save()
@@ -289,6 +306,7 @@ class Job:
 
     @classmethod
     def load(cls, project: Project, job_id: str) -> "Job":
+        job_id = _lookup("job", job_id)
         folder = project.jobs_dir / job_id
         if not (folder / "job.json").exists():
             raise StoreError(f"no job {job_id!r}")
@@ -298,8 +316,15 @@ class Job:
     def latest(cls, project: Project) -> "Job | None":
         if not project.jobs_dir.exists():
             return None
-        folders = sorted((item for item in project.jobs_dir.iterdir() if (item / "job.json").exists()), reverse=True)
-        return cls(project, folders[0].name, read_json(folders[0] / "job.json")) if folders else None
+        folders = [item for item in project.jobs_dir.iterdir() if (item / "job.json").exists()]
+        if not folders:
+            return None
+        # Ids start with a 1-second UTC stamp; only the newest second needs its
+        # records read to break the tie.
+        newest = max(item.name[:15] for item in folders)
+        records = [(item, read_json(item / "job.json")) for item in folders if item.name[:15] == newest]
+        folder, data = max(records, key=lambda pair: (int(pair[1].get("created_ns") or 0), pair[0].name))
+        return cls(project, folder.name, data)
 
     def save(self) -> None:
         write_json(self.folder / "job.json", self.data)

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import struct
 from pathlib import Path
+from urllib.parse import unquote
 
 from .util import human_bytes
 
@@ -57,8 +58,33 @@ def _parse(path: Path):
         doc = json.loads(text)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise GlbError(f"JSON chunk does not parse: {exc}") from exc
+    _require_shape(doc)
     bin_chunk = next((payload for kind, payload in chunks if kind == CHUNK_BIN), b"")
     return doc, bin_chunk, {"bytes": len(data), "declared": declared, "problems": problems}
+
+
+OBJECT_ARRAYS = ("accessors", "animations", "bufferViews", "buffers", "images", "materials", "meshes",
+                 "nodes", "samplers", "scenes", "skins", "textures")
+
+
+def _require_shape(doc) -> None:
+    """The readers below index into these arrays; a file whose JSON parses but
+    is not shaped like glTF is rejected here, with a reason, instead of
+    surfacing later as a Python error."""
+    if not isinstance(doc, dict):
+        raise GlbError("JSON chunk is not a glTF object")
+    for key in OBJECT_ARRAYS:
+        value = doc.get(key)
+        if value is None and key not in doc:
+            continue
+        if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
+            raise GlbError(f"glTF {key!r} must be an array of objects")
+    for index, mesh in enumerate(doc.get("meshes", [])):
+        primitives = mesh.get("primitives", [])
+        if not isinstance(primitives, list) or any(not isinstance(item, dict) for item in primitives):
+            raise GlbError(f"mesh {index} primitives must be an array of objects")
+        if any(not isinstance(item.get("attributes", {}), dict) for item in primitives):
+            raise GlbError(f"mesh {index} has a primitive whose attributes are not an object")
 
 
 def _accessor_count(doc: dict, index) -> int:
@@ -70,12 +96,15 @@ def _accessor_count(doc: dict, index) -> int:
 
 def _primitive_triangles(doc: dict, primitive: dict) -> int:
     mode = primitive.get("mode", 4)
-    if mode != 4:
-        return 0
+    if mode not in (4, 5, 6):
+        return 0  # points and lines draw no triangles
     if primitive.get("indices") is not None:
-        return _accessor_count(doc, primitive["indices"]) // 3
-    position = (primitive.get("attributes") or {}).get("POSITION")
-    return _accessor_count(doc, position) // 3 if position is not None else 0
+        count = _accessor_count(doc, primitive["indices"])
+    else:
+        position = (primitive.get("attributes") or {}).get("POSITION")
+        count = _accessor_count(doc, position) if position is not None else 0
+    # A strip or a fan of n vertices draws n - 2 triangles.
+    return count // 3 if mode == 4 else max(count - 2, 0)
 
 
 def _bbox(doc: dict):
@@ -238,8 +267,6 @@ def _image_details(doc: dict, binary: bytes, folder: Path) -> list[dict]:
                 data = None
         elif image.get("uri"):
             item["source"] = "external"
-            from urllib.parse import unquote
-
             target = folder / unquote(str(image["uri"]))
             try:
                 with open(target, "rb") as handle:
@@ -523,7 +550,18 @@ def _rig_checks(doc: dict, binary: bytes) -> list[dict]:
     return [_check("GLB-013", "PASS", summary + "; data is consistent, deformation not rendered")]
 
 
+# What a reader raises when a value has the wrong type or points nowhere.
+MALFORMED = (TypeError, ValueError, AttributeError, KeyError, IndexError)
+
+
 def inspect_glb(path: Path) -> dict:
+    try:
+        return _inspect(path)
+    except MALFORMED as exc:
+        raise GlbError(f"glTF JSON is malformed: {type(exc).__name__}: {exc}") from exc
+
+
+def _inspect(path: Path) -> dict:
     doc, binary, container = _parse(path)
     primitives = 0
     triangles = 0
@@ -631,21 +669,34 @@ def _bounds_checks(doc: dict, binary: bytes) -> list[dict]:
     return checks
 
 
+def _unreadable(path: Path, detail: str) -> dict:
+    return {
+        "schema": 1,
+        "file": str(path),
+        "stats": None,
+        "checks": [_check("GLB-001", "FAIL", detail)],
+        "summary": {"PASS": 0, "WARNING": 0, "FAIL": 1, "NOT_TESTED": 0},
+        "status": "FAIL",
+    }
+
+
 def validate_glb(path: Path) -> dict:
+    """Structural report for one file. A file that cannot be read as glTF is
+    a FAIL report, never an exception: the caller is validating untrusted input."""
     path = Path(path)
+    try:
+        return _validate(path)
+    except MALFORMED as exc:
+        return _unreadable(path, f"glTF JSON is malformed: {type(exc).__name__}: {exc}")
+
+
+def _validate(path: Path) -> dict:
     checks: list[dict] = []
     try:
         doc, binary, container = _parse(path)
         stats = inspect_glb(path)
     except (GlbError, OSError) as exc:
-        return {
-            "schema": 1,
-            "file": str(path),
-            "stats": None,
-            "checks": [_check("GLB-001", "FAIL", str(exc))],
-            "summary": {"PASS": 0, "WARNING": 0, "FAIL": 1, "NOT_TESTED": 0},
-            "status": "FAIL",
-        }
+        return _unreadable(path, str(exc))
 
     checks.append(_check("GLB-001", "PASS", "GLB header and version 2"))
     checks.append(
@@ -736,7 +787,8 @@ def validate_glb(path: Path) -> dict:
         if image.get("bufferView") is None and not image.get("uri"):
             missing_images += 1
         elif image.get("uri") and not str(image["uri"]).startswith("data:"):
-            target = path.parent / str(image["uri"])
+            # A URI is percent-encoded: "my%20tex.png" names the file "my tex.png".
+            target = path.parent / unquote(str(image["uri"]))
             if not target.exists():
                 missing_images += 1
     checks.append(

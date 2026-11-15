@@ -82,6 +82,13 @@ assetforge engine-check FILE.glb [--json]
 
 Exit codes are stable: `0` success, `2` usage/recipe error, `3` missing project/asset/job, `4` provider unavailable, `5` validation or budget failure, `6` run failure.
 
+`--set` values are typed by the recipe. A boolean takes `true/false`, `yes/no`, `on/off` or `1/0`; anything else (such as `ture`) is a usage error, not `false`. `--dry-run` lists every provider the recipe would call, including optional checkers such as the Khronos validator and CLAP.
+
+## Update and uninstall
+
+- **Update a Git checkout:** `Update.ps1` fetches, refuses to run on uncommitted changes, fast-forwards only, then rebuilds `.venv` with `Install.ps1` (which keeps the previous environment as `.venv.prev`).
+- **Uninstall:** delete the AssetForge folder. The installer writes nothing outside it, except what you created on purpose: the audio runtimes and model cache under `~/.assetforge/audio` (or `ASSETFORGE_AUDIO_HOME`; about 20 GB with every model downloaded) and your own project folders. Delete `~/.assetforge` to remove the audio runtimes.
+
 ## Recommended texture workflow (comfy-forge)
 
 For free local texture generation, the recommended companion is **comfy-forge** (formerly comfy-kit). It owns the SwarmUI/ComfyUI installation, models, presets and MCP configuration; AssetForge only delegates a render and keeps the result inside the asset.
@@ -92,7 +99,7 @@ assetforge.cmd run texture-pack --input occlusion=ao.png --input roughness=rough
 assetforge.cmd export ASSET --target godot
 ```
 
-`comfy-import` also accepts an existing comfy-forge output folder. If comfy-forge is not installed, `comfy-generate` exits with code `4` and a clear provider message; AssetForge never installs models or changes comfy-kit configuration.
+`comfy-import` also accepts an existing comfy-forge output folder. If comfy-forge is not installed, `comfy-generate` exits with code `4` and a clear provider message; AssetForge never installs models or changes comfy-forge configuration.
 
 ## Recommended Blender workflow (blender-skills)
 
@@ -119,7 +126,7 @@ Upstream was tested at v1.3.1 (revision `b1b21dfb73bc40b874ebf2aa12645931bfed352
 
 This low-poly enchanted-fire sword is the AssetForge showcase for stylized game props. It is built directly in Blender and included at `examples/assets/enchanted-fire-sword.glb`, with a reproducible generator (`examples/generate-enchanted-fire-sword.py`) producing the faceted blade shell, ember layers, raised runes and scrollwork, bat-wing crossguard, wrapped hilt, finial and floating sparks. It is a strong reference for low-poly stylized games such as Roblox-style worlds and games; Roblox Studio import was not run, so engine integration remains `NOT_TESTED`.
 
-The concept exploration for this prop was generated locally through the comfy-forge / SwarmUI workflow; the shipped GLB itself is project-owned procedural geometry and does not depend on the generated reference images. comfy-kit remains the recommended free local companion for texture work.
+The concept exploration for this prop was generated locally through the comfy-forge / SwarmUI workflow; the shipped GLB itself is project-owned procedural geometry and does not depend on the generated reference images. comfy-forge remains the recommended free local companion for texture work.
 
 ## Built-in recipes
 

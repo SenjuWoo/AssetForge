@@ -24,6 +24,12 @@ if ($Check) {
     exit 0
 }
 
+$dirty = & git -C $Root status --porcelain --untracked-files=no
+if ($dirty) {
+    Write-Host $dirty
+    throw 'The checkout has uncommitted changes; commit or stash them first. Nothing was changed.'
+}
+
 & git -C $Root pull --ff-only
 if ($LASTEXITCODE -ne 0) { throw 'Update was not fast-forward; the working tree was left unchanged.' }
 

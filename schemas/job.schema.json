@@ -27,6 +27,7 @@
         }
       }
     },
-    "error": {"type": ["string", "null"]}
+    "error": {"type": ["string", "null"]},
+    "created_ns": {"type": "integer"}
   }
 }

@@ -104,16 +104,33 @@ def _audio_validation(asset: Asset, items: list[dict]) -> list[dict]:
             checks.append({"artifact": item["path"], "id": "AUDIO-001", "status": "NOT_TESTED", "detail": "ffmpeg is not available to decode it"})
             continue
         try:
-            found, _ = audio.checks(ffmpeg, path, loudness=settings.get("loudness"), true_peak=float(settings.get("true_peak") or -1))
+            found, _ = audio.checks(ffmpeg, path, loudness=settings.get("loudness"), true_peak=_ceiling(settings))
         except audio.AudioError as exc:
             found = [{"id": "AUDIO-001", "status": "FAIL", "detail": str(exc)}]
         checks.extend({**check, "artifact": item["path"]} for check in found)
-    # Transcript and prompt-match evidence comes from the run; carry it over.
-    recorded = asset.manifest.get("validation") or []
-    for check in recorded if isinstance(recorded, list) else []:
-        if check.get("id") in ("AUDIO-ASR", "AUDIO-CLAP", "AUDIO-LISTEN"):
-            checks.append(check)
     return checks
+
+
+def _ceiling(settings: dict) -> float:
+    """The true-peak ceiling an asset was finished to; 0 dBTP is a real setting."""
+    value = settings.get("true_peak")
+    return -1.0 if value in (None, "") else float(value)
+
+
+# Checks `validate` recomputes from the files. Every other recorded check
+# (BLENDER-QA*, TEARDOWN-*, AUDIO-ASR/CLAP/LENGTH/LOOP/LYRICS/LISTEN) can only
+# come from the run that made the asset, so it is carried over unchanged.
+RECOMPUTED_PREFIXES = ("GLB-", "IMG-", "ASSET-", "PAGE-", "VIDEO-")
+RECOMPUTED_AUDIO = {f"AUDIO-00{n}" for n in range(1, 7)}
+
+
+def _run_evidence(asset: Asset) -> list[dict]:
+    recorded = asset.manifest.get("validation") or []
+    if not isinstance(recorded, list):
+        return []
+    return [check for check in recorded if isinstance(check, dict)
+            and not str(check.get("id", "")).startswith(RECOMPUTED_PREFIXES)
+            and check.get("id") not in RECOMPUTED_AUDIO]
 
 
 EXTERNAL_REFERENCE = re.compile(r"""<(?:script|link|img)\b[^>]*\b(?:src|href)\s*=\s*["']?(?:https?:)?//""", re.I)
@@ -181,6 +198,7 @@ def validate_asset(project: Project, asset: Asset) -> dict:
         except Exception as exc:
             checks.append({"artifact": item.get("path"), "id": "IMG-001", "status": "FAIL", "detail": str(exc)})
 
+    checks.extend(_run_evidence(asset))
     summary = {status: 0 for status in ("PASS", "WARNING", "FAIL", "NOT_TESTED")}
     for item in checks:
         summary[item["status"]] += 1
@@ -357,7 +375,7 @@ def export(project: Project, asset: Asset, target: str, dry_run: bool = False, n
     return {**plan, "out_dir": str(out_dir), "files": files}
 
 
-NAMESPACE = __import__("re").compile(r"^[a-z0-9_.-]{1,64}$")
+NAMESPACE = re.compile(r"^[a-z0-9_.-]{1,64}$")
 
 
 def _resource(value: str) -> str:

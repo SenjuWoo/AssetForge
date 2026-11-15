@@ -1,13 +1,14 @@
 # State
 
-- **Version:** 0.8.0
-- **Milestone:** 0.8.0: music (`audio-music` through comfy-forge, seamless loops); the comfy provider renamed comfy-forge
-- **Active task:** none
-- **Current revision:** 0.8.0 on main
-- **Last known-good:** tag `v0.7.1`
+- **Version:** 0.8.1
+- **Milestone:** 0.8.1: audit release (wrong results and silent failures fixed; nothing removed)
+- **Active task:** release 0.8.1 (gate, push, CI on the exact commit, publish, install, doctor)
+- **Current revision:** 0.8.1 on main
+- **Last known-good:** tag `v0.8.0`
 
 ## Completed
 
+- Audit (0.8.1, 2026-11-15): baseline 190 tests OK / 2 skipped with every provider present, doctor exit 0, CI green on `e434715`, 0 open Dependabot/secret alerts. 18 findings, each reproduced; fixes listed in CHANGELOG 0.8.1. New `tests/test_audit_regressions.py` (29 tests) failed before the fixes and passes after. Real runs: `blender-qa` on a `.blend` without `SM_Crate` now checks its mesh; `Install.ps1` twice in a copy under a path with spaces, `()` and `!`.
 - Music (0.8.0, 2026-11-14):
   - `audio-music` renders ACE-Step 1.5 through comfy-forge 0.8.0's `TOOLS/music.py`, using a running ComfyUI or one started for the job and stopped afterwards (`comfybackend.py`).
   - Takes are ranked by length, then CLAP. `loop=true` builds bar-aligned seamless loops from the full-level bars. `AUDIO-LENGTH`, `AUDIO-LOOP` and `AUDIO-LYRICS` added.
@@ -89,7 +90,8 @@ assetforge.cmd doctor
 
 ## Next action
 
-None queued. Candidates: Roblox Studio import evidence; a Unity import check (MCP for Unity or Unity-MCP, see `docs/UPSTREAM-EVALUATIONS.md`); a rendered rig deformation preview; KTX2 texture compression as an opt-in recipe (Blender 5.3's glTF exporter writes KTX2 natively, per blender-skills 1.3.0).
+Finish the 0.8.1 release. Deliberately left from the audit (suspected, not proven defects): `adapters.comfykit_*` keep their comfy-kit names; the `examples/README` fixture regeneration one-liner was not re-run.
+Candidates after that: Candidates: Roblox Studio import evidence; a Unity import check (MCP for Unity or Unity-MCP, see `docs/UPSTREAM-EVALUATIONS.md`); a rendered rig deformation preview; KTX2 texture compression as an opt-in recipe (Blender 5.3's glTF exporter writes KTX2 natively, per blender-skills 1.3.0).
 
 ## Integration status
 

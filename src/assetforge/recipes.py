@@ -44,6 +44,9 @@ STEP_NAMES = {
     "asset.record",
 }
 
+TRUE_WORDS = ("1", "true", "yes", "on")
+FALSE_WORDS = ("0", "false", "no", "off")
+
 RECIPE_ID = re.compile(r"^[a-z][a-z0-9-]{1,48}$")
 
 
@@ -123,7 +126,17 @@ def parse_value(name: str, raw: str, spec: dict):
         except ValueError as exc:
             raise RecipeError(f"{name} must be an integer, got {raw!r}") from exc
     elif kind == "boolean":
-        value = str(raw).lower() in ("1", "true", "yes", "on")
+        if isinstance(raw, bool):
+            value = raw
+        else:
+            word = str(raw).strip().lower()
+            if word in TRUE_WORDS:
+                value = True
+            elif word in FALSE_WORDS:
+                value = False
+            else:
+                # A typo such as "ture" must not quietly become false.
+                raise RecipeError(f"{name} must be true or false, got {raw!r}")
     else:
         value = raw
     choices = spec.get("choices")

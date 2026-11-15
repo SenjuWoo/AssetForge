@@ -65,4 +65,4 @@ Status values are strict: **VERIFIED** (executed with evidence), **IMPLEMENTED /
 
 ## Next executable task
 
-The standalone `v0.1.0` release is published and the Blender integration is local and verified. Before the next release, run the full CI on the exact integration commit and publish only after it passes. The next engineering priority is the reference-image-to-3D-to-engine workflow in `ROADMAP.md`, not another provider.
+Releases through `v0.8.1` are published from green commits. Before the next release, run the full local suite with real providers and hosted CI on the exact commit, and publish only after both pass. The next engineering priority is the reference-image-to-3D-to-engine workflow in `ROADMAP.md`, not another provider.

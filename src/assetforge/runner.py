@@ -473,17 +473,27 @@ def _blender_visual_review(visual_review: str, approval_note: str) -> tuple[str,
     return "NOT_TESTED", "review sheets generated; visual inspection pending"
 
 
+def _qa_objects(recipe: dict, params: dict) -> list[str]:
+    """Objects the QA gate checks. `blender-pipeline` builds SM_Crate and has no
+    `object` parameter; a recipe that declares one (blender-qa) checks the
+    named objects, or every mesh when it is left empty."""
+    if "object" not in (recipe.get("params") or {}):
+        return ["SM_Crate"]
+    return str(params.get("object") or "").split()
+
+
 def _blender_skills_qa(ctx: Context) -> dict:
     skills, blender, skills_dir = _blender_skills(ctx)
     blend = _blender_blend(ctx)
-    object_name = str(ctx.params.get("object") or "SM_Crate")
+    objects = _qa_objects(ctx.recipe, ctx.params)
+    selection = ["--objects", *objects] if objects else []
     warning_note = str(ctx.params.get("warning_note") or "").strip()
     visual_review = str(ctx.params.get("visual_review") or "pending")
     approval_note = str(ctx.params.get("approval_note") or "").strip()
     visual_status, visual_detail = _blender_visual_review(visual_review, approval_note)
 
     qa_script = skills_dir / "blender-asset-qa" / "scripts" / "qa_check.py"
-    args = ["--profile", "game", "--objects", object_name]
+    args = ["--profile", "game", *selection]
     data, _ = adapters.blender_skills_exec(
         skills, blender, qa_script, args, blend=blend,
         timeout=float(ctx.params.get("timeout") or 300), cwd=ctx.project.root,
@@ -507,7 +517,7 @@ def _blender_skills_qa(ctx: Context) -> dict:
         target = ctx.asset.path("previews", f"blender-qa-{mode}.png")
         adapters.blender_skills_exec(
             skills, blender, review_script,
-            ["--out", str(target), "--mode", mode, "--res", "512", "--objects", object_name],
+            ["--out", str(target), "--mode", mode, "--res", "512", *selection],
             blend=blend, timeout=float(ctx.params.get("timeout") or 300), cwd=ctx.project.root,
         )
         if not target.is_file() or target.stat().st_size < 1000:
@@ -1378,29 +1388,38 @@ def _check_inputs(recipe: dict, inputs: dict[str, Path]) -> None:
             raise RecipeError(f"input {name!r} does not exist: {path}")
 
 
+def _voice_needs(params: dict) -> list[str]:
+    runtime = audio.ENGINE_RUNTIME.get(str(params.get("engine") or "qwen3-tts"), "speech")
+    # Kokoro's words are checked by Whisper, which lives in the speech runtime.
+    return [f"audio-{runtime}"] + (["audio-speech"] if params.get("check", True) else [])
+
+
+# What each step calls. A dry run lists these, so a new step must be entered
+# here (the tests compare this table with recipes.STEP_NAMES). Checkers that
+# only add evidence when present (the official validator, CLAP) are listed too.
+STEP_PROVIDERS = {
+    "image.inspect": ["pillow"], "image.convert": ["pillow"], "image.thumbnail": ["pillow"],
+    "image.pack_orm": ["pillow"], "image.atlas": ["pillow"],
+    "glb.inspect": [], "glb.validate": ["gltf-validator"], "glb.optimize": ["gltf-transform"], "glb.compare": [],
+    "blender.sample": ["blender"], "blender.gameready": ["blender"], "blender.convert": ["blender"],
+    **{f"blender.skills.{name}": ["blender-skills", "blender"] for name in ("build", "material", "qa", "export", "run")},
+    "comfykit.detect": ["comfy-forge"], "comfykit.generate": ["comfy-forge"], "comfykit.import": ["comfy-forge"],
+    "comfyforge.music": lambda params: ["comfy-forge"] + (["audio-sfx"] if params.get("check", True) else []),
+    "img2threejs.probe": ["img2threejs"], "img2threejs.codegen": ["img2threejs"],
+    "teardown.build": ["teardown", "node"],
+    "teardown.capture": lambda params: ["teardown", "node"] + ([] if str(params.get("stills") or "").strip() else ["ffmpeg"]),
+    "audio.voice": _voice_needs,
+    "audio.sfx": ["audio-sfx"], "audio.source": [], "audio.finish": ["ffmpeg"],
+    "asset.record": [],
+}
+
+
 def plan(recipe: dict, inputs: dict[str, Path], params: dict, project: Project | None = None) -> dict:
     providers_now = {item["id"]: item for item in providers.detect(project)}
     needs = []
     for step in recipe["steps"]:
-        if step == "glb.optimize":
-            needs.append("gltf-transform")
-        elif step in ("blender.sample", "blender.gameready", "blender.convert"):
-            needs.append("blender")
-        elif step.startswith("blender.skills."):
-            needs.extend(["blender-skills", "blender"])
-        elif step.startswith("comfykit.") or step == "comfyforge.music":
-            needs.append("comfy-forge")
-        elif step == "img2threejs.probe":
-            needs.append("img2threejs")
-        elif step == "img2threejs.codegen":
-            needs.append("img2threejs")
-        elif step == "audio.voice":
-            engine = str(params.get("engine") or "qwen3-tts")
-            needs.append(f"audio-{audio.ENGINE_RUNTIME.get(engine, 'speech')}")
-        elif step == "audio.sfx":
-            needs.append("audio-sfx")
-        elif step == "audio.finish":
-            needs.append("ffmpeg")
+        entry = STEP_PROVIDERS.get(step, [])
+        needs.extend(entry(params) if callable(entry) else entry)
     return {
         "recipe": recipe["id"],
         "asset": None,
@@ -1413,6 +1432,12 @@ def plan(recipe: dict, inputs: dict[str, Path], params: dict, project: Project |
 
 
 def execute(project: Project, recipe: dict, inputs: dict[str, Path], params: dict, name: str | None = None, dry_run: bool = False):
+    # Every step and asset.record see the same provider facts, probed once.
+    with providers.snapshot():
+        return _execute(project, recipe, inputs, params, name, dry_run)
+
+
+def _execute(project: Project, recipe: dict, inputs: dict[str, Path], params: dict, name: str | None, dry_run: bool):
     _check_inputs(recipe, inputs)
     if dry_run:
         return plan(recipe, inputs, params, project), None, None
@@ -1461,6 +1486,12 @@ def execute(project: Project, recipe: dict, inputs: dict[str, Path], params: dic
         _mark_failed(asset)
         job.step("failed", "FAIL", message)
         job.finish("FAILED", message)
+        raise
+    except KeyboardInterrupt:
+        # The user stopped it. The job ends CANCELLED (the schema's reserved
+        # state) instead of RUNNING forever; the asset stays INCOMPLETE.
+        job.step("cancelled", "FAIL", "interrupted by the user")
+        job.finish("CANCELLED", "interrupted by the user")
         raise
     except Exception as exc:
         # External tools and parsers can raise ordinary exceptions; a job must

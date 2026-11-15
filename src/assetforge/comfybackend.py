@@ -41,9 +41,17 @@ def _alive(url: str, timeout: float = 2.0) -> dict | None:
 
 
 def find_running(explicit: str = "") -> tuple[str, dict] | None:
-    """The first ComfyUI API that answers: an explicit URL (or COMFYUI_URL),
-    then the ports comfy-forge knows."""
-    candidates = [explicit or os.environ.get("COMFYUI_URL", "")]
+    """The first ComfyUI API that answers: COMFYUI_URL, then the ports
+    comfy-forge knows. An explicit URL (the recipe's `url`) is the only
+    candidate: when it does not answer that is an error, not a reason to send
+    the job to some other server."""
+    explicit = (explicit or "").strip().rstrip("/")
+    if explicit:
+        stats = _alive(explicit)
+        if not stats:
+            raise BackendError(f"no ComfyUI answered at {explicit} (the url you set); start it or leave url empty")
+        return explicit, stats
+    candidates = [os.environ.get("COMFYUI_URL", "")]
     candidates += [f"http://127.0.0.1:{port}" for port in PORTS]
     for url in candidates:
         url = url.strip().rstrip("/")

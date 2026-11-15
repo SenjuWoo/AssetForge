@@ -288,6 +288,3 @@ def compare_images(first: Path, second: Path) -> dict:
         "identical": mean_abs == 0,
     }
 
-
-def write_report(path: Path, data: dict) -> None:
-    write_json(path, data)

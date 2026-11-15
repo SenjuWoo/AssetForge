@@ -31,13 +31,6 @@ EXIT_VALIDATION = 5
 EXIT_RUN = 6
 
 
-def _print(data, as_json: bool) -> None:
-    if as_json:
-        print(json.dumps(data, indent=2))
-    else:
-        print(data)
-
-
 def _project(required: bool = True) -> Project | None:
     project = Project.find()
     if project is None and required:
@@ -536,7 +529,8 @@ def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        return int(args.func(args))
+        with providers.snapshot():
+            return int(args.func(args))
     except recipe_lib.RecipeError as exc:
         return _fail(str(exc), EXIT_USAGE)
     except StoreError as exc:
