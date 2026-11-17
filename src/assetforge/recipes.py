@@ -17,6 +17,11 @@ STEP_NAMES = {
     "image.thumbnail",
     "image.pack_orm",
     "image.atlas",
+    "image.tileable",
+    "image.pbr",
+    "image.cutout",
+    "image.pixelate",
+    "image.slice",
     "glb.inspect",
     "glb.validate",
     "glb.optimize",
@@ -24,6 +29,7 @@ STEP_NAMES = {
     "blender.sample",
     "blender.gameready",
     "blender.convert",
+    "blender.sprites",
     "blender.skills.build",
     "blender.skills.material",
     "blender.skills.qa",
@@ -41,6 +47,7 @@ STEP_NAMES = {
     "audio.source",
     "audio.finish",
     "comfyforge.music",
+    "comfyforge.model3d",
     "asset.record",
 }
 

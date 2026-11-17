@@ -301,6 +301,14 @@ def _gltf_transform(project):
         cli = root / ".tools" / "node_modules" / "@gltf-transform" / "cli" / "bin" / "cli.js"
         if cli.exists() and node:
             command = [node, str(cli)]
+            # The package says its own version; starting Node to ask costs
+            # most of a second on every run.
+            try:
+                version = str(read_json(cli.parent.parent / "package.json")["version"])
+            except (OSError, ValueError, KeyError, TypeError):
+                version = ""
+            if version:
+                return command, version, str(cli)
             result = run(command + ["--version"], timeout=25)
             if result["returncode"] == 0:
                 return command, first_line(result["stdout"] + result["stderr"]), str(cli)
@@ -490,19 +498,23 @@ def _detect(project=None) -> list[dict]:
             presets = 0
     state = _comfy_state() if comfy else {}
     music = bool(comfy and (comfy / "TOOLS" / "music.py").is_file())
+    model3d = bool(comfy and (comfy / "TOOLS" / "model3d.py").is_file())
     providers.append({
         "id": "comfy-forge",
-        "title": "comfy-forge (ComfyUI images and music)",
+        "title": "comfy-forge (ComfyUI images, music and image to 3D)",
         "kind": "owner",
         "available": comfy is not None,
         "version": comfy_version,
         "path": str(comfy) if comfy else None,
         "reason": "" if comfy else (explicit_problem("comfy-forge", comfy_env)
                                     or "comfy-forge was not found; set COMFY_FORGE_ROOT or integrations.comfy_forge"),
-        "capabilities": ["image.generate.delegated", "image.presets"] + (["music.generate.delegated"] if music else []),
-        "details": {"presets": presets, "music": music, "swarmui": state.get("swarm_root") or state.get("swarmRoot")},
-        "use": "comfy-generate renders images through its SwarmUI; audio-music renders ACE-Step 1.5 songs through its ComfyUI"
-               + ("" if music or not comfy else " (this comfy-forge has no TOOLS/music.py; update it to 0.8.0 or later)"),
+        "capabilities": ["image.generate.delegated", "image.presets"] + (["music.generate.delegated"] if music else [])
+                        + (["model3d.generate.delegated"] if model3d else []),
+        "details": {"presets": presets, "music": music, "model3d": model3d, "swarmui": state.get("swarm_root") or state.get("swarmRoot")},
+        "use": "comfy-generate, texture-generate and sprite-generate render through its SwarmUI (started for the job when it is down); "
+               "audio-music renders ACE-Step 1.5 songs and comfy-3d builds a model from a picture through its ComfyUI"
+               + ("" if music or not comfy else " (this comfy-forge has no TOOLS/music.py; update it to 0.8.0 or later)")
+               + ("" if model3d or not comfy else " (this comfy-forge has no TOOLS/model3d.py; comfy-3d needs 0.11.0 or later)"),
     })
 
     img2 = find_owner(
@@ -574,7 +586,7 @@ def _detect(project=None) -> list[dict]:
         "path": str(magick_path) if magick_path else None,
         "reason": "" if magick_path else "magick is not on PATH; set MAGICK_EXE or install it",
         "capabilities": ["image.convert.formats", "image.montage", "image.dds"],
-        "use": "not called by a recipe yet; an agent uses it for formats Pillow does not write (DDS, EXR), contact sheets and atlases",
+        "use": "image-prep format=dds writes DXT1/DXT5 textures with mipmaps through it; an agent also uses it for EXR, contact sheets (`magick montage`) and one-line conversions",
     })
 
     providers.append(_teardown(project, home, node))

@@ -44,6 +44,8 @@ def _media_type(path: Path) -> str:
         ".jpg": "image/jpeg",
         ".jpeg": "image/jpeg",
         ".webp": "image/webp",
+        ".tga": "image/x-tga",
+        ".dds": "image/vnd-ms.dds",
         ".json": "application/json",
         ".md": "text/markdown",
         ".wav": "audio/wav",
@@ -123,7 +125,7 @@ class Asset:
         self.save()
         return record
 
-    def add_artifact(self, path: Path, role: str, label: str | None = None) -> dict:
+    def add_artifact(self, path: Path, role: str, label: str | None = None, save: bool = True) -> dict:
         path = Path(path).resolve()
         if not path.is_file():
             raise StoreError(f"artifact is not a file: {path}")
@@ -140,7 +142,9 @@ class Asset:
         # Re-running a recipe in the same asset replaces the record for the same path.
         self.manifest["artifacts"] = [item for item in self.manifest["artifacts"] if item.get("path") != record["path"]]
         self.manifest["artifacts"].append(record)
-        self.save()
+        if save:
+            # A step that records hundreds of frames saves once at its end.
+            self.save()
         return record
 
     def set_primary(self, role: str, path: Path) -> None:

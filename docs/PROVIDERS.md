@@ -109,8 +109,9 @@ Update with `git -C blender-skills fetch --tags` and check out the new tag, then
 
 - Kind: external owner folder. It owns SwarmUI/ComfyUI, models, presets and its music generator.
 - Detect: `COMFY_FORGE_ROOT` (or the older `COMFY_KIT_ROOT`), project `integrations.comfy_forge` (or `comfy_kit`), `~/comfy-forge`, `~/comfy-kit`, or a declared tool root. Required markers: `TOOLS/image-stack.ps1` and `presets/presets.json`. `providers.get("comfy-kit")` still answers with this provider.
-- Used by: `comfy-generate` and `comfy-import` (images), and `audio-music` (songs, when `TOOLS/music.py` is present: comfy-forge 0.8.0 or later).
-- Images delegate to the owner's `TOOLS/image-stack.ps1 generate` with output directed into the AssetForge asset. No model files, presets, nodes or SwarmUI configuration are modified.
+- Used by: `comfy-generate`, `texture-generate`, `sprite-generate` and `comfy-import` (images), `audio-music` (songs, when `TOOLS/music.py` is present: comfy-forge 0.8.0 or later) and `comfy-3d` (image to 3D, when `TOOLS/model3d.py` is present: comfy-forge 0.11.0 or later).
+- Images delegate to the owner's `TOOLS/image-stack.ps1 generate` with output directed into the AssetForge asset. No model files, presets, nodes or SwarmUI configuration are modified. `backend=auto` uses comfy-forge's SwarmUI when it answers on its settings port; otherwise AssetForge runs that SwarmUI's launcher with `--launch_mode none --port <free port>`, passes the port to `generate -Port`, and stops the process tree after the job. Optional `generate` arguments (`-Negative`, `-InitImage`, `-Creativity`, `-Lora`, `-Transparent`, `-Tileable`, `-Upscale`) are passed only when the installed `image-stack.ps1` declares them in its `param()` block.
+- Image to 3D runs the owner's `TOOLS/model3d.py generate --no-start` against the ComfyUI AssetForge reached (same rules as music) and takes the `.glb` its closing JSON line names, which must lie in the folder it was given.
 - Music runs the owner's `TOOLS/music.py generate` (standard-library Python, run by AssetForge's interpreter) against a ComfyUI API, with output directed into the asset's `work/music/`. `backend=auto` (the default) uses a running ComfyUI (`COMFYUI_URL`, 8188, or SwarmUI's 7820-7832, the ports comfy-forge checks). When none answers, it asks comfy-forge for its interpreter (`image-stack.ps1 python`), starts that ComfyUI headless on a free local port, and stops it, process tree included, when the job ends. `backend=running` refuses to start one and exits 4; `backend=start` always starts its own.
 - Tested 2026-11-14 with comfy-forge 0.8.0 and ComfyUI 0.44.0, `aio` variant on an RTX 4080 SUPER. A temporary backend was up in 18 s, and a 45 s instrumental took 2 takes in 98 s including startup. Through the running SwarmUI backend, a 40 s vocal song took 2 takes in 34 s.
 - If the owner's default image model is unavailable, pass `--set model=<model-name>` or configure comfy-forge itself.
@@ -186,7 +187,7 @@ npx playwright install chromium
 ## ImageMagick
 
 - Kind: command-line tool. Detect: `MAGICK_EXE`, `MAGICK`, `PATH` (`magick`), `%ProgramFiles%\ImageMagick-*`.
-- Used by: no recipe yet. Pillow handles the image recipes.
+- Used by: `image-prep --set format=dds` (DXT1/DXT5, mipmaps). Pillow handles every other image step.
 - What it is for: formats Pillow does not write (DDS, EXR), contact sheets with `magick montage`, and one-line batch conversion. The Windows `convert.exe` in System32 is a disk tool, not ImageMagick; only `magick` is accepted.
 
 ## Adding a provider

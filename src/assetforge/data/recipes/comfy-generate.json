@@ -2,13 +2,23 @@
   "schema": 1,
   "id": "comfy-generate",
   "title": "Generate an image with comfy-forge",
-  "description": "Delegate one render to an installed comfy-forge and keep the resulting images in the asset.",
+  "description": "Renders one prompt through comfy-forge's SwarmUI and keeps the images in the asset. A running SwarmUI is used as it is; when none answers, backend=auto starts comfy-forge's SwarmUI without a browser for this job and stops it afterwards. seed=-1 picks a seed and records it. steps=0 and an empty cfg keep the preset's values. Nobody looks at the picture: open it. name names the files (the first words of the prompt when empty). negative, lora, transparent, upscale, seamless and image to image (--input init=<picture> with creativity 0-1) need a comfy-forge that has them (0.11.0 or later); an older one fails with that message before anything renders.",
   "input": {},
+  "inputs": {
+    "init": {
+      "kind": "image",
+      "required": false
+    }
+  },
   "params": {
     "prompt": {
       "type": "string",
       "default": "",
       "required": true
+    },
+    "name": {
+      "type": "string",
+      "default": ""
     },
     "preset": {
       "type": "string",
@@ -34,14 +44,60 @@
       "type": "integer",
       "default": 1
     },
+    "steps": {
+      "type": "integer",
+      "default": 0
+    },
+    "cfg": {
+      "type": "string",
+      "default": ""
+    },
+    "negative": {
+      "type": "string",
+      "default": ""
+    },
+    "creativity": {
+      "type": "string",
+      "default": ""
+    },
+    "lora": {
+      "type": "string",
+      "default": ""
+    },
+    "transparent": {
+      "type": "boolean",
+      "default": false
+    },
+    "upscale": {
+      "type": "string",
+      "default": ""
+    },
+    "seamless": {
+      "type": "boolean",
+      "default": false
+    },
+    "backend": {
+      "type": "string",
+      "default": "auto",
+      "choices": [
+        "auto",
+        "running",
+        "start"
+      ]
+    },
     "timeout": {
       "type": "integer",
       "default": 900
+    },
+    "thumbnail": {
+      "type": "integer",
+      "default": 256
     }
   },
   "steps": [
     "comfykit.detect",
     "comfykit.generate",
+    "image.thumbnail",
     "asset.record"
   ]
 }

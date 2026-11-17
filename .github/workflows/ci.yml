@@ -41,6 +41,8 @@ jobs:
           python -m assetforge run image-prep --input ../examples/assets/source.png --json
           python -m assetforge run glb-inspect --input ../examples/assets/textured-scene.glb --json
           python -m assetforge run glb-inspect --input ../examples/assets/enchanted-fire-sword.glb --json
+          python -m assetforge run texture-pbr --input ../examples/assets/source.png --json
+          python -m assetforge run pixel-art --input ../examples/assets/source.png --set palette=pico8 --json
 
   package:
     name: wheel packaging
@@ -61,4 +63,4 @@ jobs:
         run: |
           assetforge --version
           assetforge recipes list
-          python -c "import zipfile, pathlib; w=next(pathlib.Path('dist').glob('*.whl')); z=zipfile.ZipFile(w); names=z.namelist(); assert any(n.endswith('data/recipes/img2threejs-codegen.json') for n in names); assert any(n.endswith('data/validate_glb.mjs') for n in names); print(w.name, len(names), 'entries')"
+          python -c "import zipfile, pathlib; w=next(pathlib.Path('dist').glob('*.whl')); z=zipfile.ZipFile(w); names=z.namelist(); assert any(n.endswith('data/recipes/img2threejs-codegen.json') for n in names); assert any(n.endswith('data/validate_glb.mjs') for n in names); assert any(n.endswith('data/blender/sprites.py') for n in names); assert any(n.endswith('data/recipes/comfy-3d.json') for n in names); print(w.name, len(names), 'entries')"

@@ -61,6 +61,36 @@ def _image_artifacts(asset: Asset) -> list[dict]:
     ]
 
 
+def _data_artifacts(asset: Asset) -> list[dict]:
+    """Files an engine needs beside a picture: frame rectangles, anchors,
+    material records. Older manifests kept the atlas record as a report."""
+    return [
+        item for item in asset.manifest.get("artifacts", [])
+        if item.get("role") == "data" or item.get("label") == "atlas-metadata"
+    ]
+
+
+def _data_check(asset: Asset, item: dict, image_names: set[str]) -> dict:
+    """A sidecar must be readable JSON, and the picture it names must be one
+    of the asset's own."""
+    try:
+        path = asset.resolve_artifact(item["path"])
+        data = read_json(path)
+    except (StoreError, OSError, ValueError) as exc:
+        return {"id": "DATA-001", "status": "FAIL", "detail": f"not readable JSON: {exc}"}
+    if not isinstance(data, dict):
+        return {"id": "DATA-001", "status": "FAIL", "detail": "the record is not a JSON object"}
+    named = [data.get("image")] if isinstance(data.get("image"), str) else []
+    if isinstance(data.get("maps"), dict):
+        named += [value for value in data["maps"].values() if isinstance(value, str)]
+    missing = sorted(name for name in named if name not in image_names)
+    if missing:
+        return {"id": "DATA-001", "status": "FAIL", "detail": f"names picture(s) the asset does not hold: {', '.join(missing)}"}
+    frames = data.get("frames")
+    count = f", {len(frames)} frame(s)" if isinstance(frames, list) else ""
+    return {"id": "DATA-001", "status": "PASS", "detail": f"readable record for {', '.join(named) or 'the asset'}{count}"}
+
+
 def _primary_image(asset: Asset) -> tuple[Path, bool]:
     """Return the declared texture deliverable, falling back to a deterministic
     label order only when no primary image is recorded."""
@@ -120,7 +150,7 @@ def _ceiling(settings: dict) -> float:
 # Checks `validate` recomputes from the files. Every other recorded check
 # (BLENDER-QA*, TEARDOWN-*, AUDIO-ASR/CLAP/LENGTH/LOOP/LYRICS/LISTEN) can only
 # come from the run that made the asset, so it is carried over unchanged.
-RECOMPUTED_PREFIXES = ("GLB-", "IMG-", "ASSET-", "PAGE-", "VIDEO-")
+RECOMPUTED_PREFIXES = ("GLB-", "IMG-", "ASSET-", "PAGE-", "VIDEO-", "DATA-")
 RECOMPUTED_AUDIO = {f"AUDIO-00{n}" for n in range(1, 7)}
 
 
@@ -197,6 +227,10 @@ def validate_asset(project: Project, asset: Asset) -> dict:
             })
         except Exception as exc:
             checks.append({"artifact": item.get("path"), "id": "IMG-001", "status": "FAIL", "detail": str(exc)})
+
+    image_names = {Path(item["path"]).name for item in image_items}
+    for item in _data_artifacts(asset):
+        checks.append({"artifact": item.get("path"), **_data_check(asset, item, image_names)})
 
     checks.extend(_run_evidence(asset))
     summary = {status: 0 for status in ("PASS", "WARNING", "FAIL", "NOT_TESTED")}
@@ -337,8 +371,22 @@ def export(project: Project, asset: Asset, target: str, dry_run: bool = False, n
     if overall == "FAIL":
         raise ExportError("export blocked by a failed budget check: " + "; ".join(item["detail"] for item in checks if item["status"] == "FAIL"))
 
+    # Resolve everything before touching the folder: two artifacts with one
+    # file name would overwrite each other in the package.
+    copies: dict[str, Path] = {}
+    for item in image_items + _data_artifacts(asset):
+        source = asset.resolve_artifact(item["path"])
+        other = copies.get(source.name.lower())
+        if other is not None and other != source:
+            raise ExportError(f"two artifacts are both named {source.name}; the package needs distinct file names")
+        copies[source.name.lower()] = source
+
     out_dir = asset.path("exports", target)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    if out_dir.exists():
+        # The folder is this export's own; files left by an earlier export
+        # would sit beside a record that does not list them.
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(parents=True)
     files = []
     if kind == "mesh":
         target_name = f"{asset.id}{primary.suffix.lower()}"
@@ -350,8 +398,7 @@ def export(project: Project, asset: Asset, target: str, dry_run: bool = False, n
             "bytes": mesh_target.stat().st_size,
         })
     texture_dir = out_dir / "textures"
-    for item in image_items:
-        source = asset.resolve_artifact(item["path"])
+    for source in copies.values():
         texture_dir.mkdir(exist_ok=True)
         copy = texture_dir / source.name
         shutil.copy2(source, copy)
@@ -534,6 +581,12 @@ def _import_notes(profile: dict, record: dict) -> str:
             lines += [
                 "1. Load the PNG in an image viewer or material authoring tool.",
                 "2. ORM maps are linear data, not sRGB color; base color stays separate.",
+            ]
+        if any(item["path"].endswith(".json") for item in record["files"]):
+            lines += [
+                "",
+                "The `.json` files beside the pictures are records for your code: frame rectangles and anchors of a "
+                "sheet, or the maps of a material with their colour space and normal convention. No engine imports them by itself.",
             ]
     elif profile["id"] == "roblox":
         lines += [

@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.9.0 — 2026-11-17
+
+Textures, sprites and image-to-3D for an agent that can only write text and code. Eleven new recipes; every one of them is a single command.
+
+New recipes:
+
+- `texture-generate`: a prompt becomes a tileable PBR material. comfy-forge renders the surface, the picture is made to repeat, the seam is measured, and base colour, normal, height, roughness, occlusion, metallic, the packed ORM texture and `material.json` are written.
+- `texture-tileable`: any picture is made to repeat without a seam. Each edge is folded over the opposite one: broad tones fade across the fold, and detail switches along the line where the two sides differ least, so bricks and planks do not ghost. `TEX-SEAM` measures the wrap-around edge against the inside of the picture; a picture that already tiles is kept as it is. A 2x2 tiled preview is written.
+- `texture-pbr`: a colour map becomes a map set. The normal map is `opengl` (glTF, Godot, Blender, Unity) or `directx` (Unreal, the Bethesda engines); `tileable=auto` wraps the maps when the picture tiles. The maps are estimates from brightness and are recorded as such (`TEX-DERIVED` stays `NOT_TESTED`).
+- `image-cutout`: a subject on a plain background becomes a sprite with real transparency. The background colour is read off the border and removed from the border inwards, so the same colour inside the subject stays. Edge pixels get their coverage as alpha and lose the background's tint; transparent pixels take the subject's edge colour so a filtered texture does not show a rim. The result is trimmed and its anchor recorded.
+- `sprite-generate`: a prompt becomes a cut-out sprite (comfy-forge render, then `image-cutout`).
+- `pixel-art`: a picture is scaled down onto a palette (`pico8`, `db16`, `sweetie16`, `cga`, `gameboy`, `1bit`, a `.hex`/`.gpl`/image palette file, or colours picked from the picture), with on-or-off alpha and an enlarged preview.
+- `sprite-slice`: a sheet is cut into frames, by grid or by finding each separate island of pixels.
+- `sprite-render`: Blender renders a GLB as sprites: 1, 4, 8 or 16 facings at a fixed camera pitch (30 for 2:1 isometric), every animation in the file or the ones named, all frames at one scale. It writes the frames, one sheet and a JSON with each frame's rectangle and anchor. The facings turn about the model's origin when the model stands on it. Engines: `workbench` (shaded), `flat` (base colour only), `eevee` (lit).
+- `comfy-3d`: one picture becomes a game-ready GLB: comfy-forge's image-to-3D (its `TOOLS/model3d.py`, comfy-forge 0.11.0 or later), then the same collapse and validation as `mesh-gameready`. The sculpt is kept as the source mesh.
+
+comfy-forge images:
+
+- `comfy-generate` (and the two recipes built on it) no longer needs SwarmUI started by hand. A running SwarmUI is used as it is; when none answers, comfy-forge's SwarmUI is started without a browser on a free port for the job and stopped afterwards (`backend=auto`; `running` never starts one, `start` always does).
+- `steps` and `cfg` are passed through. `seed=-1` picks a seed and records it, so every render can be repeated.
+- `negative`, `lora`, `transparent`, `upscale`, `seamless` and image to image (`--input init=<picture>` with `creativity`) are passed to a comfy-forge that has them. The installed script is asked which options it declares; an older one is refused with that message before anything renders.
+- Generated files are named after `name`, or the first words of the prompt, instead of SwarmUI's prompt-and-model file name.
+- Messages say comfy-forge, not comfy-kit.
+
+Fixes:
+
+- `mesh-gameready` output passes the official validator on meshes whose collapse leaves a triangle without UV area. Blender wrote a zero-length tangent there and `GLB-014` failed the run (found on a Pixal3D mesh). Normals and tangents that are not unit length are rewritten in the exported file and the step says how many.
+- `export` ships the records an engine needs beside a picture: `atlas.json` was left out of every atlas export, so a packed atlas arrived without its frame rectangles. Sheets, cut-outs, pixel sprites and materials ship theirs too (artifact role `data`), and `validate` checks that each record is readable and names a picture the asset holds (`DATA-001`).
+- A second `export` of a mesh or texture asset no longer leaves the first export's files in the folder beside a record that does not list them.
+- `export` refuses two pictures with the same file name instead of letting one overwrite the other.
+- `image-prep`: a negative `width` or `height`, a size above 16384 px or a `quality` outside 1-100 is an error, not a Pillow traceback or a multi-gigabyte allocation; a one-sided resize never rounds the other side to zero.
+- `sprite-atlas` takes up to 256 frames (was 64); the 8192 px side limit still holds.
+- `run --input name=path` with a path that does not exist says which input and which path, and exits 2. It used to report the input as not given at all, and a missing input exited 6 (run failure) instead of 2 (usage).
+
+Also:
+
+- `image-prep --set format=dds` writes DXT1 or DXT5 with mipmaps through ImageMagick, which now has a job; `format=tga` writes RLE TGA.
+- `probe` routes pictures: a subject on a plain background to `image-cutout` and `comfy-3d`, a surface to `texture-tileable` and `texture-pbr` (with its measured seam), a cut-out sprite to `pixel-art` and `sprite-slice`; a GLB is offered `sprite-render`.
+- Provider detection reads glTF-Transform's version from its package instead of starting Node: every command is about 0.7 s faster.
+- Pillow 10.3 or later is needed for the new image recipes.
+
 ## 0.8.2 — 2026-11-16
 
 One bad take no longer fails a whole batch of generated sounds.

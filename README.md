@@ -1,6 +1,6 @@
 # AssetForge
 
-AssetForge is a standalone, agent-friendly toolkit for producing, validating and packaging game assets. It provides a Python CLI, versioned JSON contracts and optional adapters for Blender, blender-skills, glTF-Transform, the Khronos glTF Validator, comfy-forge (ComfyUI images and music), img2threejs, teardown and local audio models (voice lines and sound effects).
+AssetForge is a standalone, agent-friendly toolkit for producing, validating and packaging game assets. It provides a Python CLI, versioned JSON contracts and optional adapters for Blender, blender-skills, glTF-Transform, the Khronos glTF Validator, comfy-forge (ComfyUI images, music and image to 3D), img2threejs, teardown and local audio models (voice lines and sound effects).
 
 It is designed to work on its own and can also be registered as a companion of the Ultimate AI Starter Bundle. The bundle is recommended, never required.
 
@@ -24,6 +24,18 @@ assetforge.cmd run mesh-gameready --input mesh=model.glb
 ```
 
 Rules: [docs/GAME-READY.md](docs/GAME-READY.md).
+
+## Textures and sprites
+
+```bat
+assetforge.cmd run texture-generate --set "prompt=worn oak floor planks" --set name=oak-planks
+assetforge.cmd run sprite-generate --set "prompt=a red health potion in a round glass bottle" --set name=potion
+assetforge.cmd run pixel-art --input potion-cutout.png --set size=48 --set palette=pico8
+assetforge.cmd run sprite-render --input hero.glb --set directions=8 --set pitch=30
+assetforge.cmd run comfy-3d --input axe.png
+```
+
+A prompt becomes a tileable PBR material (base colour, normal, height, roughness, occlusion, metallic, ORM and `material.json`) or a cut-out sprite with its anchor; comfy-forge renders the picture, and SwarmUI is started for the job when it is not running. `texture-tileable`, `texture-pbr`, `image-cutout`, `pixel-art` and `sprite-slice` do the same work on pictures you already have, with no model. `sprite-render` turns a GLB into sprites at your game's camera angle, in 1 to 16 facings, every animation, one scale, with a sheet and frame anchors. `comfy-3d` turns one picture into a game-ready GLB. Guide: [docs/TEXTURES-SPRITES.md](docs/TEXTURES-SPRITES.md).
 
 ## Voice lines and sound effects
 
@@ -94,12 +106,11 @@ Exit codes are stable: `0` success, `2` usage/recipe error, `3` missing project/
 For free local texture generation, the recommended companion is **comfy-forge** (formerly comfy-kit). It owns the SwarmUI/ComfyUI installation, models, presets and MCP configuration; AssetForge only delegates a render and keeps the result inside the asset.
 
 ```bat
-assetforge.cmd run comfy-generate --set "prompt=seamless weathered steel, top-down, tileable" --set width=1024 --set height=1024
-assetforge.cmd run texture-pack --input occlusion=ao.png --input roughness=rough.png --input metallic=metal.png
+assetforge.cmd run texture-generate --set "prompt=weathered steel plates" --set name=steel
 assetforge.cmd export ASSET --target godot
 ```
 
-`comfy-import` also accepts an existing comfy-forge output folder. If comfy-forge is not installed, `comfy-generate` exits with code `4` and a clear provider message; AssetForge never installs models or changes comfy-forge configuration.
+A running SwarmUI is used as it is; otherwise comfy-forge's SwarmUI is started without a browser for the job and stopped afterwards. `seed=-1` picks a seed and records it. `comfy-import` also accepts an existing comfy-forge output folder. If comfy-forge is not installed, the generating recipes exit with code `4` and a clear provider message; AssetForge never installs models or changes comfy-forge configuration.
 
 ## Recommended Blender workflow (blender-skills)
 
@@ -132,9 +143,18 @@ The concept exploration for this prop was generated locally through the comfy-fo
 
 | Recipe | Purpose |
 | --- | --- |
-| `image-prep` | Inspect, resize/re-encode and thumbnail a raster image. |
+| `image-prep` | Inspect, resize/re-encode (PNG, JPEG, WebP, TGA, DDS with mipmaps) and thumbnail a raster image. |
 | `texture-pack` | Pack occlusion, roughness and metallic maps into an RGB ORM texture. |
-| `sprite-atlas` | Pack a folder of images into a grid atlas with JSON frame metadata. |
+| `sprite-atlas` | Pack up to 256 images into a grid atlas with JSON frame metadata. |
+| `texture-generate` | Prompt to a tileable PBR material through comfy-forge. |
+| `texture-tileable` | Make a picture repeat without a seam; the seam is measured (`TEX-SEAM`). |
+| `texture-pbr` | Normal (OpenGL or DirectX), height, roughness, occlusion, metallic and ORM from one colour map. |
+| `sprite-generate` | Prompt to a transparent, trimmed sprite through comfy-forge. |
+| `image-cutout` | Make a plain background transparent, trim, record the anchor. |
+| `pixel-art` | Downscale onto a palette (built-in, file, or picked colours). |
+| `sprite-slice` | Cut a sheet into frames by grid or by islands of pixels. |
+| `sprite-render` | Render a GLB as sprites: 1-16 facings at a camera pitch, every animation, sheet and anchors. |
+| `comfy-3d` | One picture to a game-ready GLB: comfy-forge image-to-3D, then the `mesh-gameready` collapse. |
 | `mesh-convert` | FBX, OBJ, STL, PLY, glTF, USD, Alembic or `.blend` to one validated GLB through Blender; rigs and animations kept. |
 | `glb-inspect` | Record geometry, rig, material and texture statistics and structural conformance. |
 | `glb-optimize` | Conservative glTF-Transform pass: no simplification, compression, flattening or joining. |
@@ -144,7 +164,7 @@ The concept exploration for this prop was generated locally through the comfy-fo
 | `blender-qa` | Run upstream `blender-asset-qa` and review sheets on an existing `.blend`. |
 | `blender-optimize` | Run whitelisted `blender-game-optimization` operations (`mesh-stats`, `make-lods`). |
 | `blender-retopo-uv` | Run whitelisted `blender-retopology-uv` operations (`auto-retopo`, `uv-pack`, `texel-density`). |
-| `comfy-generate` | Delegate one render to an installed comfy-forge. |
+| `comfy-generate` | One render through comfy-forge (SwarmUI started for the job when it is down); image to image with `--input init=`. |
 | `comfy-import` | Copy newest images from a comfy-forge output folder. |
 | `img2threejs-probe` | Run the external img2threejs technical image probe. |
 | `img2threejs-codegen` | Generate an editable Three.js factory from an ObjectSculptSpec through upstream img2threejs. |
@@ -166,7 +186,11 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | CLI, projects, jobs, manifests | VERIFIED | Full test suite |
 | Image processing | VERIFIED | Pillow; alpha and JPEG-flatten behavior tested |
 | PBR channel packing | VERIFIED | R=occlusion, G=roughness, B=metallic; mismatched sizes fail unless resize is explicitly enabled |
-| Sprite atlases | VERIFIED | Deterministic grid, frames copied into the asset, JSON frame rectangles |
+| Sprite atlases | VERIFIED | Deterministic grid, frames copied into the asset, JSON frame rectangles; the JSON ships with the export |
+| Seamless textures and PBR sets | VERIFIED | `texture-generate` ran through a real SwarmUI render; seam measured; derived maps stay `TEX-DERIVED` `NOT_TESTED` |
+| Cut-outs, pixel art, sheet slicing | VERIFIED | Unit and recipe tests; colour-key cut-out needs a plain background |
+| Sprites from a GLB | VERIFIED | `sprite-render` on real Blender 5.3: facing directions, anchors, animations and one shared scale checked from the pixels |
+| Image to 3D | IMPLEMENTED | `comfy-3d` drives comfy-forge 0.11.0's `model3d.py`; tested against a stand-in, the collapse step on a real Pixal3D mesh |
 | Texture-only export | VERIFIED packaging | Generic/Godot/Roblox packages contain PNGs and no mesh; engine import `NOT_TESTED` |
 | GLB inspection | VERIFIED | Standard-library container and accessor reader |
 | Source probe | VERIFIED | `probe` on files and folders; read-only, no project needed |
@@ -181,7 +205,7 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | blender-skills catalog and routing | VERIFIED | 28 skills detected at upstream v1.3.1 (`b1b21df`); CLI list/route tested |
 | Blender asset QA gate | VERIFIED | Upstream `blender-asset-qa`: 108 tris, 0 errors, 0 warnings; review sheets generated and explicitly approved after inspection |
 | Blender optimization and retopo/UV | VERIFIED | `blender-optimize` and `blender-retopo-uv` execute whitelisted `blender-game-optimization` and `blender-retopology-uv` scripts on real Blender; mutating operations create new `.blend` artifacts |
-| comfy-forge image generation | VERIFIED | Exercised against a running comfy-forge (then named comfy-kit); generation is delegated |
+| comfy-forge image generation | VERIFIED | `comfy-generate` and `texture-generate` through comfy-forge's running SwarmUI; starting SwarmUI for a job is covered by tests, not by a live run |
 | img2threejs probe | VERIFIED | Upstream v2.0.1; technical probe only; reconstruction remains agent-driven |
 | img2threejs spec-to-Three.js codegen | VERIFIED | Upstream deterministic generator; consumes an ObjectSculptSpec, not a raw image |
 | Roblox Studio import | NOT TESTED | No Studio run is automated |
@@ -196,8 +220,8 @@ Every recipe writes a job record under `.assetforge/jobs/` with per-step status,
 | Minecraft sound export | VERIFIED packaging | Ogg files plus `sounds.json` with numbered variants grouped; game load `NOT_TESTED` |
 | Music generation | VERIFIED | `audio-music`: ACE-Step 1.5 through comfy-forge, via a running SwarmUI backend and via a ComfyUI started for the job; instrumental and vocal takes passed CLAP and loudness checks. Listening and sung words stay `NOT_TESTED` |
 | FFmpeg | USED | Audio finishing and measurement; `teardown-film` encodes through it; `doctor` reports version and purpose |
-| ImageMagick | DETECTED | Reported by `doctor` and `providers` with version and purpose; no recipe calls it yet |
-| AI 3D providers, rig deformation preview, MCP, Graphite | PLANNED | Not implemented yet |
+| ImageMagick | USED | `image-prep format=dds` writes DXT1/DXT5 with mipmaps through it |
+| Rig deformation preview, MCP, Graphite | PLANNED | Not implemented yet |
 
 `VERIFIED` means the behaviour was executed with recorded evidence. `IMPLEMENTED / UNVERIFIED` means code exists but the real integration was not exercised. A successful export is not proof that an asset works inside the target engine.
 
@@ -212,11 +236,12 @@ AssetForge detects providers without installing or reconfiguring them.
 | Khronos glTF Validator | Official conformance check | Recorded as `NOT_TESTED` |
 | Blender | Background execution and export | `blender-sample` exits with code `4` |
 | blender-skills | Recommended Blender skills catalog, QA and export | Blender steps exit with code `4` |
-| comfy-forge (formerly comfy-kit) | Free local texture generation and ACE-Step music through ComfyUI | `comfy-generate` / `audio-music` exit with code `4` |
+| comfy-forge (formerly comfy-kit) | Images, textures and sprites through SwarmUI; ACE-Step music and image to 3D through ComfyUI | The generating recipes exit with code `4` |
 | img2threejs | Technical image probe and spec-to-Three.js codegen | `img2threejs-probe` / `img2threejs-codegen` exit with code `4` |
 | teardown | Offline simulator pages and their films | `teardown-build` / `teardown-film` exit with code `4` |
 | audio-speech / audio-sfx / audio-kokoro | Local voice and sound-effect models, installed by `assetforge audio-setup` | `audio-voice` / `audio-sfx` exit with code `4` and name the setup command |
 | FFmpeg | Audio finishing and measurement, video encoding | Audio recipes exit with code `4` |
+| ImageMagick | DDS output | `image-prep format=dds` exits with code `4` |
 
 Detection paths and environment variables are documented in [docs/PROVIDERS.md](docs/PROVIDERS.md).
 

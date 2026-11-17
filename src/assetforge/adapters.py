@@ -5,6 +5,7 @@ runs it with a timeout, and verifies the output it claims to have produced.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sys
 import tempfile
@@ -153,6 +154,68 @@ def blender_convert(provider: dict, source: Path, out_path: Path, animations: bo
     return result
 
 
+def blender_sprites(provider: dict, source: Path, out_dir: Path, directions: int = 8, pitch: float = 30.0,
+                    yaw: float = 0.0, size: int = 128, frames: int = 8, animations: str = "all",
+                    engine: str = "workbench", antialias: bool = True, outline: bool = False,
+                    pivot: str = "auto", timeout: float = 1800) -> dict:
+    """Render a GLB as sprite frames in Blender and return the script's report:
+    facings with their anchors, animations, and one entry per frame file."""
+    script = Path(__file__).resolve().parent / "data" / "blender" / "sprites.py"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    command = [
+        provider["path"], "-b", "--factory-startup", "--python", str(script), "--",
+        "--input", str(source), "--out", str(out_dir), "--directions", str(int(directions)),
+        "--pitch", f"{float(pitch):g}", "--yaw", f"{float(yaw):g}", "--size", str(int(size)),
+        "--frames", str(int(frames)), "--animations", animations or "none", "--engine", engine,
+        "--antialias", "1" if antialias else "0", "--outline", "1" if outline else "0", "--pivot", pivot,
+    ]
+    result = run(command, timeout=timeout, cwd=out_dir)
+    if result.get("timed_out"):
+        raise AdapterError(f"Blender timed out after {timeout:g}s")
+    payload = None
+    for line in reversed((result.get("stdout") or "").splitlines()):
+        if line.startswith("SPRITES "):
+            try:
+                payload = json.loads(line[len("SPRITES "):])
+            except ValueError:
+                payload = None
+            break
+    if isinstance(payload, dict) and payload.get("ok") is False:
+        raise AdapterError(f"Blender could not render {source.name}: {payload.get('error')}")
+    if result["returncode"] != 0 or not isinstance(payload, dict):
+        raise AdapterError(f"Blender exited {result['returncode']}: {_tail(result)}")
+    missing = [item["file"] for item in payload.get("files") or [] if not (out_dir / item["file"]).is_file()]
+    if not payload.get("files") or missing:
+        raise AdapterError(f"Blender reported frames that are not there: {missing[:5] or 'none'}")
+    payload["command"] = command
+    return payload
+
+
+DDS_COMPRESSION = ("dxt1", "dxt5", "none")
+
+
+def magick_dds(provider: dict, source: Path, target: Path, compression: str = "dxt5", mipmaps: bool = True,
+               timeout: float = 300) -> dict:
+    """Encode an image as DDS with ImageMagick: DXT1 (no alpha), DXT5 (alpha)
+    or uncompressed, with a full mipmap chain unless turned off."""
+    if compression not in DDS_COMPRESSION:
+        raise AdapterError(f"DDS compression must be one of {', '.join(DDS_COMPRESSION)}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    command = [provider["path"], str(source), "-define", f"dds:compression={compression}"]
+    if not mipmaps:
+        command += ["-define", "dds:mipmaps=0"]
+    command.append(str(target))
+    result = run(command, timeout=timeout, cwd=target.parent)
+    result["command"] = command
+    if result.get("timed_out"):
+        raise AdapterError(f"ImageMagick timed out after {timeout:g}s")
+    if result["returncode"] != 0:
+        raise AdapterError(f"ImageMagick exited {result['returncode']}: {_tail(result)}")
+    if not target.is_file() or target.stat().st_size < 128 or target.read_bytes()[:4] != b"DDS ":
+        raise AdapterError("ImageMagick reported success but wrote no DDS file")
+    return result
+
+
 def blender_build(provider: dict, out_path: Path, timeout: float = 240) -> dict:
     script = Path(__file__).resolve().parent / "blender_sample.py"
     command = [
@@ -176,13 +239,81 @@ def blender_build(provider: dict, out_path: Path, timeout: float = 240) -> dict:
     return result
 
 
-def comfykit_generate(root: Path, params: dict, out_dir: Path, timeout: float = 900) -> dict:
+PS_PARAM = re.compile(r"^\s*\[[A-Za-z\[\]]+\]\$([A-Za-z]+)", re.M)
+
+
+def comfy_generate_flags(root: Path) -> set[str]:
+    """The parameters this comfy-forge's `image-stack.ps1` declares. Newer
+    releases add options (a negative prompt, image to image, transparency);
+    asking the script itself keeps AssetForge working with every release."""
+    try:
+        text = (Path(root) / "TOOLS" / "image-stack.ps1").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return set()
+    start = text.find("param(")
+    end = text.find("$ErrorActionPreference", start)
+    return set(PS_PARAM.findall(text[start:end if end > start else None])) if start >= 0 else set()
+
+
+def _generate_options(root: Path, params: dict, init_image: Path | None) -> list[str]:
+    """Optional `generate` arguments, each checked against what the installed
+    comfy-forge accepts before anything runs."""
+    wanted: list[tuple[str, list[str]]] = []
+    negative = str(params.get("negative") or "").strip()
+    if negative:
+        wanted.append(("Negative", [negative]))
+    creativity = str(params.get("creativity") or "").strip()
+    if init_image is not None:
+        wanted.append(("InitImage", [str(init_image)]))
+        if creativity:
+            try:
+                value = float(creativity)
+            except ValueError as exc:
+                raise AdapterError(f"creativity must be a number, got {creativity!r}") from exc
+            if not 0.0 <= value <= 1.0:
+                raise AdapterError("creativity must be between 0 (keep the picture) and 1 (ignore it)")
+            wanted.append(("Creativity", [f"{value:g}"]))
+    elif creativity:
+        raise AdapterError("creativity applies to image to image; pass --input init=<picture> with it")
+    lora = str(params.get("lora") or "").strip()
+    if lora:
+        wanted.append(("Lora", [lora]))
+    upscale = str(params.get("upscale") or "").strip()
+    if upscale:
+        try:
+            factor = float(upscale)
+        except ValueError as exc:
+            raise AdapterError(f"upscale must be a number, got {upscale!r}") from exc
+        if not 1.0 < factor <= 4.0:
+            raise AdapterError("upscale must be more than 1 and at most 4 (empty leaves it off)")
+        wanted.append(("Upscale", [f"{factor:g}"]))
+    if params.get("transparent") is True:
+        wanted.append(("Transparent", []))
+    if params.get("seamless") is True:
+        wanted.append(("Tileable", []))
+    known = comfy_generate_flags(root) if wanted else set()
+    missing = [name for name, _ in wanted if name not in known]
+    if missing:
+        raise AdapterError(
+            f"this comfy-forge has no {', '.join('-' + name for name in missing)} for `generate`; "
+            "update comfy-forge (0.11.0 adds them) or leave that option unset")
+    return [part for name, values in wanted for part in (f"-{name}", *values)]
+
+
+def comfykit_generate(root: Path, params: dict, out_dir: Path, timeout: float = 900, port: int = 0,
+                      init_image: Path | None = None) -> dict:
+    """Run comfy-forge's `image-stack.ps1 generate`. `port` names a SwarmUI
+    other than the one in its settings (one AssetForge started for the job);
+    `init_image` makes it image to image."""
     powershell = shutil.which("powershell") or shutil.which("pwsh")
     if not powershell:
-        raise AdapterError("PowerShell is required to delegate to comfy-kit")
+        raise AdapterError("PowerShell is required to delegate to comfy-forge")
     prompt = str(params.get("prompt") or "").strip()
     if not prompt:
-        raise AdapterError("prompt is required for comfy-kit generation")
+        raise AdapterError("prompt is required for comfy-forge generation")
+    suffix = str(params.get("prompt_suffix") or "").strip()
+    if suffix:
+        prompt = f"{prompt}, {suffix}"
     preset = str(params.get("preset") or "").strip()
     width = int(params.get("width") or 1024)
     height = int(params.get("height") or 1024)
@@ -214,12 +345,32 @@ def comfykit_generate(root: Path, params: dict, out_dir: Path, timeout: float = 
         command.extend(["-Preset", preset])
     if params.get("model"):
         command.extend(["-Model", str(params["model"])])
+    steps = int(params.get("steps") or 0)
+    if steps:
+        if not 1 <= steps <= 200:
+            raise AdapterError("steps must be between 1 and 200 (0 keeps the preset's)")
+        command.extend(["-Steps", str(steps)])
+    cfg = str(params.get("cfg") or "").strip()
+    if cfg:
+        try:
+            value = float(cfg)
+        except ValueError as exc:
+            raise AdapterError(f"cfg must be a number, got {cfg!r}") from exc
+        if not 0 < value <= 30:
+            raise AdapterError("cfg must be more than 0 and at most 30 (empty keeps the preset's)")
+        command.extend(["-Cfg", f"{value:g}"])
+    if port:
+        command.extend(["-Port", str(int(port))])
+    options = _generate_options(root, params, init_image)
+    command.extend(options)
     result = run(command, timeout=timeout, cwd=root)
     result["command"] = command
+    result["prompt"] = prompt
+    result["seamless"] = "-Tileable" in options
     if result.get("timed_out"):
-        raise AdapterError(f"comfy-kit generate timed out after {timeout:g}s")
+        raise AdapterError(f"comfy-forge generate timed out after {timeout:g}s")
     if result["returncode"] != 0:
-        raise AdapterError(f"comfy-kit generate exited {result['returncode']}: {(result['stderr'] or result['stdout'])[-800:]}")
+        raise AdapterError(f"comfy-forge generate exited {result['returncode']}: {(result['stderr'] or result['stdout'])[-800:]}")
     return result
 
 
@@ -252,6 +403,57 @@ def comfy_music(root: Path, url: str, args: list[str], out_dir: Path, timeout: f
     if not inside:
         raise AdapterError("comfy-forge music wrote outside the assigned folder")
     data["files"] = files
+    return data
+
+
+MODEL3D_VARIANTS = ("pixal3d", "pixal3d-multi", "trellis2")
+
+
+def comfy_model3d(root: Path, url: str, image: Path, out_dir: Path, variant: str = "pixal3d", name: str = "",
+                  seed: int | None = None, timeout: float = 3600) -> dict:
+    """Run comfy-forge's `TOOLS/model3d.py generate` (stdlib only, so
+    AssetForge's own interpreter runs it) on one picture and return its
+    closing JSON line with the written model. The backend is the one
+    AssetForge reached, so the tool is told not to start another."""
+    script = root / "TOOLS" / "model3d.py"
+    if variant not in MODEL3D_VARIANTS:
+        raise AdapterError(f"variant must be one of {', '.join(MODEL3D_VARIANTS)}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    command = [sys.executable, str(script), "generate", "--variant", variant, "--image", str(image),
+               "--url", url, "--no-start", "--out", str(out_dir), "--timeout", str(int(timeout))]
+    if name:
+        command += ["--name", name]
+    if seed is not None:
+        command += ["--seed", str(int(seed))]
+    result = run(command, timeout=timeout + 120, cwd=root)
+    if result.get("timed_out"):
+        raise AdapterError(f"comfy-forge model3d timed out after {timeout:g}s")
+    lines = [line for line in (result.get("stdout") or "").splitlines() if line.strip()]
+    if result["returncode"] != 0:
+        reason = "; ".join(line.strip() for line in lines if line.startswith(("FAIL", "UNVERIFIED", "error")))
+        raise AdapterError(f"comfy-forge model3d exited {result['returncode']}: {reason or _tail(result)}")
+    data = None
+    for line in reversed(lines):
+        if line.lstrip().startswith("{"):
+            try:
+                data = json.loads(line)
+            except ValueError:
+                data = None
+            break
+    if not isinstance(data, dict):
+        raise AdapterError(f"comfy-forge model3d printed no result line: {_tail(result)}")
+    named = data.get("model") or next((item for item in data.get("files") or [] if str(item).lower().endswith(".glb")), None)
+    if not named:
+        raise AdapterError("comfy-forge model3d wrote no .glb (a splat-only variant is not a game mesh)")
+    model = Path(str(named))
+    try:
+        inside = model.is_file() and model.resolve().is_relative_to(out_dir.resolve())
+    except OSError:
+        inside = False
+    if not inside:
+        raise AdapterError(f"comfy-forge model3d reported a model that is not in the assigned folder: {named}")
+    data["model"] = model
+    data["command"] = command
     return data
 
 

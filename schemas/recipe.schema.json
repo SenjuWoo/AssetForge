@@ -50,6 +50,11 @@
           "image.thumbnail",
           "image.pack_orm",
           "image.atlas",
+          "image.tileable",
+          "image.pbr",
+          "image.cutout",
+          "image.pixelate",
+          "image.slice",
           "glb.inspect",
           "glb.validate",
           "glb.optimize",
@@ -57,6 +62,7 @@
           "blender.sample",
           "blender.gameready",
           "blender.convert",
+          "blender.sprites",
           "blender.skills.build",
           "blender.skills.material",
           "blender.skills.qa",
@@ -68,7 +74,7 @@
           "img2threejs.probe",
           "img2threejs.codegen",
           "teardown.build",
-          "teardown.capture", "audio.voice", "audio.sfx", "audio.source", "audio.finish", "comfyforge.music",
+          "teardown.capture", "audio.voice", "audio.sfx", "audio.source", "audio.finish", "comfyforge.music", "comfyforge.model3d",
           "asset.record"
         ]
       }

@@ -1,0 +1,136 @@
+{
+  "schema": 1,
+  "id": "sprite-generate",
+  "title": "Make a transparent sprite from a prompt",
+  "description": "Renders the subject through comfy-forge on a plain background (prompt_suffix asks for it), then cuts the background away, trims to the subject and records the anchor. Run pixel-art on the result for a pixel sprite. Describe one subject, its view and style; nobody looks at the result, so open it. name names the files (the first words of the prompt when empty). negative, lora, transparent, upscale, seamless and image to image (--input init=<picture> with creativity 0-1) need a comfy-forge that has them (0.11.0 or later); an older one fails with that message before anything renders.",
+  "input": {},
+  "inputs": {
+    "init": {
+      "kind": "image",
+      "required": false
+    }
+  },
+  "params": {
+    "prompt": {
+      "type": "string",
+      "default": "",
+      "required": true
+    },
+    "name": {
+      "type": "string",
+      "default": ""
+    },
+    "preset": {
+      "type": "string",
+      "default": "Anima - Author Daily (Euler + SGM)"
+    },
+    "model": {
+      "type": "string",
+      "default": ""
+    },
+    "width": {
+      "type": "integer",
+      "default": 1024
+    },
+    "height": {
+      "type": "integer",
+      "default": 1024
+    },
+    "seed": {
+      "type": "integer",
+      "default": -1
+    },
+    "count": {
+      "type": "integer",
+      "default": 1
+    },
+    "steps": {
+      "type": "integer",
+      "default": 0
+    },
+    "cfg": {
+      "type": "string",
+      "default": ""
+    },
+    "negative": {
+      "type": "string",
+      "default": ""
+    },
+    "creativity": {
+      "type": "string",
+      "default": ""
+    },
+    "lora": {
+      "type": "string",
+      "default": ""
+    },
+    "transparent": {
+      "type": "boolean",
+      "default": false
+    },
+    "upscale": {
+      "type": "string",
+      "default": ""
+    },
+    "seamless": {
+      "type": "boolean",
+      "default": false
+    },
+    "backend": {
+      "type": "string",
+      "default": "auto",
+      "choices": [
+        "auto",
+        "running",
+        "start"
+      ]
+    },
+    "timeout": {
+      "type": "integer",
+      "default": 900
+    },
+    "prompt_suffix": {
+      "type": "string",
+      "default": "single subject, whole subject in frame, centered, plain solid white background, no shadow, no text"
+    },
+    "key": {
+      "type": "string",
+      "default": "auto"
+    },
+    "tolerance": {
+      "type": "integer",
+      "default": 24
+    },
+    "feather": {
+      "type": "integer",
+      "default": 1
+    },
+    "mode": {
+      "type": "string",
+      "default": "flood",
+      "choices": [
+        "flood",
+        "key"
+      ]
+    },
+    "trim": {
+      "type": "boolean",
+      "default": true
+    },
+    "padding": {
+      "type": "integer",
+      "default": 2
+    },
+    "thumbnail": {
+      "type": "integer",
+      "default": 256
+    }
+  },
+  "steps": [
+    "comfykit.detect",
+    "comfykit.generate",
+    "image.cutout",
+    "image.thumbnail",
+    "asset.record"
+  ]
+}

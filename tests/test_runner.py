@@ -1,3 +1,4 @@
+import contextlib
 import sys
 import tempfile
 import unittest
@@ -37,6 +38,7 @@ class RunnerFailureTests(unittest.TestCase):
         params = recipes.resolve_params(recipe, {"prompt": "a test texture"})
         provider = {"id": "comfy-kit", "available": True, "version": "x", "path": self.tmp.name, "details": {}}
         with mock.patch("assetforge.runner.providers.get", return_value=provider), \
+             mock.patch("assetforge.runner.comfybackend.swarm", return_value=contextlib.nullcontext((0, "test SwarmUI"))), \
              mock.patch("assetforge.adapters.comfykit_generate", side_effect=adapters.AdapterError("tool exploded")):
             with self.assertRaises(adapters.AdapterError):
                 runner.execute(self.project, recipe, {}, params)

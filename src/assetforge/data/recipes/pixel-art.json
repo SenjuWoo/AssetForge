@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "id": "pixel-art",
+  "title": "Turn a picture into pixel art",
+  "description": "Scales the picture down so its longer side is size pixels, makes alpha on-or-off, and limits the colours to a palette: a built-in name (pico8, db16, sweetie16, cga, gameboy, 1bit), a palette file (--input palette=<.hex, .gpl or image>), or colors picked from the picture. Writes the sprite at its real size and an enlarged preview. No AI model runs.",
+  "input": {
+    "name": "image",
+    "kind": "image",
+    "required": true
+  },
+  "inputs": {
+    "palette": {
+      "kind": "file",
+      "required": false
+    }
+  },
+  "params": {
+    "size": {
+      "type": "integer",
+      "default": 64
+    },
+    "palette": {
+      "type": "string",
+      "default": ""
+    },
+    "colors": {
+      "type": "integer",
+      "default": 16
+    },
+    "dither": {
+      "type": "boolean",
+      "default": false
+    },
+    "preview_scale": {
+      "type": "integer",
+      "default": 8
+    },
+    "thumbnail": {
+      "type": "integer",
+      "default": 256
+    }
+  },
+  "steps": [
+    "image.inspect",
+    "image.pixelate",
+    "image.thumbnail",
+    "asset.record"
+  ]
+}

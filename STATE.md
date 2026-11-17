@@ -2,7 +2,7 @@
 
 - **Version:** 0.8.2
 - **Milestone:** 0.8.2: generated-sound batches survive an unfinishable take
-- **Active task:** none
+- **Active task:** 0.9.0 (PLAN.md): textures, PBR sets, sprites, sprite rendering, comfy-forge backend start
 - **Current revision:** `v0.8.2` = `8d6a6c4` on main
 - **Last known-good:** tag `v0.8.2`
 
@@ -92,7 +92,18 @@ assetforge.cmd doctor
 
 ## Next action
 
-None queued. Deliberately left from the audit (suspected, not proven defects): `adapters.comfykit_*` keep their comfy-kit names; the `examples/README` fixture regeneration one-liner was not re-run.
+NEXT ACTION (0.9.0 is uncommitted in the working tree; VERSION already says 0.9.0, nothing pushed or released):
+
+1. Run `python -m unittest discover -s tests` on the final tree. The last full run (355 tests, OK, 2 skipped) predates the two-band fold, `repair_unit_vectors`, the `flat` engine, clean generated names and the sprite-render export change; each of those passed its own test file afterwards.
+2. Docs still to update: README (recipe table, capability table, texture section, ImageMagick row), `docs/RECIPES.md` (the 11 new recipes, image-prep, sprite-atlas, comfy-generate), AGENTS.md table, `docs/PROVIDERS.md` (comfy-forge start, ImageMagick), `docs/UPSTREAM-EVALUATIONS.md` (spritecast: not a provider, paid OpenAI/Tripo keys), ROADMAP.md, RELEASE.md, RELEASE-NOTES.md. `docs/TEXTURES-SPRITES.md` and the CHANGELOG entry are written.
+3. VALIDATION.md: record the real runs. Done: `texture-generate` through a running SwarmUI (seam 6.69 -> 0.56, PBR set); `mesh-gameready` on the reported Pixal3D axe (2 tangents rewritten, official validator 0 errors, Godot `engine-check` PASS); `sprite-render` on that axe (workbench) and the showcase sword (eevee); DDS and TGA through `image-prep`. Not done: `sprite-generate`, `comfy-3d` and a render through a SwarmUI AssetForge started itself (`backend=start`) - the GPU was held by other sessions; the start/stop path is covered by mocked tests only.
+4. PLAN.md: fill the Evidence column, then commit, push, CI on the SHA, alerts, release zip, install, doctor.
+
+Open: comfy-forge 0.11.0 is unreleased; `comfy-3d` and the optional `generate` flags were built against its working tree and tested against stand-ins. Its `-Tileable` crashes on Anima here (field report filed there). The field report against `mesh-gameready` is fixed and cleared.
+
+Earlier line:
+
+Earlier note: Deliberately left from the audit (suspected, not proven defects): `adapters.comfykit_*` keep their comfy-kit names; the `examples/README` fixture regeneration one-liner was not re-run.
 Candidates after that: Candidates: Roblox Studio import evidence; a Unity import check (MCP for Unity or Unity-MCP, see `docs/UPSTREAM-EVALUATIONS.md`); a rendered rig deformation preview; KTX2 texture compression as an opt-in recipe (Blender 5.3's glTF exporter writes KTX2 natively, per blender-skills 1.3.0).
 
 ## Integration status

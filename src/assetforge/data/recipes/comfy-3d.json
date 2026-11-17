@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "id": "comfy-3d",
+  "title": "Make a game-ready 3D model from one picture",
+  "description": "Sends a picture of one object (plain background, whole object in frame) to comfy-forge's image-to-3D (Pixal3D on its ComfyUI: a running one, or one started for the job and stopped afterwards), then collapses the sculpt it returns, about 700000 triangles, under the game budget and validates it. variant=pixal3d-multi takes a four-view turnaround sheet for a character. The sculpt stays in the asset as the source mesh; the game-ready GLB is what exports. The sides the picture does not show are guessed, and nobody looks at the result: open it. Needs comfy-forge 0.11.0 or later with its 3D weights installed; about four minutes on a 16 GB GPU.",
+  "input": {
+    "name": "image",
+    "kind": "image",
+    "required": true
+  },
+  "params": {
+    "variant": {
+      "type": "string",
+      "default": "pixal3d",
+      "choices": [
+        "pixal3d",
+        "pixal3d-multi",
+        "trellis2"
+      ]
+    },
+    "seed": {
+      "type": "integer",
+      "default": -1
+    },
+    "budget": {
+      "type": "string",
+      "default": "game",
+      "choices": [
+        "game",
+        "hero",
+        "accessory"
+      ]
+    },
+    "tris": {
+      "type": "integer",
+      "default": 0
+    },
+    "texture": {
+      "type": "integer",
+      "default": 0
+    },
+    "backend": {
+      "type": "string",
+      "default": "auto",
+      "choices": [
+        "auto",
+        "running",
+        "start"
+      ]
+    },
+    "url": {
+      "type": "string",
+      "default": ""
+    },
+    "timeout": {
+      "type": "integer",
+      "default": 3600
+    }
+  },
+  "steps": [
+    "comfykit.detect",
+    "comfyforge.model3d",
+    "glb.inspect",
+    "blender.gameready",
+    "glb.validate",
+    "asset.record"
+  ]
+}

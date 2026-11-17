@@ -88,13 +88,13 @@ class ImageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             sources = []
-            for index in range(65):
+            for index in range(257):
                 path = root / f"{index:03d}.png"
-                Image.new("RGBA", (4, 4), (index, 0, 0, 255)).save(path)
+                Image.new("RGBA", (4, 4), (index % 256, 0, 0, 255)).save(path)
                 sources.append(path)
             with self.assertRaises(images.ImageError) as caught:
                 images.make_atlas(sources, root / "atlas.png", root / "atlas.json")
-            self.assertIn("at most 64", str(caught.exception))
+            self.assertIn("at most 256", str(caught.exception))
             with self.assertRaises(images.ImageError):
                 images.make_atlas(sources[:1], root / "atlas.png", root / "atlas.json", columns=0)
             with self.assertRaises(images.ImageError):

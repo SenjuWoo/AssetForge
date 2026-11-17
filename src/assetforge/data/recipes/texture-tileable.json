@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "id": "texture-tileable",
+  "title": "Make a picture repeat without a seam",
+  "description": "Folds each edge of the picture over the opposite one (blend is the share of the side that is cross-faded), scales it back to its size, measures the wrap-around seam (TEX-SEAM) and writes a 2x2 tiled preview. No AI model runs. The result keeps the source's size and alpha.",
+  "input": {
+    "name": "image",
+    "kind": "image",
+    "required": true
+  },
+  "params": {
+    "blend": {
+      "type": "string",
+      "default": "0.15"
+    },
+    "thumbnail": {
+      "type": "integer",
+      "default": 256
+    }
+  },
+  "steps": [
+    "image.inspect",
+    "image.tileable",
+    "image.thumbnail",
+    "asset.record"
+  ]
+}

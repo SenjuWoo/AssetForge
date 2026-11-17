@@ -9,17 +9,41 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
 import shutil
 from pathlib import Path
 
-from . import adapters, audio, comfybackend, gameready, images, official, providers
-from .glb import GlbError, compare_glb, inspect_glb, validate_glb
+from . import adapters, audio, comfybackend, gameready, images, official, providers, sprites, texture
+from .glb import GlbError, compare_glb, inspect_glb, repair_unit_vectors, validate_glb
 from .recipes import RecipeError, asset_name
 from .store import Asset, Job, Project, StoreError
-from .util import human_bytes, now_iso, sha256_file, write_json
+from .util import human_bytes, now_iso, sha256_file, slugify, write_json
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tga"}
 MESH_SUFFIXES = {".glb"}
+
+
+# Steps that turn one picture into another. A step followed by one of these
+# writes an intermediate, not the deliverable.
+IMAGE_WORK = {"image.convert", "image.tileable", "image.pbr", "image.cutout", "image.pixelate", "image.slice"}
+STEP_SUFFIXES = ("-tileable", "-cutout", "-pixel", "-basecolor")
+
+
+def _base(path: Path) -> str:
+    """A picture's name without the suffixes earlier steps added."""
+    stem = Path(path).stem
+    changed = True
+    while changed:
+        changed = False
+        for suffix in STEP_SUFFIXES:
+            if stem.endswith(suffix) and len(stem) > len(suffix):
+                stem, changed = stem[: -len(suffix)], True
+    return stem
+
+
+def _worst(statuses) -> str:
+    found = set(statuses)
+    return "FAIL" if "FAIL" in found else "WARNING" if "WARNING" in found else "PASS"
 
 
 class RunFailed(RuntimeError):
@@ -90,8 +114,32 @@ class Context:
                 return path
         raise RunFailed("recipe needs a .glb input")
 
-    def artifact(self, path: Path, role: str, label: str = "") -> None:
-        self.asset.add_artifact(path, role, label or None)
+    def artifact(self, path: Path, role: str, label: str = "", save: bool = True) -> None:
+        self.asset.add_artifact(path, role, label or None, save=save)
+
+    def role(self, step: str, final: str) -> str:
+        """The role of what `step` writes: `final` when it is the last step
+        that works on the picture, `intermediate` when a later one takes it
+        further. Only final pictures are exported."""
+        steps = self.recipe.get("steps") or []
+        later = steps[steps.index(step) + 1:] if step in steps else []
+        return "intermediate" if any(name in IMAGE_WORK for name in later) else final
+
+    def pictures(self) -> list[Path]:
+        """What an image step works on: the pictures an earlier step made,
+        else the image input."""
+        made = self.outputs.get("images")
+        if made:
+            return [Path(item) for item in made]
+        if self.outputs.get("image"):
+            return [Path(self.outputs["image"])]
+        return [self.image_input()]
+
+    def set_pictures(self, paths: list[Path], primary: bool = True) -> None:
+        self.outputs["images"] = list(paths)
+        self.outputs["image"] = paths[0]
+        if primary:
+            self.asset.set_primary("image", paths[0])
 
     def report(self, name: str, data: dict) -> Path:
         path = self.asset.path("outputs", name)
@@ -119,14 +167,26 @@ def _image_convert(ctx: Context) -> dict:
     fmt = ctx.params.get("format") or "png"
     suffix = ".jpg" if fmt in ("jpg", "jpeg") else f".{fmt}"
     target = ctx.asset.path("outputs", f"{Path(source).stem}{suffix}")
-    result = images.convert_image(
-        source,
-        target,
-        fmt=fmt,
-        width=int(ctx.params.get("width") or 0),
-        height=int(ctx.params.get("height") or 0),
-        quality=int(ctx.params.get("quality") or 90),
-    )
+    width, height = int(ctx.params.get("width") or 0), int(ctx.params.get("height") or 0)
+    if fmt == "dds":
+        # Pillow sizes the picture; ImageMagick writes the DDS and its mipmaps.
+        magick = _provider(ctx, "imagemagick")
+        staged = ctx.asset.path("work", f"{Path(source).stem}.png")
+        prepared = images.convert_image(source, staged, fmt="png", width=width, height=height)
+        compression = str(ctx.params.get("dds_compression") or "auto")
+        if compression == "auto":
+            compression = "dxt5" if prepared["has_alpha"] else "dxt1"
+        try:
+            adapters.magick_dds(magick, staged, target, compression=compression, mipmaps=bool(ctx.params.get("mipmaps", True)))
+        finally:
+            staged.unlink(missing_ok=True)
+        result = {"format": f"DDS {compression}", "width": prepared["width"], "height": prepared["height"],
+                  "bytes": target.stat().st_size, "warnings": list(prepared["warnings"])}
+        if compression == "dxt1" and prepared["has_alpha"]:
+            result["warnings"].append("dxt1 keeps no smooth alpha; use dxt5 for a picture with transparency")
+    else:
+        result = images.convert_image(source, target, fmt=fmt, width=width, height=height,
+                                      quality=int(ctx.params.get("quality") or 90))
     ctx.outputs["image"] = target
     ctx.artifact(target, "image", "converted")
     ctx.asset.set_primary("image", target)
@@ -195,7 +255,7 @@ def _image_atlas(ctx: Context) -> dict:
     )
     ctx.outputs["image"] = target
     ctx.artifact(target, "texture", "atlas")
-    ctx.artifact(metadata, "report", "atlas-metadata")
+    ctx.artifact(metadata, "data", "atlas-metadata")
     ctx.asset.set_primary("image", target)
     return {"status": "PASS", "detail": f"{len(files)} frames, {result['width']}x{result['height']}"}
 
@@ -315,6 +375,9 @@ def _blender_gameready(ctx: Context) -> dict:
         texture_cap,
         timeout=float(ctx.params.get("timeout") or 900),
     )
+    # Blender writes a zero tangent where the collapse left a triangle with no
+    # UV area; glTF needs unit vectors and the official validator insists.
+    repaired = repair_unit_vectors(target)
     stats = inspect_glb(target)
     before = int((ctx.outputs.get("stats") or {}).get("triangles") or 0)
     try:
@@ -326,6 +389,7 @@ def _blender_gameready(ctx: Context) -> dict:
     report = result.get("report") or {}
     report["triangle_cap"] = hard_cap
     report["triangles"] = stats["triangles"]
+    report["repaired"] = repaired
     ctx.outputs["gameready"] = report
     ctx.artifact(target, "mesh", "gameready")
     ctx.asset.set_primary("mesh", target)
@@ -338,6 +402,8 @@ def _blender_gameready(ctx: Context) -> dict:
         f"{stats['triangles']} tris (cap {hard_cap}, asked {target_tris}); "
         f"texture cap {texture_cap}; {len(shrunk)} texture(s) resized"
     )
+    if repaired["normals"] or repaired["tangents"]:
+        detail += f"; {repaired['tangents']} tangent(s) and {repaired['normals']} normal(s) that were not unit length rewritten"
     if dropped > 0:
         # Collapsing a mesh under animation is not safe to automate; be loud about it.
         return {"status": "WARNING", "detail": detail + f"; {dropped} animation(s) were NOT carried over"}
@@ -738,16 +804,55 @@ def _comfykit_generate(ctx: Context) -> dict:
     except ValueError as exc:
         raise RunFailed("refusing to write comfy-forge output outside the project") from exc
     out_dir.mkdir(parents=True, exist_ok=True)
-    result = adapters.comfykit_generate(root, ctx.params, out_dir, timeout=float(ctx.params.get("timeout") or 900))
+    params = dict(ctx.params)
+    if int(params.get("seed", -1)) < 0:
+        # Pick the seed here, so the run can be repeated from its record.
+        params["seed"] = secrets.randbelow(2 ** 31 - 1)
+        ctx.params["seed"] = params["seed"]
+    try:
+        with comfybackend.swarm(root, str(params.get("backend") or "auto"), ctx.asset.path("work", "swarmui.log")) as (port, how):
+            ctx.job.log(f"comfy-forge images: {how}")
+            result = adapters.comfykit_generate(root, params, out_dir, timeout=float(params.get("timeout") or 900), port=port,
+                                                init_image=ctx.copied.get("init"))
+    except comfybackend.BackendError as exc:
+        raise ProviderMissing(str(exc)) from exc
     files = adapters.comfykit_images(out_dir)
     if not files:
         raise RunFailed("comfy-forge reported success but produced no images in the assigned output folder")
+    files = _rename_generated(files, str(params.get("name") or "").strip() or str(params.get("prompt") or ""))
+    role = ctx.role("comfykit.generate", "image")
     for path in files:
-        ctx.artifact(path, "image", "generated")
-    ctx.outputs["images"] = files
-    ctx.outputs["image"] = files[0]
-    ctx.asset.set_primary("image", files[0])
-    return {"status": "PASS", "detail": f"{len(files)} image(s); first {files[0].name}"}
+        ctx.artifact(path, role, "generated")
+    ctx.set_pictures(files)
+    ctx.report("image-generation.json", {
+        "backend": how, "prompt": result.get("prompt"), "preset": params.get("preset"), "model": params.get("model") or None,
+        "seed": params["seed"], "width": int(params.get("width") or 1024), "height": int(params.get("height") or 1024),
+        "steps": int(params.get("steps") or 0) or None, "cfg": str(params.get("cfg") or "") or None,
+        "negative": str(params.get("negative") or "") or None, "init_image": ctx.copied["init"].name if "init" in ctx.copied else None,
+        "creativity": str(params.get("creativity") or "") or None, "lora": str(params.get("lora") or "") or None,
+        "transparent": bool(params.get("transparent") or False), "seamless": bool(result.get("seamless")),
+        "files": [path.name for path in files],
+    })
+    ctx.validation.append({"artifact": files[0].name, "id": "GEN-VISUAL", "status": "NOT_TESTED",
+                           "detail": "the picture was generated, not looked at; open it before using it"})
+    return {"status": "PASS", "detail": f"{len(files)} image(s), seed {params['seed']}, through {how}"}
+
+
+def _rename_generated(files: list[Path], wanted: str) -> list[Path]:
+    """Give generated pictures names a game can use. SwarmUI names a file
+    after the whole prompt and model, with spaces and commas; every map made
+    from it would inherit that. A sidecar comfy-forge wrote follows its picture."""
+    stem = "-".join(slugify(wanted, fallback="image").split("-")[:5])[:48].strip("-") or "image"
+    renamed = []
+    for index, path in enumerate(files):
+        target = path.with_name(f"{stem}{'' if index == 0 else f'-{index + 1}'}{path.suffix.lower()}")
+        if target != path:
+            path.replace(target)
+            sidecar = path.with_name(path.name + ".json")
+            if sidecar.is_file():
+                sidecar.replace(target.with_name(target.name + ".json"))
+        renamed.append(target)
+    return renamed
 
 
 def _comfykit_import(ctx: Context) -> dict:
@@ -1455,6 +1560,296 @@ def _comfyforge_music(ctx: Context) -> dict:
     return {"status": "PASS", "detail": f"{len(takes_made)} take(s) of {seconds:g} s through {how}"}
 
 
+# ----------------------------------------------------------- textures, sprites
+def _unit_param(ctx: Context, name: str, default: str) -> float:
+    value = _param_float(ctx, name, default)
+    if not 0.0 <= value <= 1.0:
+        raise RunFailed(f"{name} must be between 0 and 1")
+    return value
+
+
+def _image_tileable(ctx: Context) -> dict:
+    blend = _param_float(ctx, "blend", "0.15")
+    role = ctx.role("image.tileable", "texture")
+    made, statuses, ratios = [], [], []
+    for source in ctx.pictures():
+        target = ctx.asset.path("outputs", f"{_base(source)}-tileable.png")
+        before = texture.seam_report(source)
+        if before["status"] == "PASS":
+            # It repeats already (a tiling render, or a texture made to tile):
+            # folding it again would only soften it.
+            images.convert_image(source, target, fmt="png")
+            info = {"seam_before": before, "seam_after": texture.seam_report(target)}
+        else:
+            info = texture.make_tileable(source, target, blend=blend)
+        ctx.artifact(target, role, "tileable")
+        preview = ctx.asset.path("previews", f"{_base(source)}-tiled.png")
+        texture.tile_preview(target, preview)
+        ctx.artifact(preview, "preview", "tiled 2x2")
+        after = info["seam_after"]
+        ctx.validation.append({"artifact": target.name, "id": "TEX-SEAM", "status": after["status"],
+                               "detail": f"{after['detail']}; the source measured {info['seam_before']['worst_ratio']}"})
+        statuses.append(after["status"])
+        ratios.append(f"{info['seam_before']['worst_ratio']} -> {after['worst_ratio']}")
+        made.append(target)
+    ctx.set_pictures(made)
+    ctx.validation.append({"artifact": made[0].name, "id": "TEX-VISUAL", "status": "NOT_TESTED",
+                           "detail": "the seam is measured, the repeat was not looked at; open the tiled preview"})
+    return {"status": _worst(statuses), "detail": f"{len(made)} texture(s); seam ratio {', '.join(ratios)}"}
+
+
+def _image_pbr(ctx: Context) -> dict:
+    mode = str(ctx.params.get("tileable") or "auto")
+    options = {
+        "strength": _param_float(ctx, "strength", "2.0"),
+        "convention": str(ctx.params.get("convention") or "opengl"),
+        "roughness": _unit_param(ctx, "roughness", "0.7"),
+        "roughness_variation": _unit_param(ctx, "roughness_variation", "0.3"),
+        "metallic": _unit_param(ctx, "metallic", "0"),
+        "ao_strength": _param_float(ctx, "ao_strength", "1.0"),
+        "height_invert": bool(ctx.params.get("height_invert") or False),
+        "height_blur": _param_float(ctx, "height_blur", "1.0"),
+    }
+    bases, statuses, wrapped = [], [], 0
+    for source in ctx.pictures():
+        name = _base(source)
+        seam = texture.seam_report(source)
+        wrap = mode == "true" or (mode == "auto" and seam["status"] == "PASS")
+        wrapped += wrap
+        base = ctx.asset.path("outputs", f"{name}-basecolor.png")
+        images.convert_image(source, base, fmt="png")
+        result = texture.make_pbr_set(base, ctx.asset.path("outputs"), name=name, tileable=wrap, **options)
+        ctx.artifact(base, "texture", "base_color")
+        for kind, path in result["files"].items():
+            ctx.artifact(path, "texture", kind)
+        ctx.artifact(result["material"], "data", "material")
+        check = result["normal_check"]
+        ctx.validation.append({"artifact": result["files"]["normal"].name, "id": "TEX-NORMAL", **check})
+        statuses.append(check["status"])
+        if wrap:
+            status = "PASS" if seam["status"] == "PASS" else "WARNING"
+            ctx.validation.append({"artifact": base.name, "id": "TEX-SEAM", "status": status,
+                                   "detail": seam["detail"] + ("" if status == "PASS" else
+                                             "; the maps wrap but the colour map does not tile, run texture-tileable first")})
+            statuses.append(status)
+        else:
+            ctx.validation.append({"artifact": base.name, "id": "TEX-SEAM", "status": "NOT_TESTED",
+                                   "detail": f"maps made for a picture that does not repeat ({seam['detail']})"})
+        bases.append(base)
+    ctx.set_pictures(bases)
+    ctx.validation.append({"artifact": bases[0].name, "id": "TEX-DERIVED", "status": "NOT_TESTED",
+                           "detail": "height, normal, roughness and occlusion are estimated from the colour map, not measured; look at them on a surface"})
+    return {"status": _worst(statuses),
+            "detail": f"{len(bases)} material(s): base colour, normal ({options['convention']}), height, roughness, occlusion, metallic, ORM; "
+                      f"{wrapped} wrap at the edges"}
+
+
+def _image_cutout(ctx: Context) -> dict:
+    role = ctx.role("image.cutout", "image")
+    made, statuses, anchors = [], [], {}
+    for source in ctx.pictures():
+        name = _base(source)
+        target = ctx.asset.path("outputs", f"{name}-cutout.png")
+        info = sprites.cutout(
+            source, target, key=str(ctx.params.get("key") or "auto"), tolerance=int(ctx.params.get("tolerance", 24)),
+            feather=int(ctx.params.get("feather", 1)), mode=str(ctx.params.get("mode") or "flood"),
+            trim=bool(ctx.params.get("trim", True)), padding=int(ctx.params.get("padding", 2)),
+        )
+        ctx.artifact(target, role, "sprite")
+        sidecar = ctx.asset.path("outputs", f"{name}-cutout.json")
+        write_json(sidecar, {"schema": 1, "image": target.name, "size": [info["width"], info["height"]], "anchor": info["anchor"],
+                             "source_size": info["source_size"], "offset": info["offset"], "background": info["background"]})
+        ctx.artifact(sidecar, "data" if role == "image" else "intermediate", "sprite-metadata")
+        anchors[str(target)] = info["anchor"]
+        status = "WARNING" if info["warnings"] else "PASS"
+        what = f"background {info['background']} removed" if info["keyed"] else "already transparent, trimmed only"
+        ctx.validation.append({"artifact": target.name, "id": "CUT-BACKGROUND", "status": status,
+                               "detail": f"{what}; {info['removed_fraction']:.0%} of the picture is empty"
+                                         + (f"; {'; '.join(info['warnings'])}" if info["warnings"] else "")})
+        statuses.append(status)
+        made.append(target)
+    ctx.set_pictures(made)
+    ctx.outputs["anchors"] = anchors
+    ctx.validation.append({"artifact": made[0].name, "id": "CUT-VISUAL", "status": "NOT_TESTED",
+                           "detail": "the edge was not looked at; check for a rim or a missing part"})
+    first = load_size(made[0])
+    return {"status": _worst(statuses), "detail": f"{len(made)} sprite(s); first {first[0]}x{first[1]}"}
+
+
+def load_size(path: Path) -> tuple[int, int]:
+    info = images.inspect_image(path)
+    return info["width"], info["height"]
+
+
+def _image_pixelate(ctx: Context) -> dict:
+    palette_file = ctx.copied.get("palette")
+    palette = str(palette_file) if palette_file is not None else str(ctx.params.get("palette") or "").strip()
+    scale = int(ctx.params.get("preview_scale", 8))
+    anchors = ctx.outputs.get("anchors") or {}
+    made, used = [], []
+    for source in ctx.pictures():
+        name = _base(source)
+        target = ctx.asset.path("outputs", f"{name}-pixel.png")
+        preview = ctx.asset.path("previews", f"{name}-pixel-x{scale}.png")
+        info = sprites.pixelate(source, target, size=int(ctx.params.get("size", 64)), palette=palette,
+                                colors=int(ctx.params.get("colors", 16)), dither=bool(ctx.params.get("dither") or False),
+                                preview=preview, preview_scale=scale)
+        ctx.artifact(target, "image", "pixel-art")
+        ctx.artifact(preview, "preview", f"pixel art x{scale}")
+        record = {"schema": 1, "image": target.name, "size": [info["width"], info["height"]], "palette": info["palette"],
+                  "colors_used": info["colors_used"], "scale": info["scale"]}
+        if str(source) in anchors:
+            record["anchor"] = [round(value * info["scale"]) for value in anchors[str(source)]]
+        sidecar = ctx.asset.path("outputs", f"{name}-pixel.json")
+        write_json(sidecar, record)
+        ctx.artifact(sidecar, "data", "sprite-metadata")
+        ctx.validation.append({"artifact": target.name, "id": "PIX-PALETTE", "status": "PASS",
+                               "detail": f"{info['colors_used']} of {info['palette_size']} colours ({info['palette']}); {info['width']}x{info['height']}, alpha on or off"})
+        used.append(info["colors_used"])
+        made.append(target)
+    ctx.set_pictures(made)
+    ctx.validation.append({"artifact": made[0].name, "id": "PIX-VISUAL", "status": "NOT_TESTED",
+                           "detail": "the pixel art was not looked at; open the enlarged preview"})
+    first = load_size(made[0])
+    return {"status": "PASS", "detail": f"{len(made)} sprite(s); first {first[0]}x{first[1]}, {used[0]} colour(s)"}
+
+
+def _image_slice(ctx: Context) -> dict:
+    source = ctx.pictures()[0]
+    frames_dir = ctx.asset.path("outputs", "frames")
+    result = sprites.slice_sheet(
+        source, frames_dir, mode=str(ctx.params.get("mode") or "grid"),
+        columns=int(ctx.params.get("columns") or 0), rows=int(ctx.params.get("rows") or 0),
+        cell_width=int(ctx.params.get("cell_width") or 0), cell_height=int(ctx.params.get("cell_height") or 0),
+        min_area=int(ctx.params.get("min_area", 16)), keep_empty=bool(ctx.params.get("keep_empty") or False),
+    )
+    paths = []
+    for frame in result["frames"]:
+        path = frames_dir / frame["name"]
+        ctx.artifact(path, "image", f"frames/{frame['name']}", save=False)
+        paths.append(path)
+    ctx.asset.save()
+    metadata = ctx.asset.path("outputs", "frames.json")
+    write_json(metadata, {"schema": 1, "source": source.name, "sheet": result["sheet"], "mode": result["mode"],
+                          "columns": result["columns"], "rows": result["rows"], "frames": result["frames"]})
+    ctx.artifact(metadata, "data", "frames-metadata")
+    ctx.set_pictures(paths)
+    sizes = {(frame["w"], frame["h"]) for frame in result["frames"]}
+    return {"status": "PASS", "detail": f"{len(paths)} frame(s), {result['mode']}"
+                                        + (f", each {next(iter(sizes))[0]}x{next(iter(sizes))[1]}" if len(sizes) == 1 else ", sizes differ")}
+
+
+def _blender_sprites(ctx: Context) -> dict:
+    provider = _provider(ctx, "blender")
+    source = ctx.mesh()
+    ctx.outputs.setdefault("source_mesh", source)
+    size = int(ctx.params.get("size", 128))
+    frames_dir = ctx.asset.path("outputs", "frames")
+    report = adapters.blender_sprites(
+        provider, source, frames_dir, directions=int(ctx.params.get("directions", 8)),
+        pitch=_param_float(ctx, "pitch", "30"), yaw=_param_float(ctx, "yaw", "0"), size=size,
+        frames=int(ctx.params.get("frames", 8)), animations=str(ctx.params.get("animations") or "all").strip(),
+        engine=str(ctx.params.get("engine") or "workbench"), antialias=bool(ctx.params.get("antialias", True)),
+        outline=bool(ctx.params.get("outline") or False), pivot=str(ctx.params.get("pivot") or "auto"),
+        timeout=float(ctx.params.get("timeout") or 1800),
+    )
+    empty, clipped = [], []
+    for item in report["files"]:
+        path = frames_dir / item["file"]
+        ctx.artifact(path, "sprite-frame", f"frames/{item['file']}", save=False)
+        box = images.open_image(path).convert("RGBA").getchannel("A").getbbox()
+        if box is None:
+            empty.append(item["file"])
+        elif box[0] == 0 or box[1] == 0 or box[2] == size or box[3] == size:
+            clipped.append(item["file"])
+    ctx.asset.save()
+    anchors = {facing["name"]: facing["anchor"] for facing in report["directions"]}
+    # A moving model gets a row per animation and facing, frames left to
+    # right. A still one has a single frame per facing, so its facings share a row.
+    still = all(animation["frames"] == 1 for animation in report["animations"])
+    rows, order = [], []
+    for animation in report["animations"]:
+        strips = []
+        for facing in report["directions"]:
+            strips.append(sorted((item for item in report["files"] if item["animation"] == animation["name"] and item["direction"] == facing["name"]),
+                                 key=lambda item: item["index"]))
+        for row in ([[item for strip in strips for item in strip]] if still else strips):
+            rows.append([frames_dir / item["file"] for item in row])
+            order.extend(row)
+    sheet_path = ctx.asset.path("outputs", f"{_base(source)}-sheet.png")
+    sheet = images.make_sheet(rows, sheet_path, padding=int(ctx.params.get("padding", 0)))
+    frames = [{"name": cell["name"], "animation": item["animation"], "direction": item["direction"], "index": item["index"],
+               "x": cell["x"], "y": cell["y"], "w": cell["w"], "h": cell["h"], "anchor": anchors[item["direction"]]}
+              for cell, item in zip(sheet["frames"], order)]
+    metadata = ctx.asset.path("outputs", f"{_base(source)}-sheet.json")
+    write_json(metadata, {
+        "schema": 1, "image": sheet_path.name, "width": sheet["width"], "height": sheet["height"],
+        "frame_size": [size, size], "padding": sheet["padding"], "pixels_per_unit": report["pixels_per_unit"],
+        "pitch": report["pitch"], "engine": report["engine"], "pivot": report.get("pivot"), "directions": report["directions"],
+        "animations": [dict(animation, loop=True) for animation in report["animations"]],
+        "layout": "one row per animation, facings left to right" if still else "one row per animation and facing, frames left to right",
+        "frames": frames,
+    })
+    ctx.artifact(sheet_path, "texture", "sheet")
+    ctx.artifact(metadata, "data", "sprite-metadata")
+    ctx.set_pictures([sheet_path])
+    ctx.report("sprite-render.json", {key: value for key, value in report.items() if key != "command"})
+    name = sheet_path.name
+    ctx.validation.append({"artifact": name, "id": "SPRITE-RENDER", "status": "PASS",
+                           "detail": f"{len(report['files'])} frame(s) of {size}px rendered by Blender {report['blender']} ({report['engine']}), "
+                                     f"{len(report['directions'])} facing(s) at pitch {report['pitch']:g}"})
+    ctx.validation.append({"artifact": name, "id": "SPRITE-EMPTY", "status": "FAIL" if empty else "PASS",
+                           "detail": f"{len(empty)} frame(s) show nothing: {', '.join(empty[:5])}" if empty else "every frame shows the model"})
+    ctx.validation.append({"artifact": name, "id": "SPRITE-CLIP", "status": "WARNING" if clipped else "PASS",
+                           "detail": f"{len(clipped)} frame(s) touch the frame edge: {', '.join(clipped[:5])}" if clipped else "no frame touches its edge"})
+    notes = report.get("notes") or []
+    ctx.validation.append({"artifact": name, "id": "SPRITE-ANIM", "status": "WARNING" if notes else "PASS",
+                           "detail": "; ".join(notes) if notes else
+                                     ", ".join(f"{a['name']} {a['frames']} frame(s)" for a in report["animations"])})
+    ctx.validation.append({"artifact": name, "id": "SPRITE-VISUAL", "status": "NOT_TESTED",
+                           "detail": "frames were rendered, not looked at; open the sheet before using it"})
+    if empty:
+        raise RunFailed(f"{len(empty)} rendered frame(s) are empty: {', '.join(empty[:5])}")
+    return {"status": "WARNING" if clipped or notes else "PASS",
+            "detail": f"{len(report['files'])} frame(s), sheet {sheet['width']}x{sheet['height']}"
+                      + (f"; {len(clipped)} touch the edge" if clipped else "") + (f"; {'; '.join(notes)}" if notes else "")}
+
+
+def _comfyforge_model3d(ctx: Context) -> dict:
+    provider = _provider(ctx, "comfy-forge")
+    root = Path(provider["path"])
+    if not (root / "TOOLS" / "model3d.py").is_file():
+        raise ProviderMissing(f"comfy-forge {provider.get('version') or ''} has no TOOLS/model3d.py; update comfy-forge to 0.11.0 or later")
+    image = ctx.image_input()
+    work = ctx.asset.path("outputs", "model3d").resolve()
+    try:
+        work.relative_to(ctx.project.root.resolve())
+    except ValueError as exc:
+        raise RunFailed("refusing to write comfy-forge output outside the project") from exc
+    seed = int(ctx.params.get("seed", -1))
+    if seed < 0:
+        seed = secrets.randbelow(2 ** 31 - 1)
+        ctx.params["seed"] = seed
+    variant = str(ctx.params.get("variant") or "pixal3d")
+    try:
+        with comfybackend.backend(root, str(ctx.params.get("backend") or "auto"), ctx.asset.path("work", "comfyui.log"),
+                                  explicit=str(ctx.params.get("url") or "")) as (url, how):
+            ctx.job.log(f"comfy-forge model3d: {how}")
+            result = adapters.comfy_model3d(root, url, image, work, variant=variant, name=_base(image), seed=seed,
+                                            timeout=float(ctx.params.get("timeout") or 3600))
+    except comfybackend.BackendError as exc:
+        raise ProviderMissing(str(exc)) from exc
+    model = Path(result["model"])
+    ctx.outputs["mesh"] = model
+    ctx.report("model3d-generation.json", {
+        "backend": how, "variant": variant, "seed": seed, "image": image.name, "model": model.name,
+        "triangles": result.get("triangles"), "files": [Path(str(item)).name for item in result.get("files") or []],
+    })
+    ctx.validation.append({"artifact": model.name, "id": "GEN-VISUAL", "status": "NOT_TESTED",
+                           "detail": "the model was generated from one picture, not looked at; the sides the picture does not show are guessed"})
+    return {"status": "PASS", "detail": f"{model.name} ({result.get('triangles') or '?'} triangles, {variant}) through {how}"}
+
+
 def _asset_record(ctx: Context) -> dict:
     ctx.asset.manifest["provenance"]["versions"] = providers.tool_versions(ctx.project)
     ctx.asset.manifest["provenance"]["seed"] = ctx.params.get("seed")
@@ -1471,6 +1866,11 @@ HANDLERS = {
     "image.thumbnail": _image_thumbnail,
     "image.pack_orm": _image_pack_orm,
     "image.atlas": _image_atlas,
+    "image.tileable": _image_tileable,
+    "image.pbr": _image_pbr,
+    "image.cutout": _image_cutout,
+    "image.pixelate": _image_pixelate,
+    "image.slice": _image_slice,
     "glb.inspect": _glb_inspect,
     "glb.validate": _glb_validate,
     "glb.optimize": _glb_optimize,
@@ -1478,6 +1878,7 @@ HANDLERS = {
     "blender.sample": _blender_sample,
     "blender.gameready": _blender_gameready,
     "blender.convert": _blender_convert,
+    "blender.sprites": _blender_sprites,
     "blender.skills.build": _blender_skills_build,
     "blender.skills.material": _blender_skills_material,
     "blender.skills.qa": _blender_skills_qa,
@@ -1495,6 +1896,7 @@ HANDLERS = {
     "audio.source": _audio_source,
     "audio.finish": _audio_finish,
     "comfyforge.music": _comfyforge_music,
+    "comfyforge.model3d": _comfyforge_model3d,
     "asset.record": _asset_record,
 }
 
@@ -1523,13 +1925,18 @@ def _voice_needs(params: dict) -> list[str]:
 # here (the tests compare this table with recipes.STEP_NAMES). Checkers that
 # only add evidence when present (the official validator, CLAP) are listed too.
 STEP_PROVIDERS = {
-    "image.inspect": ["pillow"], "image.convert": ["pillow"], "image.thumbnail": ["pillow"],
+    "image.inspect": ["pillow"], "image.thumbnail": ["pillow"],
+    "image.convert": lambda params: ["pillow"] + (["imagemagick"] if params.get("format") == "dds" else []),
     "image.pack_orm": ["pillow"], "image.atlas": ["pillow"],
+    "image.tileable": ["pillow"], "image.pbr": ["pillow"], "image.cutout": ["pillow"],
+    "image.pixelate": ["pillow"], "image.slice": ["pillow"],
     "glb.inspect": [], "glb.validate": ["gltf-validator"], "glb.optimize": ["gltf-transform"], "glb.compare": [],
     "blender.sample": ["blender"], "blender.gameready": ["blender"], "blender.convert": ["blender"],
+    "blender.sprites": ["blender", "pillow"],
     **{f"blender.skills.{name}": ["blender-skills", "blender"] for name in ("build", "material", "qa", "export", "run")},
     "comfykit.detect": ["comfy-forge"], "comfykit.generate": ["comfy-forge"], "comfykit.import": ["comfy-forge"],
     "comfyforge.music": lambda params: ["comfy-forge"] + (["audio-sfx"] if params.get("check", True) else []),
+    "comfyforge.model3d": ["comfy-forge"],
     "img2threejs.probe": ["img2threejs"], "img2threejs.codegen": ["img2threejs"],
     "teardown.build": ["teardown", "node"],
     "teardown.capture": lambda params: ["teardown", "node"] + ([] if str(params.get("stills") or "").strip() else ["ffmpeg"]),

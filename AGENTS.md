@@ -15,6 +15,20 @@ assetforge audio-setup --list     audio runtimes (speech, sfx, kokoro); `audio-s
 
 Route with `probe` before choosing a recipe. Its `recommend` list holds complete commands.
 
+## What you cannot draw, AssetForge makes
+
+| Need | Recipe |
+|---|---|
+| a surface material from words | `texture-generate --set "prompt=..."` |
+| a sprite from words | `sprite-generate --set "prompt=..."`, then `pixel-art` for a pixel game |
+| a seamless or PBR version of a picture | `texture-tileable`, `texture-pbr` |
+| a sprite from a picture on a plain background | `image-cutout` |
+| sprites of a 3D model at the game's camera | `sprite-render` (8 facings, every animation, anchors) |
+| a 3D model from a picture | `comfy-3d` |
+| voice, sound effects, music | `audio-voice`, `audio-sfx`, `audio-music` |
+
+Generated results carry `GEN-VISUAL` `NOT_TESTED`: render a preview and look before shipping. Guide: `docs/TEXTURES-SPRITES.md`.
+
 ## The loop
 
 1. `assetforge init <folder>` once. All writes go under that project.
@@ -41,12 +55,12 @@ Exit codes: `0` ok, `2` usage or recipe error, `3` missing project/asset/job, `4
 | Blender (`blender`) | `mesh-convert`, `mesh-gameready`, `blender-sample`, every `blender.skills.*` step | modelling, rigging and rendering by script: `blender --background --python make.py` | ask the user to install Blender, or set `BLENDER_EXE` |
 | Godot 4 (`godot`) | `engine-check` | running a project or its tests headless: `godot --headless --path PROJECT --import` | ask to install Godot 4, or set `GODOT_EXE` |
 | FFmpeg (`ffmpeg`, `ffprobe`) | `audio-*` finishing and measurement, `teardown-film` video encoding | preview or turntable video from rendered frames (`ffmpeg -framerate 24 -i frame_%04d.png -pix_fmt yuv420p out.mp4`), audio conversion, reading media facts with `ffprobe` | ask to install FFmpeg, or set `FFMPEG_EXE` |
-| ImageMagick (`magick`) | nothing yet | formats Pillow does not write (DDS, EXR), contact sheets (`magick montage`), resizing and atlases in one command | ask to install ImageMagick, or set `MAGICK_EXE` |
+| ImageMagick (`magick`) | `image-prep format=dds` | formats Pillow does not write (DDS, EXR), contact sheets (`magick montage`), resizing and atlases in one command | ask to install ImageMagick, or set `MAGICK_EXE` |
 | uv (`uv`) | `audio-setup` builds the audio runtimes with it | any isolated Python environment | ask to install uv |
 | Audio runtimes (`~/.assetforge/audio`) | `audio-voice`, `audio-sfx`: Qwen3-TTS, Dia, Kokoro, MOSS-SoundEffect v2, Whisper and CLAP checks | voice lines, grunts, sound effects for any game | run `assetforge audio-setup` yourself; it needs uv and about 20 GB for runtimes and models |
-| comfy-forge (`COMFY_FORGE_ROOT`) | `comfy-generate` images; `audio-music` songs (ACE-Step 1.5 through its ComfyUI, started for the job when none runs) | anything ComfyUI does: its own `TOOLS/image-stack.ps1` and `TOOLS/music.ps1` | ask to install comfy-forge, or set `COMFY_FORGE_ROOT` |
+| comfy-forge (`COMFY_FORGE_ROOT`) | `comfy-generate`, `texture-generate`, `sprite-generate` through its SwarmUI (started for the job when it is down); `audio-music` (ACE-Step 1.5) and `comfy-3d` (its `model3d.py`) through its ComfyUI | anything ComfyUI does: its own `TOOLS/image-stack.ps1` and `TOOLS/music.ps1` | ask to install comfy-forge, or set `COMFY_FORGE_ROOT` |
 | Node.js | glTF-Transform, the Khronos validator | | `Install.ps1` reports it |
-| Pillow | image recipes, atlases, PBR packing | | installed with AssetForge |
+| Pillow 10.3+ | image recipes, atlases, PBR sets, cut-outs, pixel art | | installed with AssetForge |
 
 Never download a second copy of a program that is installed but not found: set its variable to the real executable instead.
 

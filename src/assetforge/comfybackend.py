@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -22,7 +23,7 @@ import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
 
-from .util import run
+from .util import _RawCommand, _windows_shim, run
 
 PORTS = (8188, *range(7820, 7833))
 
@@ -85,6 +86,81 @@ def comfy_root(python: Path) -> Path:
         if (candidate / "main.py").is_file() and (candidate / "comfy").is_dir():
             return candidate
     raise BackendError(f"no ComfyUI main.py next to {python}")
+
+
+SWARM_PORT = re.compile(r"^\s*Port\s*:\s*(\d+)", re.M)
+
+
+def swarm_root(root: Path) -> Path:
+    """The SwarmUI folder comfy-forge uses: the one above its ComfyUI
+    interpreter that holds the launcher."""
+    python = comfy_python(root)
+    for parent in python.parents:
+        if (parent / "launch-windows.bat").is_file() or (parent / "launch-linux.sh").is_file():
+            return parent
+    raise BackendError(f"no SwarmUI launcher above {python}; comfy-forge renders images through SwarmUI")
+
+
+def swarm_port(folder: Path) -> int:
+    """The web port in SwarmUI's settings (7801 when unset), read the way
+    comfy-forge reads it."""
+    try:
+        match = SWARM_PORT.search((folder / "Data" / "Settings.fds").read_text(encoding="utf-8", errors="replace"))
+    except OSError:
+        match = None
+    return int(match.group(1)) if match else 7801
+
+
+def swarm_alive(port: int, timeout: float = 4.0) -> bool:
+    request = urllib.request.Request(f"http://127.0.0.1:{int(port)}/API/GetNewSession", data=b"{}",
+                                     headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            data = json.loads(response.read().decode("utf-8", "replace"))
+    except (OSError, ValueError, urllib.error.URLError):
+        return False
+    return isinstance(data, dict) and bool(data.get("session_id"))
+
+
+@contextmanager
+def swarm(root: Path, mode: str, log_path: Path, startup_timeout: float = 420):
+    """Yield (port, how) for one image job. `port` is 0 when comfy-forge's own
+    SwarmUI already answers, so its settings are used untouched. Otherwise, in
+    'auto' or 'start' mode, SwarmUI is started without a browser on a free
+    port and stopped when the job ends."""
+    if mode not in ("auto", "running", "start"):
+        raise BackendError("backend must be auto, running or start")
+    folder = swarm_root(root)
+    if mode in ("auto", "running"):
+        port = swarm_port(folder)
+        if swarm_alive(port):
+            yield 0, f"running SwarmUI on port {port}"
+            return
+        if mode == "running":
+            raise BackendError(f"SwarmUI is not answering on port {port}; start it, or use --set backend=auto")
+    launcher = folder / ("launch-windows.bat" if sys.platform == "win32" else "launch-linux.sh")
+    if not launcher.is_file():
+        raise BackendError(f"no SwarmUI launcher for this system in {folder}")
+    port = _free_port()
+    argv = _windows_shim([str(launcher), "--launch_mode", "none", "--port", str(port)])
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(log_path, "w", encoding="utf-8", errors="replace") as log:
+        flags = subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0
+        proc = subprocess.Popen(argv.line() if isinstance(argv, _RawCommand) else argv, cwd=folder,
+                                stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, creationflags=flags)
+        try:
+            deadline = time.time() + startup_timeout
+            while time.time() < deadline:
+                if proc.poll() is not None:
+                    raise BackendError(f"SwarmUI exited during startup (code {proc.returncode}); see {log_path}")
+                if swarm_alive(port, timeout=2.0):
+                    break
+                time.sleep(1.0)
+            else:
+                raise BackendError(f"SwarmUI did not answer within {startup_timeout:g}s; see {log_path}")
+            yield port, f"temporary SwarmUI from {folder} on port {port}, stopped after the job"
+        finally:
+            _stop(proc)
 
 
 def _free_port() -> int:

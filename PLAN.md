@@ -1,6 +1,53 @@
 # Plan
 
-Status values are strict: **VERIFIED** (executed with evidence), **IMPLEMENTED / UNVERIFIED** (code exists, real integration not exercised), **PLANNED**, **BLOCKED**.
+## 0.9.0 - cover what a text-and-code agent cannot make (2026-11-17)
+
+Goal: an agent that can only write text and code gets every 2D asset it needs from AssetForge:
+textures (through comfy-forge), PBR map sets, cut-out sprites, pixel art, sprite sheets, and
+sprites rendered from a 3D model at the game's camera. Status: `pending` / `complete` / `blocked`.
+A task is `complete` only when its Verify passed; Evidence records `cmd @ sha exit=n`.
+
+| ID | Task | Status | Depends on | Verify | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| T1 | `texture.py`: seamless tiling (`make_tileable`), seam metric (`TEX-SEAM`) | pending | - | cmd:python -m unittest discover -s tests -p "test_texture.py" | - |
+| T2 | `texture.py`: PBR set from a colour map (height, normal, roughness, AO, metallic, ORM, material.json) | pending | T1 | cmd:python -m unittest discover -s tests -p "test_texture.py" | - |
+| T3 | `sprites.py`: cut-out (background key + border flood fill, feather, decontaminate, trim, anchor) | pending | - | cmd:python -m unittest discover -s tests -p "test_sprites.py" | - |
+| T4 | `sprites.py`: pixel art (downscale, fixed palettes or `.hex`, dither, preview) | pending | T3 | cmd:python -m unittest discover -s tests -p "test_sprites.py" | - |
+| T5 | `sprites.py`: sheet slicing (grid and alpha islands) | pending | T3 | cmd:python -m unittest discover -s tests -p "test_sprites.py" | - |
+| T6 | `sprite-render`: Blender renders a GLB in N facings at a camera pitch, per animation, with anchor and sheet | pending | - | cmd:python -m unittest discover -s tests -p "test_sprite_render.py" | - |
+| T7 | comfy-forge images: `steps`/`cfg` pass-through, SwarmUI started for the job when none runs, messages say comfy-forge | pending | - | cmd:python -m unittest discover -s tests -p "test_*.py" | - |
+| T8 | Recipes `texture-tileable`, `texture-pbr`, `texture-generate`, `image-cutout`, `sprite-generate`, `pixel-art`, `sprite-slice`, `sprite-render`; runner handlers, STEP_PROVIDERS, schema | pending | T1-T7 | cmd:python -m unittest discover -s tests -p "test_*.py" | - |
+| T9 | Export: sidecar data (atlas.json, sprites.json, material.json) ships, stale files cleared, name collisions refused | pending | T8 | cmd:python -m unittest discover -s tests -p "test_exporters.py" | - |
+| T10 | Bugs found in the read: image size bounds, atlas frame cap, `name=path` input message (exit 2), probe routes for the new recipes | pending | T8 | cmd:python -m unittest discover -s tests -p "test_*.py" | - |
+| T11 | DDS and TGA output for `image-prep` (ImageMagick writes DDS) | pending | T10 | cmd:python -m unittest discover -s tests -p "test_images.py" | - |
+| T12 | Real runs: texture-generate through SwarmUI, texture-pbr, sprite-render on the showcase sword, sprite-generate | pending | T8 | file:VALIDATION.md | - |
+| T13 | Docs (README, AGENTS, RECIPES, TEXTURES-SPRITES, UPSTREAM-EVALUATIONS, ROADMAP), version 0.9.0, changelog, STATE | pending | T12 | cmd:python -m unittest discover -s tests | - |
+| T15 | Field report: `mesh-gameready` output fails GLB-014 (zero tangents after the collapse); `repair_unit_vectors` | pending | - | cmd:python -m unittest discover -s tests -p "test_glb_repair.py" | - |
+| T16 | `comfy-3d` recipe over comfy-forge 0.11.0 `model3d.py`; optional `generate` flags probed from its `param()` block | pending | T8 | cmd:python -m unittest discover -s tests -p "test_comfy_forge.py" | - |
+| T14 | Push, CI green on the exact SHA, alerts checked, release asset verified, installed, doctor | pending | T13 | cmd:gh run list --commit <sha> | - |
+
+### Decisions
+
+- **spritecast is not a provider.** Its drawing step is the OpenAI Images API and its characters need Tripo or Meshy keys; it is a Claude Code plugin, not a CLI contract. The idea worth having is the 3D guide rendered at the game's exact camera. `sprite-render` does that natively with Blender, and any redraw goes through comfy-forge.
+- **Pillow only, no numpy.** `ImageChops.offset` wraps, so tiling-correct derivatives and seam checks need no array library. Core keeps zero hard dependencies.
+- **Derived PBR maps are labelled as derived.** Height, normal, roughness and AO computed from a colour map are approximations; `TEX-DERIVED` is `NOT_TESTED` until someone looks.
+- **comfy-forge keeps generation.** AssetForge calls `image-stack.ps1 generate`; it may start comfy-forge's SwarmUI for one job (as it already does with ComfyUI for music) and stops it afterwards. Flags comfy-forge does not expose (negative prompt, init image, tiling) are filed as a field report there, not patched from here.
+- **Image to 3D stays in comfy-forge.** Its Pixal3D templates have no CLI; a UI-graph converter here would duplicate its ownership. Field report filed; `mesh-gameready` remains the hand-off.
+- **Sidecar role `data`.** Files an engine needs beside a texture (frame rectangles, anchors, material maps) are artifacts with role `data` and are exported; reports stay evidence.
+
+### Assumptions
+
+- Blender 5.3 renders Workbench with a transparent film in background mode on this machine (checked by T6).
+- SwarmUI accepts `--port` and `--launch_mode none` (checked by T12 before T7 is called complete).
+
+### Risks
+
+- SwarmUI start time and first model load can exceed a short timeout: default 900 s, raised by the caller.
+- glTF animations import as NLA tracks; a file with unusual action layout renders its rest pose and says so (`SPRITE-ANIM` WARNING).
+
+## History
+
+Status values in the tables below are the older scheme: **VERIFIED** (executed with evidence), **IMPLEMENTED / UNVERIFIED** (code exists, real integration not exercised), **PLANNED**, **BLOCKED**.
 
 ## Phase 0 — foundation
 

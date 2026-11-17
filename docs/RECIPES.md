@@ -8,7 +8,9 @@ Inspect, resize/re-encode and thumbnail a raster image.
 
 | Parameter | Type | Default |
 | --- | --- | --- |
-| `format` | `png`, `jpeg`, `webp` | `png` |
+| `format` | `png`, `jpeg`, `webp`, `tga`, `dds` | `png` |
+| `dds_compression` | `auto`, `dxt1`, `dxt5`, `none` | `auto` |
+| `mipmaps` | boolean (DDS) | `true` |
 | `width` | integer | `0` (keep) |
 | `height` | integer | `0` (keep) |
 | `quality` | integer | `90` |
@@ -18,7 +20,7 @@ Inspect, resize/re-encode and thumbnail a raster image.
 assetforge run image-prep --input source.png --set width=512 --set format=webp
 ```
 
-Alpha is preserved for PNG/WebP. JPEG output flattens alpha onto white and records a warning.
+Alpha is preserved for PNG/WebP/TGA. JPEG output flattens alpha onto white and records a warning. DDS needs ImageMagick; `auto` picks DXT5 for a picture with alpha and DXT1 without. Width and height above 16384 px are refused.
 
 ## `texture-pack`
 
@@ -39,7 +41,7 @@ Use `--set resize=true` only when resampling every channel to the occlusion size
 
 ## `sprite-atlas`
 
-Pack every image in a folder (sorted by filename, maximum 64) into a grid. Frames are copied into the asset before the atlas is built, and `atlas.json` records the cell size, padding, columns and frame rectangles plus source hashes in the job record. Alpha is preserved. The operation rejects more than 64 frames, non-positive columns, negative padding, outputs above 8192px per side, more than 33,554,432 pixels, or an estimated memory use above 512 MiB.
+Pack every image in a folder (sorted by filename, maximum 256) into a grid. Frames are copied into the asset before the atlas is built, and `atlas.json` records the cell size, padding, columns and frame rectangles plus source hashes in the job record. Alpha is preserved. The operation rejects more than 256 frames, non-positive columns, negative padding, outputs above 8192px per side, more than 33,554,432 pixels, or an estimated memory use above 512 MiB.
 
 | Parameter | Type | Default |
 | --- | --- | --- |
@@ -230,13 +232,19 @@ Delegate one render to an installed comfy-forge.
 | `height` | integer | `1024` |
 | `seed` | integer | `-1` |
 | `count` | integer | `1` |
+| `steps`, `cfg` | integer, number | `0`, empty (the preset's) |
+| `name` | string | empty (the first words of the prompt name the files) |
+| `negative`, `lora`, `upscale` | string | empty |
+| `transparent`, `seamless` | boolean | `false` |
+| `creativity` | 0-1, with `--input init=<picture>` | empty |
+| `backend` | `auto`, `running`, `start` | `auto` |
 | `timeout` | integer | `900` |
 
 ```bash
 assetforge run comfy-generate --set "prompt=weathered steel texture, top-down"
 ```
 
-Output is written inside the asset. The owner's presets and models are not changed. If the owner's default model is invalid, pass `--set model=<model-name>`.
+Output is written inside the asset. The owner's presets and models are not changed. `backend=auto` uses a running SwarmUI or starts comfy-forge's own without a browser and stops it after the job. `negative`, `lora`, `upscale`, `transparent`, `seamless` and image to image are passed only to a comfy-forge whose `image-stack.ps1` declares them (0.11.0 or later); an older one is refused before anything renders. `image-generation.json` records the prompt, seed and settings.
 
 **Recommended for free local texture work:** comfy-forge owns installation, models and presets; AssetForge delegates the render, then `texture-pack` can combine the generated maps into an ORM texture. AssetForge never installs or redistributes models.
 
@@ -388,6 +396,105 @@ Steps: `comfyforge.music` → `audio.finish` → `asset.record`. Validation adds
 ## `audio-process`
 
 Finish existing audio: one file, every audio file directly in a folder (`.wav .ogg .mp3 .flac .m4a .aac .opus .aif .aiff`), or the takes listed in an `audio-generation.json` / `music-generation.json` report. No model runs. The params are the finishing params, with `loudness` defaulting to `peak`. Steps: `audio.source` → `audio.finish` → `asset.record`.
+
+## Textures and sprites
+
+The full guide, with what each check means, is [TEXTURES-SPRITES.md](TEXTURES-SPRITES.md). Parameters here are the ones you are most likely to change; `assetforge recipes <id>` lists every one.
+
+### `texture-generate`
+
+A prompt becomes a tileable PBR material: comfy-forge render, `texture-tileable`, `texture-pbr`. Takes every `comfy-generate` parameter plus the `texture-tileable` and `texture-pbr` ones. `prompt_suffix` adds the flat top-down wording.
+
+```bash
+assetforge run texture-generate --set "prompt=mossy cobblestone" --set name=cobble --set convention=directx
+```
+
+### `texture-tileable`
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `blend` | number, share of the side | `0.15` |
+
+Folds each edge over the opposite one and scales back to the source size; a picture that already tiles is copied unchanged. Writes a 2x2 tiled preview. `TEX-SEAM`: `PASS` up to a ratio of 1.3, `WARNING` up to 2.0.
+
+### `texture-pbr`
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `tileable` | `auto`, `true`, `false` | `auto` (wrap when the picture tiles) |
+| `convention` | `opengl`, `directx` | `opengl` |
+| `strength` | number | `2.0` |
+| `roughness`, `roughness_variation` | 0-1 | `0.7`, `0.3` |
+| `metallic` | 0-1 | `0` |
+| `ao_strength` | 0-4 | `1.0` |
+| `height_invert` | boolean | `false` |
+| `height_blur` | 0-16 px | `1.0` |
+
+Writes `<name>-basecolor/-normal/-height/-roughness/-occlusion/-metallic/-orm.png` and `<name>-material.json`.
+
+### `sprite-generate`
+
+A prompt becomes a cut-out sprite: comfy-forge render on a plain background, then `image-cutout`. Takes every `comfy-generate` and `image-cutout` parameter.
+
+### `image-cutout`
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `key` | `auto` or `#rrggbb` | `auto` (read off the border) |
+| `tolerance` | 0-200 | `24` |
+| `feather` | 0-8 px | `1` |
+| `mode` | `flood` (from the border), `key` (everywhere) | `flood` |
+| `trim`, `padding` | boolean, px | `true`, `2` |
+
+Writes `<name>-cutout.png` and `<name>-cutout.json` (size, anchor, offset in the source, background colour).
+
+### `pixel-art`
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `size` | longer side, 4-1024 px | `64` |
+| `palette` | `pico8`, `db16`, `sweetie16`, `cga`, `gameboy`, `1bit`, or `--input palette=<file>` | empty (pick `colors`) |
+| `colors` | 2-256 | `16` |
+| `dither` | boolean (fixed palette only) | `false` |
+| `preview_scale` | 1-32 | `8` |
+
+### `sprite-slice`
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `mode` | `grid`, `auto` | `grid` |
+| `columns`, `rows` or `cell_width`, `cell_height` | integer | `0` |
+| `min_area` | px, `auto` only | `16` |
+| `keep_empty` | boolean, `grid` only | `false` |
+
+Writes `outputs/frames/<name>_000.png` ... and `frames.json`.
+
+### `sprite-render`
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `directions` | 1, 4, 8, 16 | `8` |
+| `pitch` | degrees above the ground | `30` |
+| `yaw` | degrees added to every facing | `0` |
+| `size` | frame px, 16-2048 | `128` |
+| `frames` | per animation, 1-64 | `8` |
+| `animations` | `all`, `none`, or names | `all` |
+| `engine` | `workbench`, `flat`, `eevee` | `workbench` |
+| `antialias`, `outline` | boolean | `true`, `false` |
+| `pivot` | `auto`, `origin`, `bounds` | `auto` |
+
+Needs Blender. Writes the frames (evidence), `<name>-sheet.png` and `<name>-sheet.json` (the deliverables).
+
+### `comfy-3d`
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `variant` | `pixal3d`, `pixal3d-multi`, `trellis2` | `pixal3d` |
+| `budget`, `tris`, `texture` | as `mesh-gameready` | `game` |
+| `seed` | integer | `-1` (picked and recorded) |
+| `backend`, `url` | as `audio-music` | `auto` |
+
+Needs comfy-forge 0.11.0 or later with its 3D weights, and Blender.
 
 ## Custom recipes
 

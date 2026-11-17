@@ -2,14 +2,59 @@
   "schema": 1,
   "id": "image-prep",
   "title": "Prepare an image",
-  "description": "Inspect a raster image, resize or re-encode it, and write a thumbnail.",
-  "input": {"name": "image", "kind": "image", "required": true},
-  "params": {
-    "format": {"type": "string", "default": "png", "choices": ["png", "jpeg", "webp"]},
-    "width": {"type": "integer", "default": 0},
-    "height": {"type": "integer", "default": 0},
-    "quality": {"type": "integer", "default": 90},
-    "thumbnail": {"type": "integer", "default": 256}
+  "description": "Inspect a raster image, resize or re-encode it, and write a thumbnail. format=dds goes through ImageMagick with a mipmap chain (dds_compression auto picks dxt5 for a picture with alpha, dxt1 without); tga is written with RLE.",
+  "input": {
+    "name": "image",
+    "kind": "image",
+    "required": true
   },
-  "steps": ["image.inspect", "image.convert", "image.thumbnail", "asset.record"]
+  "params": {
+    "format": {
+      "type": "string",
+      "default": "png",
+      "choices": [
+        "png",
+        "jpeg",
+        "webp",
+        "tga",
+        "dds"
+      ]
+    },
+    "width": {
+      "type": "integer",
+      "default": 0
+    },
+    "height": {
+      "type": "integer",
+      "default": 0
+    },
+    "quality": {
+      "type": "integer",
+      "default": 90
+    },
+    "dds_compression": {
+      "type": "string",
+      "default": "auto",
+      "choices": [
+        "auto",
+        "dxt1",
+        "dxt5",
+        "none"
+      ]
+    },
+    "mipmaps": {
+      "type": "boolean",
+      "default": true
+    },
+    "thumbnail": {
+      "type": "integer",
+      "default": 256
+    }
+  },
+  "steps": [
+    "image.inspect",
+    "image.convert",
+    "image.thumbnail",
+    "asset.record"
+  ]
 }

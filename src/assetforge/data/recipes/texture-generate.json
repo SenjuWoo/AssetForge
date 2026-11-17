@@ -1,0 +1,158 @@
+{
+  "schema": 1,
+  "id": "texture-generate",
+  "title": "Make a tileable PBR texture set from a prompt",
+  "description": "Renders a surface through comfy-forge, makes it repeat without a seam (a render that already tiles is kept as it is; seamless=true asks SwarmUI to render it tiling, which not every model supports), measures the seam, and writes the material: base colour, normal, height, roughness, occlusion, metallic, packed ORM and material.json. Describe the surface only (worn oak planks, mossy cobblestone); prompt_suffix adds the flat top-down wording. The maps are estimated from the colour picture, so look at them before shipping. name names the files (the first words of the prompt when empty). negative, lora, transparent, upscale, seamless and image to image (--input init=<picture> with creativity 0-1) need a comfy-forge that has them (0.11.0 or later); an older one fails with that message before anything renders.",
+  "input": {},
+  "inputs": {
+    "init": {
+      "kind": "image",
+      "required": false
+    }
+  },
+  "params": {
+    "prompt": {
+      "type": "string",
+      "default": "",
+      "required": true
+    },
+    "name": {
+      "type": "string",
+      "default": ""
+    },
+    "preset": {
+      "type": "string",
+      "default": "Anima - Author Daily (Euler + SGM)"
+    },
+    "model": {
+      "type": "string",
+      "default": ""
+    },
+    "width": {
+      "type": "integer",
+      "default": 1024
+    },
+    "height": {
+      "type": "integer",
+      "default": 1024
+    },
+    "seed": {
+      "type": "integer",
+      "default": -1
+    },
+    "count": {
+      "type": "integer",
+      "default": 1
+    },
+    "steps": {
+      "type": "integer",
+      "default": 0
+    },
+    "cfg": {
+      "type": "string",
+      "default": ""
+    },
+    "negative": {
+      "type": "string",
+      "default": ""
+    },
+    "creativity": {
+      "type": "string",
+      "default": ""
+    },
+    "lora": {
+      "type": "string",
+      "default": ""
+    },
+    "transparent": {
+      "type": "boolean",
+      "default": false
+    },
+    "upscale": {
+      "type": "string",
+      "default": ""
+    },
+    "seamless": {
+      "type": "boolean",
+      "default": false
+    },
+    "backend": {
+      "type": "string",
+      "default": "auto",
+      "choices": [
+        "auto",
+        "running",
+        "start"
+      ]
+    },
+    "timeout": {
+      "type": "integer",
+      "default": 900
+    },
+    "prompt_suffix": {
+      "type": "string",
+      "default": "seamless tileable texture, flat top-down view, even diffuse lighting, no shadows, no perspective, no objects, no text"
+    },
+    "blend": {
+      "type": "string",
+      "default": "0.15"
+    },
+    "tileable": {
+      "type": "string",
+      "default": "true",
+      "choices": [
+        "auto",
+        "true",
+        "false"
+      ]
+    },
+    "strength": {
+      "type": "string",
+      "default": "2.0"
+    },
+    "convention": {
+      "type": "string",
+      "default": "opengl",
+      "choices": [
+        "opengl",
+        "directx"
+      ]
+    },
+    "roughness": {
+      "type": "string",
+      "default": "0.7"
+    },
+    "roughness_variation": {
+      "type": "string",
+      "default": "0.3"
+    },
+    "metallic": {
+      "type": "string",
+      "default": "0"
+    },
+    "ao_strength": {
+      "type": "string",
+      "default": "1.0"
+    },
+    "height_invert": {
+      "type": "boolean",
+      "default": false
+    },
+    "height_blur": {
+      "type": "string",
+      "default": "1.0"
+    },
+    "thumbnail": {
+      "type": "integer",
+      "default": 256
+    }
+  },
+  "steps": [
+    "comfykit.detect",
+    "comfykit.generate",
+    "image.tileable",
+    "image.pbr",
+    "image.thumbnail",
+    "asset.record"
+  ]
+}

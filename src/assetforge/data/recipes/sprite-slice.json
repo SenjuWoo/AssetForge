@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "id": "sprite-slice",
+  "title": "Cut a sprite sheet into frames",
+  "description": "mode=grid cuts equal cells from columns and rows, or from cell_width and cell_height, skipping empty cells unless keep_empty. mode=auto finds each separate island of pixels on a transparent sheet (run image-cutout first on a sheet with a flat background). Frames are numbered in reading order and frames.json records their rectangles.",
+  "input": {
+    "name": "image",
+    "kind": "image",
+    "required": true
+  },
+  "params": {
+    "mode": {
+      "type": "string",
+      "default": "grid",
+      "choices": [
+        "grid",
+        "auto"
+      ]
+    },
+    "columns": {
+      "type": "integer",
+      "default": 0
+    },
+    "rows": {
+      "type": "integer",
+      "default": 0
+    },
+    "cell_width": {
+      "type": "integer",
+      "default": 0
+    },
+    "cell_height": {
+      "type": "integer",
+      "default": 0
+    },
+    "min_area": {
+      "type": "integer",
+      "default": 16
+    },
+    "keep_empty": {
+      "type": "boolean",
+      "default": false
+    },
+    "thumbnail": {
+      "type": "integer",
+      "default": 256
+    }
+  },
+  "steps": [
+    "image.inspect",
+    "image.slice",
+    "image.thumbnail",
+    "asset.record"
+  ]
+}

@@ -11,7 +11,7 @@ import os
 import re
 from pathlib import Path
 
-from . import audio, exporters, images, providers
+from . import audio, exporters, images, providers, sprites, texture
 from .adapters import CONVERTIBLE
 from .glb import GlbError, inspect_glb, validate_glb
 from .util import human_bytes
@@ -114,6 +114,9 @@ def _probe_glb(path: Path) -> dict:
                                f"assetforge run glb-optimize --input {_quote(path)}"))
     recommend.append(_step("glb-inspect", "record the file as an asset with a validation report",
                            f"assetforge run glb-inspect --input {_quote(path)}"))
+    moving = f", {stats['animations']} animation(s) included" if stats["animations"] else ""
+    recommend.append(_step("sprite-render", f"for a 2D game: render it as sprites in 8 facings at the game's camera angle{moving}",
+                           f"assetforge run sprite-render --input {_quote(path)}"))
     return {"facts": facts, "findings": findings, "recommend": recommend}
 
 
@@ -143,13 +146,54 @@ def _probe_image(path: Path) -> dict:
     if not power_of_two:
         findings.append({"status": "WARNING", "detail": f"{info['width']}x{info['height']} is not a power of two; some engines resample or refuse mipmaps"})
     channel = _channel(path.stem)
-    recommend = [_step("image-prep", "resize, re-encode and write a thumbnail",
+    recommend = [_step("image-prep", "resize, re-encode (png, jpeg, webp, tga, dds) and write a thumbnail",
                        f"assetforge run image-prep --input {_quote(path)}")]
     if channel:
         facts["looks_like"] = channel
         recommend.append(_step("texture-pack", f"the name reads as a {channel} map; pack it with the other two into one ORM texture",
                                "assetforge run texture-pack --input occlusion=<ao> --input roughness=<rough> --input metallic=<metal>"))
+        return {"facts": facts, "findings": findings, "recommend": recommend}
+    try:
+        recommend += _image_routes(path, info, facts)
+    except images.ImageError:
+        pass
     return {"facts": facts, "findings": findings, "recommend": recommend}
+
+
+def _image_routes(path: Path, info: dict, facts: dict) -> list[dict]:
+    """What the picture looks like it is for: a sprite on a plain background,
+    a sprite that is already cut out, or a surface texture."""
+    if info["width"] < 8 or info["height"] < 8 or max(info["width"], info["height"]) > texture.MAX_SIDE:
+        return []
+    image = images.open_image(path)
+    quoted = _quote(path)
+    routes = []
+    if sprites._already_cut(image.convert("RGBA")):
+        facts["looks_like"] = "sprite (transparent background)"
+        routes.append(_step("pixel-art", "a cut-out sprite: scale it down onto a palette for a pixel-art game",
+                            f"assetforge run pixel-art --input {quoted} --set size=64 --set palette=pico8"))
+        routes.append(_step("sprite-slice", "if it is a sheet of several sprites, cut it into frames",
+                            f"assetforge run sprite-slice --input {quoted} --set mode=auto"))
+        return routes
+    _, share = sprites._border_color(image)
+    facts["flat_border"] = round(share, 3)
+    if share >= 0.9:
+        facts["looks_like"] = "subject on a plain background"
+        routes.append(_step("image-cutout", f"{share:.0%} of the border is one colour: make that background transparent and trim to the subject",
+                            f"assetforge run image-cutout --input {quoted}"))
+        routes.append(_step("comfy-3d", "one object on a plain background: build a game-ready 3D model from it (comfy-forge 0.11.0 or later, GPU)",
+                            f"assetforge run comfy-3d --input {quoted}"))
+        return routes
+    seam = texture.seam_report(image)
+    facts["looks_like"] = "surface texture"
+    facts["tiles"] = seam["status"]
+    facts["seam_ratio"] = seam["worst_ratio"]
+    if seam["status"] != "PASS":
+        routes.append(_step("texture-tileable", f"it does not repeat cleanly (seam ratio {seam['worst_ratio']}); make it seamless first",
+                            f"assetforge run texture-tileable --input {quoted}"))
+    routes.append(_step("texture-pbr", "make the material maps (normal, height, roughness, occlusion, ORM) from this colour map",
+                        f"assetforge run texture-pbr --input {quoted}"))
+    return routes
 
 
 def _probe_audio(path: Path) -> dict:
@@ -230,7 +274,7 @@ def _probe_directory(path: Path) -> dict:
     if top_audio:
         recommend.append(_step("audio-process", f"{len(top_audio)} audio file(s) sit directly in this folder; finish them all",
                                f"assetforge run audio-process --input {_quote(path)}"))
-    if 2 <= len(top_images) <= 64 and not channels:
+    if 2 <= len(top_images) <= images.ATLAS_MAX_FRAMES and not channels:
         recommend.append(_step("sprite-atlas", f"{len(top_images)} images sit directly in this folder",
                                f"assetforge run sprite-atlas --input {_quote(path)}"))
     return {"facts": facts, "findings": findings, "recommend": recommend}

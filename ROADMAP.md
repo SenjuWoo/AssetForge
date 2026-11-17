@@ -27,6 +27,7 @@ AssetForge is built around one priority: a genuine reference-image → 3D → en
 ## Priority 3 — texture and material depth
 
 - **comfy-kit is the recommended free local texture generator.** It owns SwarmUI/ComfyUI, models and presets; AssetForge delegates generation and imports only the result.
+- **Done (0.9.0):** `texture-generate`, `texture-tileable`, `texture-pbr`, DDS output; `sprite-generate`, `image-cutout`, `pixel-art`, `sprite-slice`, `sprite-render`; `comfy-3d`.
 - Add Material Maker interchange for procedural PBR graphs where a stable contract exists.
 - Add texture compression and channel validation only when an official backend is verified.
 
@@ -49,6 +50,6 @@ AssetForge is built around one priority: a genuine reference-image → 3D → en
 
 - img2threejs image-to-spec reconstruction and visual approval.
 - Graphite automation and Roblox/Unity engine imports.
-- AI 3D generation, rigging, MCP and batch/remote GPU support.
+- Rigging, MCP and batch/remote GPU support. (Image to 3D runs through comfy-forge since 0.9.0.)
 
 Those items stay marked as planned or unverified until executed with recorded evidence.

@@ -2,11 +2,24 @@
   "schema": 1,
   "id": "sprite-atlas",
   "title": "Pack a folder of images into a sprite atlas",
-  "description": "Packs up to 64 images into a deterministic grid, copies the frames into the asset, writes atlas.json with frame rectangles, and preserves alpha.",
-  "input": {"name": "source", "kind": "directory", "required": true},
-  "params": {
-    "columns": {"type": "integer", "default": 4},
-    "padding": {"type": "integer", "default": 2}
+  "description": "Packs up to 256 images into a deterministic grid, copies the frames into the asset, writes atlas.json with frame rectangles, and preserves alpha. The atlas may be at most 8192 px a side.",
+  "input": {
+    "name": "source",
+    "kind": "directory",
+    "required": true
   },
-  "steps": ["image.atlas", "asset.record"]
+  "params": {
+    "columns": {
+      "type": "integer",
+      "default": 4
+    },
+    "padding": {
+      "type": "integer",
+      "default": 2
+    }
+  },
+  "steps": [
+    "image.atlas",
+    "asset.record"
+  ]
 }

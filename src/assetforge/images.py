@@ -11,7 +11,10 @@ from pathlib import Path
 
 from .util import sha256_file, write_json
 
-FORMATS = {"png": "PNG", "jpg": "JPEG", "jpeg": "JPEG", "webp": "WEBP"}
+FORMATS = {"png": "PNG", "jpg": "JPEG", "jpeg": "JPEG", "webp": "WEBP", "tga": "TGA"}
+# Largest side `convert_image` writes: a typo such as width=100000 must not
+# allocate gigabytes.
+MAX_OUTPUT_SIDE = 16384
 
 
 class ImageError(RuntimeError):
@@ -42,6 +45,30 @@ def open_image(path: Path):
         return image
     except Exception as exc:  # Pillow raises several unrelated exception types
         raise ImageError(f"cannot read image {path}: {exc}") from exc
+
+
+def flat_pixels(image) -> list:
+    """Every pixel as one flat list. Pillow 12 renamed the call; both work."""
+    reader = getattr(image, "get_flattened_data", None) or image.getdata
+    return list(reader())
+
+
+def save_image(image, target: Path, fmt: str = "PNG", **options) -> Path:
+    """Write through a sibling temp file and replace the target only after a
+    successful save, so a failed write never leaves half a file."""
+    target = Path(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temp = target.with_name(target.name + ".part")
+    if fmt == "PNG":
+        options.setdefault("optimize", True)
+    try:
+        image.save(temp, format=fmt, **options)
+        temp.replace(target)
+    except Exception as exc:
+        if temp.exists():
+            temp.unlink()
+        raise ImageError(f"cannot write {target}: {exc}") from exc
+    return target
 
 
 def inspect_image(path: Path) -> dict:
@@ -78,12 +105,20 @@ def convert_image(
     fmt = (fmt or target.suffix.lstrip(".") or "png").lower()
     if fmt not in FORMATS:
         raise ImageError(f"unsupported output format {fmt!r}")
+    width, height, quality = int(width or 0), int(height or 0), int(quality)
+    if width < 0 or height < 0:
+        raise ImageError("width and height must be 0 (keep) or more")
+    if not 1 <= quality <= 100:
+        raise ImageError("quality must be between 1 and 100")
     image = open_image(source)
     warnings = []
     if width or height:
         from PIL import Image
 
-        new_size = (int(width) if width else round(image.width * (int(height) / image.height)), int(height) if height else round(image.height * (int(width) / image.width)))
+        new_size = (width if width else max(1, round(image.width * (height / image.height))),
+                    height if height else max(1, round(image.height * (width / image.width))))
+        if max(new_size) > MAX_OUTPUT_SIDE:
+            raise ImageError(f"{new_size[0]}x{new_size[1]} is above the {MAX_OUTPUT_SIDE}px side limit")
         image = image.resize(new_size, Image.Resampling.LANCZOS)
     if FORMATS[fmt] == "JPEG":
         if image.mode in ("RGBA", "LA", "P"):
@@ -103,6 +138,10 @@ def convert_image(
         save_kwargs["quality"] = int(quality)
     if FORMATS[fmt] == "PNG":
         save_kwargs["optimize"] = True
+    if FORMATS[fmt] == "TGA":
+        if image.mode not in ("RGB", "RGBA", "L"):
+            image = image.convert("RGBA" if image.mode in ("LA", "PA", "P") and (image.mode != "P" or "transparency" in image.info) else "RGB")
+        save_kwargs["compression"] = "tga_rle"
     try:
         image.save(temp, format=FORMATS[fmt], **save_kwargs)
         temp.replace(target)
@@ -178,7 +217,7 @@ def pack_orm(occlusion: Path, roughness: Path, metallic: Path, target: Path, res
     return result
 
 
-ATLAS_MAX_FRAMES = 64
+ATLAS_MAX_FRAMES = 256
 ATLAS_MAX_SIDE = 8192
 ATLAS_MAX_PIXELS = 33_554_432
 ATLAS_MEMORY_BUDGET = 512 * 1024 * 1024
@@ -255,6 +294,44 @@ def make_atlas(sources: list[Path], target: Path, metadata: Path, columns: int =
     result["frame_count"] = len(frames)
     result["metadata"] = metadata.name
     return result
+
+
+def make_sheet(rows: list[list[Path | None]], target: Path, padding: int = 0) -> dict:
+    """Lay frames out as given: one list per row, None for an empty cell.
+    Every cell has the size of the largest frame. Returns the sheet size and
+    each frame's rectangle in row order."""
+    from PIL import Image
+
+    if not isinstance(padding, int) or padding < 0:
+        raise ImageError("sheet padding must be zero or greater")
+    paths = [path for row in rows for path in row if path is not None]
+    if not paths:
+        raise ImageError("a sheet needs at least one frame")
+    opened = {path: open_image(path).convert("RGBA") for path in paths}
+    cell_w = max(image.width for image in opened.values())
+    cell_h = max(image.height for image in opened.values())
+    columns = max(len(row) for row in rows)
+    width = padding + columns * (cell_w + padding)
+    height = padding + len(rows) * (cell_h + padding)
+    if width > ATLAS_MAX_SIDE or height > ATLAS_MAX_SIDE or width * height > ATLAS_MAX_PIXELS:
+        raise ImageError(
+            f"the sheet would be {width}x{height}, above the {ATLAS_MAX_SIDE}px side or {ATLAS_MAX_PIXELS} pixel limit; "
+            "use a smaller frame size, fewer frames or fewer facings"
+        )
+    canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    frames = []
+    for row_index, row in enumerate(rows):
+        for column, path in enumerate(row):
+            if path is None:
+                continue
+            x = padding + column * (cell_w + padding)
+            y = padding + row_index * (cell_h + padding)
+            canvas.alpha_composite(opened[path], (x, y))
+            frames.append({"name": Path(path).name, "x": x, "y": y, "w": opened[path].width, "h": opened[path].height,
+                           "row": row_index, "column": column})
+    save_image(canvas, Path(target))
+    return {"width": width, "height": height, "cell": [cell_w, cell_h], "columns": columns, "rows": len(rows),
+            "padding": padding, "frames": frames}
 
 
 def compare_images(first: Path, second: Path) -> dict:

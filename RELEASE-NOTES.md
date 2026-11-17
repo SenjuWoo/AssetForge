@@ -1,23 +1,28 @@
-# AssetForge 0.8.2 — Sound batches survive a bad take
+# AssetForge 0.9.0 — Textures, sprites and image to 3D
 
-A fix release for generated audio. Nothing was removed and no format changed.
-
-## Fixed
-
-- **One bad take no longer fails the batch.** In `audio-voice`, `audio-sfx` and `audio-music`, a chosen take that cannot be finished (silent after trimming, or refused by FFmpeg) is replaced by the next-best take of the same item, reported as `AUDIO-TAKE` `WARNING` with that take's own score. An item with no usable take is marked `AUDIO-FINISH` `FAIL` and every other item is still finished. Before, one such take failed the whole asset after the generation had already run.
-- **Silent takes are not picked.** A take whose loudest sample is under -40 dBFS never wins while another take has sound, even when it matched a prompt like "a quiet sigh" better.
-- **Long batches are not cut off at one hour.** Left at its default, the worker timeout grows with the number of takes; a timeout you set is kept.
-- **No silently dropped prompts.** JSON prompt lists accept `"prompt"` as well as `"text"`; an entry with neither is an error instead of being skipped.
-- **Clearer FFmpeg errors.** A failure that prints nothing names the exit code; a take trimmed to nothing is reported as silent.
+Everything a game needs that a text-and-code agent cannot draw, one command each. Nothing was removed and no existing format changed.
 
 ## New
 
-- **Finish again without generating:** `assetforge run audio-process --input source=<asset>/outputs/audio-generation.json` (or `music-generation.json`) finishes the existing takes with new settings, keeping their CLAP or transcript evidence.
+- **Materials from words.** `texture-generate` renders a surface through comfy-forge, makes it repeat without a seam, measures the seam and writes a full PBR set: base colour, normal (OpenGL or DirectX), height, roughness, occlusion, metallic, packed ORM and `material.json`.
+- **Sprites from words.** `sprite-generate` renders a subject on a plain background and cuts it out with real transparency, a clean edge and a recorded anchor. `pixel-art` turns any picture into pixel art on a palette.
+- **Sprites from a 3D model.** `sprite-render` renders a GLB at your game's camera angle in 1 to 16 facings, every animation, all at one scale, and writes a sheet plus a JSON with each frame's rectangle and anchor.
+- **A 3D model from a picture.** `comfy-3d` sends one picture to comfy-forge's image-to-3D and collapses the result to a validated, game-ready GLB.
+- **Work on pictures you have.** `texture-tileable`, `texture-pbr`, `image-cutout` and `sprite-slice` run with no model. `image-prep` writes DDS (with mipmaps) and TGA.
+- **No manual server start.** The image recipes start comfy-forge's SwarmUI for the job when it is not running and stop it afterwards. Seeds are picked and recorded; newer comfy-forge options (negative prompt, image to image, LoRA, transparency) are passed when installed.
+
+## Fixed
+
+- `mesh-gameready` output passes the official glTF validator when the collapse leaves a triangle with no UV area (Blender wrote a zero tangent there).
+- Exports now include the records that belong beside a picture; an atlas used to ship without `atlas.json`.
+- A second export no longer leaves stale files behind; two pictures with the same name are refused instead of one overwriting the other.
+- Out-of-range image sizes and quality are clear errors.
+- Every command starts about 0.7 s faster.
 
 ## Verified
 
-Windows 11, Python 3.14, FFmpeg 9.0.2 and the audio runtimes: the full suite passed with every provider present, including new tests that failed before the fixes (a silent best take, an item with no usable take, take ranking, resume from the generation report, prompt-list parsing).
+Windows 11, Python 3.14, Blender 5.3, Godot 4.7.2, ImageMagick 7.1.2, comfy-forge with SwarmUI 0.9.8.4 on an RTX 4080 SUPER: the full suite passed with every provider present; a real prompt-to-material run, sprite renders of a generated axe and the showcase sword, and the game-ready fix on a real Pixal3D mesh (official validator 0 errors, Godot import and load).
 
 ## Not verified
 
-No person listened to the generated audio. No engine other than Godot was launched, and rendering in Godot is not tested.
+Nobody looked at generated pictures or derived maps as art (`GEN-VISUAL`, `TEX-DERIVED` stay `NOT_TESTED`). `comfy-3d` was tested against a stand-in for comfy-forge's 3D tool; starting SwarmUI for a job is covered by tests, not a live run. No engine other than Godot was launched.

@@ -45,6 +45,7 @@ def _fail(message: str, code: int) -> int:
 
 def _parse_inputs(values: list[str], recipe: dict) -> dict[str, Path]:
     spec_name = (recipe.get("input") or {}).get("name") or "input"
+    declared = {spec_name, *(recipe.get("inputs") or {})}
     inputs: dict[str, Path] = {}
     for raw in values:
         name = None
@@ -52,6 +53,9 @@ def _parse_inputs(values: list[str], recipe: dict) -> dict[str, Path]:
         match = re.match(r"^([A-Za-z_][A-Za-z0-9_-]*)=(.+)$", raw)
         if match and Path(match.group(2)).expanduser().exists():
             name, value = match.group(1), match.group(2)
+        elif match and match.group(1) in declared and not Path(raw).expanduser().exists():
+            # A path may contain '=', so only a declared input name counts here.
+            raise recipe_lib.RecipeError(f"input {match.group(1)!r}: no such file or folder: {match.group(2)}")
         path = Path(value).expanduser().resolve()
         if name is None:
             name = spec_name if len(values) == 1 else path.stem
@@ -120,6 +124,16 @@ def capabilities_payload(project=None) -> dict:
     now = {item["id"]: item for item in providers.detect(project)}
     capabilities = [
         {"id": "image-processing", "status": "IMPLEMENTED", "provider": "pillow", "available": now["pillow"]["available"]},
+        {"id": "texture-tileable", "status": "IMPLEMENTED", "provider": "pillow", "available": now["pillow"]["available"], "note": "seamless repeat with a measured seam; no AI model"},
+        {"id": "texture-pbr", "status": "IMPLEMENTED", "provider": "pillow", "available": now["pillow"]["available"], "note": "normal, height, roughness, occlusion, metallic and ORM estimated from a colour map"},
+        {"id": "texture-generate", "status": "IMPLEMENTED", "provider": "comfy-forge", "available": now["comfy-forge"]["available"] and now["pillow"]["available"], "note": "prompt to a tileable PBR set through comfy-forge's SwarmUI (running, or started for the job); nobody looks at it"},
+        {"id": "image-cutout", "status": "IMPLEMENTED", "provider": "pillow", "available": now["pillow"]["available"], "note": "flat background to transparency, trimmed, with an anchor; no AI model"},
+        {"id": "sprite-generate", "status": "IMPLEMENTED", "provider": "comfy-forge", "available": now["comfy-forge"]["available"] and now["pillow"]["available"], "note": "prompt to a cut-out sprite through comfy-forge"},
+        {"id": "pixel-art", "status": "IMPLEMENTED", "provider": "pillow", "available": now["pillow"]["available"], "note": "downscale onto a fixed palette or picked colours"},
+        {"id": "sprite-slice", "status": "IMPLEMENTED", "provider": "pillow", "available": now["pillow"]["available"]},
+        {"id": "sprite-atlas", "status": "IMPLEMENTED", "provider": "pillow", "available": now["pillow"]["available"]},
+        {"id": "sprite-render", "status": "IMPLEMENTED", "provider": "blender", "available": now["blender"]["available"] and now["pillow"]["available"], "note": "a GLB rendered as sprite frames in 1-16 facings at a fixed camera pitch, per animation, with anchors"},
+        {"id": "image-dds", "status": "IMPLEMENTED", "provider": "imagemagick", "available": now["imagemagick"]["available"], "note": "image-prep format=dds: DXT1/DXT5 with mipmaps"},
         {"id": "glb-inspect", "status": "IMPLEMENTED", "provider": "core", "available": True},
         {"id": "glb-validate-structural", "status": "IMPLEMENTED", "provider": "core", "available": True},
         {"id": "glb-validate-official", "status": "IMPLEMENTED", "provider": "gltf-validator", "available": now["gltf-validator"]["available"]},
@@ -132,7 +146,7 @@ def capabilities_payload(project=None) -> dict:
         {"id": "blender-export", "status": "IMPLEMENTED", "provider": "blender", "available": now["blender"]["available"]},
         {"id": "blender-skills", "status": "IMPLEMENTED", "provider": "blender-skills", "available": now["blender-skills"]["available"]},
         {"id": "blender-asset-qa", "status": "IMPLEMENTED", "provider": "blender-skills", "available": now["blender-skills"]["available"]},
-        {"id": "comfy-forge-images", "status": "IMPLEMENTED", "provider": "comfy-forge", "available": now["comfy-forge"]["available"], "note": "was comfy-kit-generation"},
+        {"id": "comfy-forge-images", "status": "IMPLEMENTED", "provider": "comfy-forge", "available": now["comfy-forge"]["available"], "note": "comfy-generate; SwarmUI is used when running, else started for the job and stopped; newer comfy-forge options (negative, image to image, transparent, lora) are passed when it has them"},
         {"id": "img2threejs-probe", "status": "IMPLEMENTED", "provider": "img2threejs", "available": now["img2threejs"]["available"]},
         {"id": "img2threejs-codegen", "status": "IMPLEMENTED", "provider": "img2threejs", "available": now["img2threejs"]["available"]},
         {"id": "img2threejs-reconstruction", "status": "PLANNED", "provider": "img2threejs", "available": False},
@@ -147,10 +161,9 @@ def capabilities_payload(project=None) -> dict:
         {"id": "audio-sfx", "status": "IMPLEMENTED", "provider": "audio-sfx", "available": now["audio-sfx"]["available"] and now["ffmpeg"]["available"], "note": "MOSS-SoundEffect v2; CLAP scores prompt match; nobody listens"},
         {"id": "audio-process", "status": "IMPLEMENTED", "provider": "ffmpeg", "available": now["ffmpeg"]["available"], "note": "trim, level, convert and measure existing audio"},
         {"id": "audio-music", "status": "IMPLEMENTED", "provider": "comfy-forge", "available": bool(now["comfy-forge"].get("details", {}).get("music")) and now["ffmpeg"]["available"], "note": "ACE-Step 1.5 through comfy-forge's ComfyUI (running, or started for the job); CLAP scores the takes when audio-sfx is installed; nobody listens"},
-        {"id": "imagemagick", "status": "DETECTED_ONLY", "provider": "imagemagick", "available": now["imagemagick"]["available"], "note": "no recipe calls it yet"},
         {"id": "export-generic", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED"},
         {"id": "export-minecraft-sounds", "status": "IMPLEMENTED", "engine_import": "NOT_TESTED", "note": "Ogg sounds plus sounds.json for a resource pack or mod; sounds only"},
-        {"id": "ai-3d-providers", "status": "PLANNED"},
+        {"id": "comfy-3d", "status": "IMPLEMENTED", "provider": "comfy-forge", "available": bool(now["comfy-forge"].get("details", {}).get("model3d")) and now["blender"]["available"], "note": "one picture to a game-ready GLB: comfy-forge's image-to-3D (0.11.0 or later, its ComfyUI running or started for the job), then mesh-gameready; nobody looks at the model"},
         {"id": "rig-deformation-preview", "status": "PLANNED"},
         {"id": "graphite-integration", "status": "PLANNED"},
         {"id": "mcp-server", "status": "PLANNED"},
@@ -346,7 +359,10 @@ def cmd_run(args) -> int:
         job, asset, _ = execute(project, recipe, inputs, params, args.asset, dry_run=False)
     except ProviderMissing as exc:
         return _fail(str(exc), EXIT_PROVIDER)
-    except (RunFailed, StoreError, recipe_lib.RecipeError, images.ImageError, AdapterError, GlbError, OSError) as exc:
+    except recipe_lib.RecipeError as exc:
+        # A missing or wrong input is a usage error (exit 2), as documented.
+        return _fail(str(exc), EXIT_USAGE)
+    except (RunFailed, StoreError, images.ImageError, AdapterError, GlbError, OSError) as exc:
         return _fail(str(exc), EXIT_RUN)
     if args.json:
         print(json.dumps({"job": job.data, "asset": asset.manifest}, indent=2))

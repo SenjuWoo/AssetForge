@@ -52,6 +52,14 @@ Checked against upstream repository metadata on **2026-11-08**; integrated provi
 | soundbox (desktop app with an MCP server) | MIT app, mixed model licences | Not adopted: unsigned Windows installer, unauthenticated local API, young project. |
 | ACE-Step 1.5 | MIT | **Integrated (0.8.0)** through comfy-forge, which owns the model and its ComfyUI; AssetForge adds take ranking, loops, finishing and export. |
 
+## 2026-11-17: 2D sprites and textures
+
+| Candidate | Licence | Decision |
+| --- | --- | --- |
+| [spritecast](https://github.com/Sunghwan0112/spritecast) 0.17.0 | MIT | **Not integrated as a provider.** A Claude Code plugin (a skill and Python scripts, not a CLI contract). Its drawing step calls the paid OpenAI Images API (about $0.07 a prop, $2.2 a walking character) and its characters need Tripo or Meshy keys for the model and rig. The idea worth keeping is a 3D guide rendered at the game's exact camera, which the image model then redraws. AssetForge 0.9.0 does the render natively and for free (`sprite-render`, Blender, every facing and animation at one scale, with anchors); a redraw goes through comfy-forge's image to image. Its palettes are the published lospec lists; the ones AssetForge ships are typed from those lists, not copied files. |
+| numpy / scipy for texture maps | BSD | Not added. Pillow's wrapping `ImageChops.offset` and `ImageMath` give seam measurement, Sobel normals and blurs without a new core dependency. |
+| A matting model (BiRefNet, rembg) for cut-outs | MIT / various | Not added to AssetForge. comfy-forge owns models; its `generate -Transparent` is passed through. `image-cutout` stays a deterministic colour key. |
+
 ## Licensing notes
 
 - **Model weights are separate from source licenses.** TripoSR, TRELLIS and Hunyuan weights must be reviewed and acknowledged independently.

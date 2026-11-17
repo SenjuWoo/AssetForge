@@ -8,6 +8,7 @@ separate optional provider because this module checks structure, not conformance
 from __future__ import annotations
 
 import json
+import math
 import struct
 from pathlib import Path
 from urllib.parse import unquote
@@ -810,6 +811,106 @@ def _validate(path: Path) -> dict:
         summary[item["status"]] += 1
     overall = "FAIL" if summary["FAIL"] else ("WARNING" if summary["WARNING"] else "PASS")
     return {"schema": 1, "file": str(path), "stats": stats, "checks": checks, "summary": summary, "status": overall}
+
+
+def _unit_across(normal) -> tuple[float, float, float]:
+    """A unit vector at right angles to `normal` (any one, when it is zero)."""
+    nx, ny, nz = normal
+    size = math.sqrt(nx * nx + ny * ny + nz * nz)
+    if size < 1e-6:
+        return 1.0, 0.0, 0.0
+    nx, ny, nz = nx / size, ny / size, nz / size
+    ax, ay, az = (1.0, 0.0, 0.0) if abs(nx) < 0.9 else (0.0, 1.0, 0.0)
+    dot = ax * nx + ay * ny + az * nz
+    tx, ty, tz = ax - nx * dot, ay - ny * dot, az - nz * dot
+    size = math.sqrt(tx * tx + ty * ty + tz * tz)
+    return tx / size, ty / size, tz / size
+
+
+def repair_unit_vectors(path: Path) -> dict:
+    """Rewrite NORMAL and TANGENT vectors that are not unit length, in place.
+
+    glTF requires both to be unit vectors. Blender writes a zero tangent for a
+    triangle whose UVs cover no area, which a collapse decimate leaves behind,
+    and the official validator rejects the file for it. A stretched vector is
+    scaled back; a zero normal becomes straight up; a zero tangent becomes a
+    vector across its vertex normal with its handedness kept. Only float data
+    in the GLB's own buffer is touched, the file keeps its size, and a file
+    with nothing to fix is not written. Returns how many of each were fixed."""
+    path = Path(path)
+    data = bytearray(path.read_bytes())
+    doc, _, _ = _parse(path)
+    offset, base = 12, None
+    while offset + 8 <= len(data):
+        chunk_length, kind = struct.unpack_from("<II", data, offset)
+        if kind == CHUNK_BIN:
+            base = offset + 8
+            break
+        offset += 8 + chunk_length
+    fixed = {"normals": 0, "tangents": 0}
+    if base is None:
+        return fixed
+
+    def layout(index, width):
+        """(first byte, step, count) of a float accessor in the GLB buffer."""
+        try:
+            accessor = doc["accessors"][int(index)]
+            view = doc["bufferViews"][int(accessor["bufferView"])]
+        except (KeyError, IndexError, TypeError, ValueError):
+            return None
+        if accessor.get("componentType") != 5126 or accessor.get("sparse") or view.get("buffer", 0) != 0:
+            return None
+        if accessor.get("type") != ("VEC3" if width == 3 else "VEC4"):
+            return None
+        step = int(view.get("byteStride") or 4 * width)
+        start = base + int(view.get("byteOffset", 0)) + int(accessor.get("byteOffset", 0))
+        count = int(accessor.get("count", 0))
+        if count < 1 or start + (count - 1) * step + 4 * width > len(data):
+            return None
+        return start, step, count
+
+    done: set = set()
+    for mesh in doc.get("meshes") or []:
+        for primitive in mesh.get("primitives") or []:
+            attributes = primitive.get("attributes") or {}
+            normal_at = layout(attributes.get("NORMAL"), 3) if "NORMAL" in attributes else None
+            if normal_at and attributes["NORMAL"] not in done:
+                done.add(attributes["NORMAL"])
+                start, step, count = normal_at
+                for index in range(count):
+                    x, y, z = struct.unpack_from("<3f", data, start + index * step)
+                    size = math.sqrt(x * x + y * y + z * z)
+                    if abs(size - 1.0) <= 1e-3:
+                        continue
+                    vector = (0.0, 1.0, 0.0) if size < 1e-6 or not math.isfinite(size) else (x / size, y / size, z / size)
+                    struct.pack_into("<3f", data, start + index * step, *vector)
+                    fixed["normals"] += 1
+            tangent_at = layout(attributes.get("TANGENT"), 4) if "TANGENT" in attributes else None
+            if tangent_at and attributes["TANGENT"] not in done:
+                done.add(attributes["TANGENT"])
+                start, step, count = tangent_at
+                for index in range(count):
+                    x, y, z, w = struct.unpack_from("<4f", data, start + index * step)
+                    size = math.sqrt(x * x + y * y + z * z)
+                    if abs(size - 1.0) <= 1e-3 and w in (1.0, -1.0):
+                        continue
+                    if size < 1e-6 or not math.isfinite(size):
+                        normal = (struct.unpack_from("<3f", data, normal_at[0] + index * normal_at[1])
+                                  if normal_at and index < normal_at[2] else (0.0, 0.0, 0.0))
+                        vector = _unit_across(normal)
+                    else:
+                        vector = (x / size, y / size, z / size)
+                    struct.pack_into("<4f", data, start + index * step, *vector, -1.0 if w < 0 else 1.0)
+                    fixed["tangents"] += 1
+    if fixed["normals"] or fixed["tangents"]:
+        temp = path.with_name(path.name + ".part")
+        try:
+            temp.write_bytes(data)
+            temp.replace(path)
+        finally:
+            if temp.exists():
+                temp.unlink()
+    return fixed
 
 
 def compare_glb(before: Path, after: Path) -> dict:

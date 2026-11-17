@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "id": "image-cutout",
+  "title": "Cut a subject out of a flat background",
+  "description": "Makes the background transparent: its colour is read off the border (or set with key=#rrggbb) and removed from the border inwards, so the same colour inside the subject stays (mode=key removes it everywhere). Edge pixels get partial alpha without the background's tint, the result is trimmed to the subject, and a JSON sidecar records its anchor (bottom centre) and where it sat in the source. No AI model runs; it needs a plain background.",
+  "input": {
+    "name": "image",
+    "kind": "image",
+    "required": true
+  },
+  "params": {
+    "key": {
+      "type": "string",
+      "default": "auto"
+    },
+    "tolerance": {
+      "type": "integer",
+      "default": 24
+    },
+    "feather": {
+      "type": "integer",
+      "default": 1
+    },
+    "mode": {
+      "type": "string",
+      "default": "flood",
+      "choices": [
+        "flood",
+        "key"
+      ]
+    },
+    "trim": {
+      "type": "boolean",
+      "default": true
+    },
+    "padding": {
+      "type": "integer",
+      "default": 2
+    },
+    "thumbnail": {
+      "type": "integer",
+      "default": 256
+    }
+  },
+  "steps": [
+    "image.inspect",
+    "image.cutout",
+    "image.thumbnail",
+    "asset.record"
+  ]
+}

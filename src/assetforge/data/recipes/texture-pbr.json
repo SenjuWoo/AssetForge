@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "id": "texture-pbr",
+  "title": "Make a PBR map set from one colour map",
+  "description": "From a base colour picture writes height, a tangent-space normal map (opengl for glTF, Godot, Blender and Unity; directx for Unreal and the Bethesda engines), roughness, occlusion, metallic, the packed ORM texture and material.json. tileable=auto wraps the maps when the picture already tiles. The maps are estimates from brightness, not measurements (TEX-DERIVED stays NOT_TESTED). No AI model runs.",
+  "input": {
+    "name": "image",
+    "kind": "image",
+    "required": true
+  },
+  "params": {
+    "tileable": {
+      "type": "string",
+      "default": "auto",
+      "choices": [
+        "auto",
+        "true",
+        "false"
+      ]
+    },
+    "strength": {
+      "type": "string",
+      "default": "2.0"
+    },
+    "convention": {
+      "type": "string",
+      "default": "opengl",
+      "choices": [
+        "opengl",
+        "directx"
+      ]
+    },
+    "roughness": {
+      "type": "string",
+      "default": "0.7"
+    },
+    "roughness_variation": {
+      "type": "string",
+      "default": "0.3"
+    },
+    "metallic": {
+      "type": "string",
+      "default": "0"
+    },
+    "ao_strength": {
+      "type": "string",
+      "default": "1.0"
+    },
+    "height_invert": {
+      "type": "boolean",
+      "default": false
+    },
+    "height_blur": {
+      "type": "string",
+      "default": "1.0"
+    },
+    "thumbnail": {
+      "type": "integer",
+      "default": 256
+    }
+  },
+  "steps": [
+    "image.inspect",
+    "image.pbr",
+    "image.thumbnail",
+    "asset.record"
+  ]
+}

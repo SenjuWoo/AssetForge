@@ -177,16 +177,24 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result.returncode, 6, result.stdout + result.stderr)
         self.assertIn("positive integer", result.stdout + result.stderr)
 
-    def test_sprite_atlas_rejects_65_frames(self):
+    def test_a_named_input_that_does_not_exist_says_so(self):
+        result = run_cli(["run", "texture-pack", "--input", "occlusion=nope.png", "--input", "roughness=r.png",
+                          "--input", "metallic=m.png"], self.root)
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("occlusion", result.stderr)
+        self.assertIn("nope.png", result.stderr)
+        self.assertNotIn("requires", result.stderr)
+
+    def test_sprite_atlas_rejects_more_frames_than_the_cap(self):
         from PIL import Image
 
         frames = Path(self.tmp.name) / "too-many"
         frames.mkdir()
-        for index in range(65):
-            Image.new("RGBA", (4, 4), (index, 0, 0, 255)).save(frames / f"{index:03d}.png")
+        for index in range(257):
+            Image.new("RGBA", (4, 4), (index % 256, 0, 0, 255)).save(frames / f"{index:03d}.png")
         result = run_cli(["run", "sprite-atlas", "--input", str(frames)], self.root)
         self.assertEqual(result.returncode, 6, result.stdout + result.stderr)
-        self.assertIn("at most 64", result.stdout + result.stderr)
+        self.assertIn("at most 256", result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

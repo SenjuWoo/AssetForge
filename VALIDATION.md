@@ -4,6 +4,21 @@ Verified working tree: 0.3.0 release candidate based on `9027141dc5680a29ed4d7d4
 
 Environment: Windows 11, Python 3.14.10, Node 26.13.0, Pillow 13.0.0, jsonschema 4.x, glTF-Transform 4.5.1, Khronos glTF Validator installed locally in `.tools`, current Blender reports 5.3.0. The project works without any optional provider.
 
+## 0.9.0 textures, sprites and image to 3D — 2026-11-17
+
+Environment: Windows 11, Python 3.14.10, Pillow 13.0.0, Blender 5.3.0, Godot 4.7.2, ImageMagick 7.1.2-34, comfy-forge 0.10.0 then 0.11.0 with SwarmUI 0.9.8.4 (ComfyUI backend on 7821), Anima model `woomixAnima_v180`, RTX 4080 SUPER shared with other jobs.
+
+- Full suite: **364 tests OK, 2 skipped** with every provider present (the skips: symlink privilege, and one provider-absent case). New files: `test_texture` (21), `test_sprites` (28), `test_2d_recipes` (51), `test_sprite_render` (13, six on real Blender), `test_comfy_forge` (16), `test_glb_repair` (6). `test_glb_repair` failed before `repair_unit_vectors` existed.
+- `texture-generate`, prompt "mossy grey cobblestone pavement, hand-painted game texture", seed 4242, 1024 px, through the running SwarmUI: 6.5 s; `TEX-SEAM` 6.69 on the render, 0.56 after folding (simple cross-fade at the time). The tiled preview showed ghosted bricks in the overlap, so the fold was changed: broad tones fade, detail switches along the least-different path. Same render after the change: 6.69 -> 0.70, no doubled bricks in the 2x2 preview (looked at). Normal, ORM and height maps looked at: mortar lines read as grooves, stones as raised.
+- `sprite-generate`, "a red health potion in a round glass bottle with a cork", seed 77: SwarmUI render, cut-out 600x775 from 1024, background #ffffff removed, `CUT-BACKGROUND` PASS. Looked at on magenta: no white rim; the glass highlights inside the bottle were kept. The model drew a grey drop shadow under the bottle despite "no shadow"; it is not the background colour, so it stays part of the sprite and the anchor sits at its bottom. `pixel-art` on the result: 37x48, 12 of 16 `sweetie16` colours.
+- An earlier `sprite-generate` at 768 px was refused by SwarmUI ("Something went wrong while generating images") after 8 min 48 s while other jobs held the GPU; the same prompt at 1024 px later succeeded. The failure ended the job `FAILED` with SwarmUI's message.
+- `seamless=true` (`generate -Tileable`) on the Anima model: SwarmUI refused, "SwarmTileableVAE ... ctypes objects containing pointers cannot be pickled". Field report filed with comfy-forge; comfy-forge 0.11.0 now refuses `-Tileable` for transformer models itself. AssetForge leaves it off by default.
+- Field report fix, `mesh-gameready` on comfy-forge's 699,928-triangle Pixal3D axe: before, `GLB-014` failed with 2 `ACCESSOR_VECTOR3_NON_UNIT` errors; after, "2 tangent(s) and 0 normal(s) that were not unit length rewritten", 17,000 triangles, official validator 0 errors 0 warnings, `engine-check` PASS (Godot 4.7.2 imported and loaded it, 1 mesh), `export --target godot` PASS.
+- `sprite-render` on that game-ready axe (8 facings, workbench, 3.3 s) and the showcase sword (8 facings, eevee, 10.4 s): every facing looked at; the axe turns about its handle, the sword's emissive blade shows in eevee.
+- `image-prep format=dds`: DXT5 for a picture with alpha (85.5 KiB at 256 px), header `DDS `, Pillow reads it back; `format=tga` RLE.
+- Not run live: SwarmUI started by AssetForge for a job (`backend=auto` with nothing running, or `start`); SwarmUI was already running for other sessions. The start, port hand-off, and stop are covered by mocked tests only. The first attempt to start it in this session did come up (on the settings port, through comfy-forge's own start), so the launcher path itself works.
+- Not verified: nobody judged the generated art; `TEX-DERIVED`, `GEN-VISUAL`, `CUT-VISUAL`, `PIX-VISUAL`, `SPRITE-VISUAL` stay `NOT_TESTED` in the assets.
+
 ## 0.8.2 sound batches — 2026-11-16
 
 Environment: Windows 11, Python 3.14.10, FFmpeg 9.0.2, RTX 4080 SUPER, the 0.7.0 audio runtimes (MOSS-SoundEffect v2 and CLAP in `sfx`).

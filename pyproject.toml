@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "assetforge"
-version = "0.8.2"
+version = "0.9.0"
 description = "Standalone asset production, validation and export toolkit for AI-assisted game work"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,8 +13,8 @@ authors = [{name = "SenjuWoo"}]
 dependencies = []
 
 [project.optional-dependencies]
-images = ["Pillow>=10"]
-dev = ["Pillow>=10", "jsonschema>=4"]
+images = ["Pillow>=10.3"]
+dev = ["Pillow>=10.3", "jsonschema>=4"]
 
 [project.scripts]
 assetforge = "assetforge.cli:main"

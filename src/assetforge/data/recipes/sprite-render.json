@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "id": "sprite-render",
+  "title": "Render a 3D model as game sprites",
+  "description": "Blender renders a GLB with a fixed orthographic camera: directions facings (1, 4, 8 or 16; the first is south, the model facing the viewer) at pitch degrees above the ground (30 for 2:1 isometric, 35.264 true isometric, 50-60 top-down, 0 side view), frames per animation (animations=all, none, or names). Every frame shares one scale, and the facings turn about the model's origin when the model stands on it (pivot=auto; bounds turns about its middle). Writes the frames, one sheet (a row per animation and facing) and a JSON with each frame's rectangle and the anchor (the ground point under the model). engine=workbench is shaded and fast, flat shows the base colour with no shading, eevee is lit with materials and emission. A still model's facings share one row. antialias=false gives hard pixel edges. Convert other formats with mesh-convert first.",
+  "input": {
+    "name": "mesh",
+    "kind": "mesh",
+    "required": true
+  },
+  "params": {
+    "directions": {
+      "type": "integer",
+      "default": 8,
+      "choices": [
+        1,
+        4,
+        8,
+        16
+      ]
+    },
+    "pitch": {
+      "type": "string",
+      "default": "30"
+    },
+    "yaw": {
+      "type": "string",
+      "default": "0"
+    },
+    "size": {
+      "type": "integer",
+      "default": 128
+    },
+    "frames": {
+      "type": "integer",
+      "default": 8
+    },
+    "animations": {
+      "type": "string",
+      "default": "all"
+    },
+    "engine": {
+      "type": "string",
+      "default": "workbench",
+      "choices": [
+        "workbench",
+        "flat",
+        "eevee"
+      ]
+    },
+    "antialias": {
+      "type": "boolean",
+      "default": true
+    },
+    "outline": {
+      "type": "boolean",
+      "default": false
+    },
+    "pivot": {
+      "type": "string",
+      "default": "auto",
+      "choices": [
+        "auto",
+        "origin",
+        "bounds"
+      ]
+    },
+    "padding": {
+      "type": "integer",
+      "default": 0
+    },
+    "timeout": {
+      "type": "integer",
+      "default": 1800
+    },
+    "thumbnail": {
+      "type": "integer",
+      "default": 256
+    }
+  },
+  "steps": [
+    "blender.sprites",
+    "image.thumbnail",
+    "asset.record"
+  ]
+}
