@@ -1,12 +1,14 @@
 # State
 
-- **Version:** 0.8.1
-- **Milestone:** 0.8.1: audit release (wrong results and silent failures fixed; nothing removed)
-- **Active task:** none
-- **Current revision:** `v0.8.1` = `3167bfc` on main
+- **Version:** 0.8.2
+- **Milestone:** 0.8.2: generated-sound batches survive an unfinishable take
+- **Active task:** release 0.8.2 (local suite, push, CI on the exact SHA, release, install, doctor)
+- **Current revision:** `v0.8.1` = `3167bfc` on main; 0.8.2 not yet pushed
 - **Last known-good:** tag `v0.8.1`
 
 ## Completed
+
+- Sound batch fix (0.8.2, 2026-11-16), from a field report: a 39-prompt `audio-sfx` run (117 takes, ~30 min) went FAILED in `audio.finish` because one best take was silent after trimming, keeping one output. Now each item falls back to its next take (`AUDIO-TAKE` WARNING), an item with no usable take is `AUDIO-FINISH` FAIL while the rest finish, near-silent takes (peak < -40 dBFS) never win over audible ones, `audio-process` finishes again from `audio-generation.json` / `music-generation.json`, the default worker timeout scales with the batch, JSON prompt entries with `"prompt"` are read instead of dropped, and a message-less FFmpeg failure names its exit code. The report's empty-stderr "could not prepare" was not reproduced locally (FFmpeg 9.0.2 wrote a header-only stage for every silent case tried); the fallback covers it either way.
 
 - Audit (0.8.1, 2026-11-15): baseline 190 tests OK / 2 skipped with every provider present, doctor exit 0, CI green on `e434715`, 0 open Dependabot/secret alerts. 18 findings, each reproduced; fixes listed in CHANGELOG 0.8.1. New `tests/test_audit_regressions.py` (30 tests) failed before the fixes and passes after. Released 2026-11-15: local suite 220 OK / 2 skipped with every provider present; CI 7/7 green on `3167bfc` (the first push, `e5617b0`, failed on Windows/Python 3.12 because the clock ticks in ~15 ms steps there; fixed with a strictly increasing `created_ns`); 0 open Dependabot/secret alerts; release asset SHA-256 `17c03010…12dc` re-downloaded and matched; installed from the zip, doctor exit 0. Real runs: `blender-qa` on a `.blend` without `SM_Crate` now checks its mesh; `Install.ps1` twice in a copy under a path with spaces, `()` and `!`.
 - Music (0.8.0, 2026-11-14):

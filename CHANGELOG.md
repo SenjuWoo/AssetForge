@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.2 — 2026-11-16
+
+One bad take no longer fails a whole batch of generated sounds.
+
+- `audio-voice`, `audio-sfx` and `audio-music`: when the chosen take cannot be finished (silent after trimming, or refused by FFmpeg), the next-best take of that item is finished instead and `AUDIO-TAKE` `WARNING` names it, with that take's own CLAP or transcript evidence. An item with no finishable take gets `AUDIO-FINISH` `FAIL` and the rest of the batch is still finished; the run fails only when nothing could be finished. A single unfinishable take used to fail the whole asset after the generation had run, keeping one output.
+- A take whose loudest sample is under -40 dBFS is never chosen while another take of the item has sound (speech, sfx and voice-design auditions). Prompts such as "a quiet sigh" made MOSS write near-silent takes that still won on CLAP score.
+- `audio-process --input source=<asset>/outputs/audio-generation.json` (or `music-generation.json`) finishes the takes already made again, with their evidence, without running a model.
+- The audio worker's timeout, when left at its 3600 s default, grows to 120 s per take, so a long prompt list is not killed at the hour mark. A timeout you set is kept.
+- A JSON prompt list entry with `"prompt"` instead of `"text"` is read; an entry with neither, or a non-string value, is an error. Such entries used to be dropped without a word.
+- An FFmpeg failure that prints nothing now names its exit code instead of ending the message with an empty reason; a take trimmed to nothing is reported as silent.
+
 ## 0.8.1 — 2026-11-15
 
 Audit release: wrong results and silent failures fixed, nothing removed.

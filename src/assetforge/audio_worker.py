@@ -146,6 +146,22 @@ def signal_stats(audio, sr: int) -> dict:
     return {"seconds": round(seconds, 3), "peak": round(peak, 4), "clipped": round(clipped, 5), "quiet": round(quiet, 3), "f0": round(median_f0(audio, sr), 1)}
 
 
+# A take whose loudest sample is under -40 dBFS is nearly empty: AUDIO-002
+# calls the same level silent, and finishing usually trims it to nothing.
+SILENT_PEAK = 0.01
+
+
+def usable(take: dict) -> bool:
+    return float((take.get("stats") or {}).get("peak", 1.0)) >= SILENT_PEAK
+
+
+def pick_best(candidates: list[dict]) -> dict:
+    """The best-scoring take that has sound in it. A near-silent take can
+    still score well against a prompt like "a quiet sigh", but it cannot be
+    finished, so it only wins when every take is silent."""
+    return max(candidates, key=lambda c: (usable(c), c["score"]))
+
+
 def median_f0(audio, sr: int) -> float:
     import numpy as np
 
@@ -436,9 +452,10 @@ def speech_job(request: dict, result: dict) -> None:
                 audition["asr_text"] = asr.hear(audio, sr, language)
                 audition["asr_similarity"] = transcript_similarity(ref_text, audition["asr_text"])
             audition["score"] = speech_score(audition, stats, 0.0)
+            audition["usable"] = usable(audition)
             auditions.append((audition, audio, sr))
             log(f"reference audition seed {seed}: score {audition['score']} {stats} {audition.get('asr_text', '')!r}")
-        best, audio, sr = max(auditions, key=lambda a: a[0]["score"])
+        best, audio, sr = max(auditions, key=lambda a: (usable(a[0]), a[0]["score"]))
         ref_audio = str(out_dir / "reference.wav")
         write_wav(ref_audio, audio, sr)
         result["reference"] = dict(best, path=ref_audio, designed=True)
@@ -469,12 +486,13 @@ def speech_job(request: dict, result: dict) -> None:
                 take["asr_text"] = asr.hear(audio, sr, language)
                 take["asr_similarity"] = transcript_similarity(item["text"], take["asr_text"])
             take["score"] = speech_score(take, stats, ref_f0)
+            take["usable"] = usable(take)
             path = takes_dir / f"{item['name']}-take{k + 1}.wav"
             write_wav(str(path), audio, sr)
             take["path"] = str(path)
             candidates.append(take)
             log(f"{item['name']} take {k + 1}: score {take['score']} {stats} {take.get('asr_text', '')!r}")
-        best = max(candidates, key=lambda c: c["score"])
+        best = pick_best(candidates)
         result["items"].append({"name": item["name"], "text": item["text"], "best": best["path"], "seed": best["seed"], "score": best["score"],
                                 "asr_text": best.get("asr_text"), "asr_similarity": best.get("asr_similarity"), "stats": best["stats"], "takes": candidates})
     result["asr"] = bool(asr)
@@ -516,10 +534,11 @@ def sfx_job(request: dict, result: dict) -> None:
         # A whoosh or a click is mostly silence by nature, so quiet share only
         # counts when the take is nearly empty; prompt match decides.
         take["score"] = round(take.get("clap", 0.0) * 10.0 - (5.0 if stats["quiet"] > 0.98 else 0.0) - stats["clipped"] * 50.0, 3)
+        take["usable"] = usable(take)
         by_item.setdefault(item["name"], []).append(take)
     for item in items:
         candidates = by_item[item["name"]]
-        best = max(candidates, key=lambda c: c["score"])
+        best = pick_best(candidates)
         result["items"].append({"name": item["name"], "text": item["text"], "best": best["path"], "seed": best["seed"], "score": best["score"],
                                 "clap": best.get("clap"), "stats": best["stats"], "takes": candidates})
     result["clap"] = bool(clap)

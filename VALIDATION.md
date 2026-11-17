@@ -4,6 +4,15 @@ Verified working tree: 0.3.0 release candidate based on `9027141dc5680a29ed4d7d4
 
 Environment: Windows 11, Python 3.14.10, Node 26.13.0, Pillow 13.0.0, jsonschema 4.x, glTF-Transform 4.5.1, Khronos glTF Validator installed locally in `.tools`, current Blender reports 5.3.0. The project works without any optional provider.
 
+## 0.8.2 sound batches — 2026-11-16
+
+Environment: Windows 11, Python 3.14.10, FFmpeg 9.0.2, RTX 4080 SUPER, the 0.7.0 audio runtimes (MOSS-SoundEffect v2 and CLAP in `sfx`).
+
+- Full suite: **229 tests OK, 2 skipped** with every provider present. New tests, each failing before its fix: a silent best take falls back to the next take (`AUDIO-TAKE`), an item with no usable take fails alone (`AUDIO-FINISH`) while the batch finishes and `validate` exits 5, a fallback take never inherits the best take's transcript, near-silent takes rank below audible ones, `audio-process` from `audio-generation.json`, missing takes in a report, the batch-scaled worker timeout, JSON `"prompt"` entries, and the exit-code message for a silent FFmpeg failure.
+- Real run (`audio-sfx`, a JSON list using `"prompt"`, 3 prompts × 2 takes, 1.5 s, 2 min 30 s): `eye_open` ("the quiet faint sound of an eyelid opening") made two takes peaking at 0.0046 and 0.0039, both marked unusable; it got `AUDIO-FINISH` FAIL ("silent after trimming") and `door` and `sigh` were still finished, asset COMPLETE. `sigh`'s second take (peak 0.0061) was marked unusable and not chosen. This is the field report's failure, which in 0.8.1 failed the whole asset.
+- Not reproduced: the report's "ffmpeg could not prepare" with an empty message. FFmpeg 9.0.2 wrote a header-only stage for every silent input tried (zeros, -48 dB tone, noise, spikes, at 24 and 48 kHz); the fallback handles that error the same way, and its message now names the exit code.
+- Not verified: listening.
+
 ## 0.8.0 music — 2026-11-14
 
 Environment: Windows 11, Python 3.14.10, comfy-forge 0.8.0 with ComfyUI 0.44.0 (SwarmUI's bundled backend), ACE-Step 1.5 `aio` checkpoint, RTX 4080 SUPER, FFmpeg 9.0.2, AssetForge audio runtimes from 0.7.0 (CLAP in `sfx`).

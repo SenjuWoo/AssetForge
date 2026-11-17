@@ -51,12 +51,12 @@ STUB_WORKER = r'''
 import json, math, struct, sys, wave
 from pathlib import Path
 
-def tone(path, seconds=0.8, rate=24000):
+def tone(path, seconds=0.8, rate=24000, amp=0.25):
     path.parent.mkdir(parents=True, exist_ok=True)
     frames = bytearray()
     for n in range(int((0.3 + seconds + 0.3) * rate)):
         t = n / rate
-        v = 0.25 * math.sin(2 * math.pi * 330 * t) if 0.3 <= t < 0.3 + seconds else 0.0
+        v = amp * math.sin(2 * math.pi * 330 * t) if 0.3 <= t < 0.3 + seconds else 0.0
         frames += struct.pack("<h", int(v * 32767))
     with wave.open(str(path), "wb") as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(rate); w.writeframes(bytes(frames))
@@ -76,8 +76,11 @@ elif job in ("speech", "sfx"):
     for item in req["items"]:
         takes = []
         for k in range(int(req.get("takes") or 1)):
-            p = out / "takes" / f"{item['name']}-take{k + 1}.wav"; tone(p)
-            takes.append({"seed": k + 1, "path": str(p), "score": float(k)})
+            # "hush": the best (last) take is silent; "mute": every take is.
+            last = k == int(req.get("takes") or 1) - 1
+            silent = "mute" in item["name"] or ("hush" in item["name"] and last)
+            p = out / "takes" / f"{item['name']}-take{k + 1}.wav"; tone(p, amp=0.0 if silent else 0.25)
+            takes.append({"seed": k + 1, "path": str(p), "score": float(k), "clap": 0.31 + 0.01 * k})
         entry = {"name": item["name"], "text": item["text"], "best": takes[-1]["path"], "seed": takes[-1]["seed"], "score": 1.0, "takes": takes}
         if job == "speech" and req.get("asr"):
             entry.update(asr_text=item["text"], asr_similarity=None if item["text"].startswith("(") else 0.95)
@@ -121,6 +124,18 @@ class Lines(unittest.TestCase):
             self.assertEqual(items[1]["name"], "line02")
             self.assertEqual(audio.load_lines(None, "Hi there.", "hi"), [{"name": "hi", "text": "Hi there."}])
 
+    def test_json_prompts_are_never_dropped_silently(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            (tmp / "sfx.json").write_text(json.dumps([{"name": "door", "prompt": "a door creaks"}]), encoding="utf-8")
+            self.assertEqual(audio.load_lines(tmp / "sfx.json"), [{"name": "door", "text": "a door creaks"}])
+            (tmp / "bad.json").write_text(json.dumps([{"name": "door", "text": "a door"}, {"name": "bell"}]), encoding="utf-8")
+            with self.assertRaisesRegex(audio.AudioError, "entry 2"):
+                audio.load_lines(tmp / "bad.json")
+            (tmp / "nested.json").write_text(json.dumps({"items": [{"name": "door", "text": "a door"}]}), encoding="utf-8")
+            with self.assertRaisesRegex(audio.AudioError, "'items'"):
+                audio.load_lines(tmp / "nested.json")
+
     def test_refusals(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
@@ -140,6 +155,25 @@ class WorkerHelpers(unittest.TestCase):
         self.assertEqual(audio_worker.transcript_similarity("(laughs) Hello there!", "hello there"), 1.0)
         self.assertIsNone(audio_worker.transcript_similarity("(gasps)", "ah"))
         self.assertLess(audio_worker.transcript_similarity("Begone, wretch!", "be gone, rich"), 0.6)
+
+    def test_a_near_silent_take_never_beats_an_audible_one(self):
+        # A "quiet" prompt can make every take nearly empty; the one with sound
+        # still wins even when the silent take matched the prompt better.
+        silent = {"score": 4.4, "stats": {"peak": 0.004, "quiet": 1.0}}
+        audible = {"score": 1.2, "stats": {"peak": 0.3, "quiet": 0.6}}
+        self.assertIs(audio_worker.pick_best([silent, audible]), audible)
+        self.assertFalse(audio_worker.usable(silent))
+        self.assertIs(audio_worker.pick_best([silent]), silent)
+
+    def test_default_worker_timeout_grows_with_the_batch(self):
+        from types import SimpleNamespace
+        from assetforge import runner
+        recipe = {"params": {"timeout": {"type": "integer", "default": 3600}}}
+        at_default = SimpleNamespace(params={"timeout": 3600}, recipe=recipe)
+        self.assertEqual(runner._worker_timeout(at_default, 3), 3600)
+        self.assertEqual(runner._worker_timeout(at_default, 39 * 3 * 2), 120 * 39 * 3 * 2)
+        chosen = SimpleNamespace(params={"timeout": 600}, recipe=recipe)
+        self.assertEqual(runner._worker_timeout(chosen, 500), 600)  # the caller's own limit stands
 
     def test_speech_score_prefers_the_take_that_says_the_words(self):
         stats = {"seconds": 1.5, "quiet": 0.1, "clipped": 0.0, "f0": 220.0}
@@ -227,6 +261,11 @@ class Finishing(unittest.TestCase):
             audio.finish(FFMPEG, write_tone(tmp / "raw.wav", amplitude=0.05), target, fmt="wav", loudness="peak", true_peak=-1.0)
             _, info = audio.checks(FFMPEG, target)
             self.assertAlmostEqual(info["true_peak"], -1.0, delta=0.6)
+
+    def test_an_ffmpeg_failure_without_a_message_names_the_exit_code(self):
+        self.assertEqual(audio._why({"returncode": 3221225477, "stderr": "", "error": None}), "ffmpeg exited with code 3221225477 and printed nothing")
+        self.assertEqual(audio._why({"returncode": 1, "stderr": "  bad input\n"}), "bad input")
+        self.assertEqual(audio._why({"returncode": None, "stderr": "", "error": "timed out"}), "timed out")
 
     def test_silence_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -345,6 +384,66 @@ class Recipes(unittest.TestCase):
         clap = [c for c in manifest["validation"] if c["id"] == "AUDIO-CLAP"]
         self.assertEqual(clap[0]["status"], "PASS")
         self.assertEqual(manifest["primary"]["audio"].rsplit("/", 1)[-1], "door.wav")
+
+    def test_unfinishable_best_take_falls_back_and_the_batch_goes_on(self):
+        prompts = self.root / "sfx.txt"
+        prompts.write_text("door: a door creaks\nhush: a quiet sigh\nmute: nothing at all\nbell: a bell rings\n", encoding="utf-8")
+        result, payload = self.run_recipe("audio-sfx", "--input", str(prompts), "--set", "takes=2", "--set", "format=wav")
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        manifest, folder = self.manifest(payload)
+        sounds = sorted(Path(a["path"]).name for a in manifest["artifacts"] if a["role"] == "audio")
+        self.assertEqual(sounds, ["bell.wav", "door.wav", "hush.wav"])
+        checks = manifest["validation"]
+        take = [c for c in checks if c["id"] == "AUDIO-TAKE"]
+        self.assertEqual([(c["artifact"], c["status"]) for c in take], [("hush.wav", "WARNING")])
+        self.assertIn("hush-take1.wav", take[0]["detail"])
+        clap = {c["artifact"]: c["detail"] for c in checks if c["id"] == "AUDIO-CLAP"}
+        self.assertIn("0.31", clap["hush.wav"])  # the score of the take that was used
+        failed = [c for c in checks if c["id"] == "AUDIO-FINISH"]
+        self.assertEqual([(c["artifact"], c["status"]) for c in failed], [("mute", "FAIL")])
+        self.assertIn("silent", failed[0]["detail"])
+        report = json.loads((folder / "outputs" / "audio.json").read_text(encoding="utf-8"))
+        self.assertEqual([i["name"] for i in report["items"] if i.get("error")], ["mute"])
+        validate = run_cli(["validate", manifest["id"], "--json"], self.project, self.env)
+        self.assertEqual(validate.returncode, 5, validate.stdout)
+        self.assertIn("AUDIO-FINISH", validate.stdout)
+
+    def test_a_fallback_take_does_not_inherit_the_best_takes_transcript(self):
+        result, payload = self.run_recipe("audio-voice", "--set", "engine=kokoro", "--set", "text=Welcome.", "--set", "name=hush", "--set", "takes=2")
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        manifest, _ = self.manifest(payload)
+        asr = [c for c in manifest["validation"] if c["id"] == "AUDIO-ASR"]
+        self.assertEqual([c["status"] for c in asr], ["NOT_TESTED"])
+        self.assertIn("hush-take1.wav", asr[0]["detail"])
+
+    def test_every_item_unfinishable_fails_the_run(self):
+        result, _ = self.run_recipe("audio-sfx", "--set", "prompt=nothing", "--set", "name=mute")
+        self.assertEqual(result.returncode, 6)
+        self.assertIn("silent", result.stderr + result.stdout)
+
+    def test_finish_again_from_the_generation_report(self):
+        prompts = self.root / "sfx.txt"
+        prompts.write_text("door: a door creaks\nhush: a quiet sigh\n", encoding="utf-8")
+        result, payload = self.run_recipe("audio-sfx", "--input", str(prompts), "--set", "takes=2")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        _, folder = self.manifest(payload)
+        generation = folder / "outputs" / "audio-generation.json"
+        again, payload = self.run_recipe("audio-process", "--input", str(generation), "--set", "format=flac")
+        self.assertEqual(again.returncode, 0, again.stderr + again.stdout)
+        manifest, _ = self.manifest(payload)
+        self.assertEqual(sorted(Path(a["path"]).name for a in manifest["artifacts"] if a["role"] == "audio"), ["door.flac", "hush.flac"])
+        self.assertTrue(any(c["id"] == "AUDIO-TAKE" and c["artifact"] == "hush.flac" for c in manifest["validation"]))
+        clap = {c["artifact"]: c["status"] for c in manifest["validation"] if c["id"] == "AUDIO-CLAP"}
+        self.assertEqual(clap, {"door.flac": "PASS", "hush.flac": "PASS"})  # carried from the report
+        # No model ran: no generation report in the new asset.
+        self.assertFalse(any(Path(a["path"]).name == "audio-generation.json" for a in manifest["artifacts"]))
+
+    def test_generation_report_with_missing_takes_is_refused(self):
+        report = self.root / "audio-generation.json"
+        report.write_text(json.dumps({"items": [{"name": "x", "text": "x", "best": str(self.root / "gone.wav"), "takes": []}]}), encoding="utf-8")
+        result, _ = self.run_recipe("audio-process", "--input", str(report))
+        self.assertEqual(result.returncode, 6)
+        self.assertIn("gone.wav", result.stderr + result.stdout)
 
     def test_missing_runtime_is_exit_4(self):
         shutil.rmtree(self.home / "envs" / "sfx")

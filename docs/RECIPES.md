@@ -328,6 +328,7 @@ Voice lines from text. Input: `--input lines=<file>` (`name: text` per line, or 
 | `loudness` | -18 | LUFS target, or `peak` |
 | `true_peak`, `format`, `sample_rate`, `channels`, `trim`, `highpass` | -1, ogg, 44100, 1, true, 0 | finishing (see `docs/AUDIO.md`) |
 | `check` | true | run the Whisper transcript check |
+| `timeout` | 3600 | seconds for the whole batch; left at 3600 it grows to 120 s per take |
 
 Steps: `audio.voice` → `audio.finish` → `asset.record`. Outputs: one finished file per line (`audio`), every take (`audio-take`), the designed or supplied reference (`audio-reference`), `audio-generation.json` and `audio.json`. Validation: `AUDIO-001`–`006`, `AUDIO-ASR` per line, `AUDIO-LISTEN` `NOT_TESTED`.
 
@@ -344,8 +345,23 @@ Sound effects from prompts. Input: `--input prompts=<file>` or `--set prompt=...
 | `loudness` | peak | `peak`, or a LUFS target |
 | finishing params | as above | |
 | `check` | true | run the CLAP prompt check |
+| `timeout` | 3600 | seconds for the whole batch; left at 3600 it grows to 120 s per take |
 
 Steps: `audio.sfx` → `audio.finish` → `asset.record`. Validation adds `AUDIO-CLAP` per sound.
+
+A take with no sound in it (loudest sample under -40 dBFS) is never chosen while another take has sound, even when it matched the prompt better; prompts that say "quiet" or "soft" are prone to this.
+
+### When a take cannot be finished
+
+For `audio-voice`, `audio-sfx` and `audio-music`: if the chosen take cannot be finished (silent after trimming, or FFmpeg refuses it), the next-best take of that item is finished instead and `AUDIO-TAKE` `WARNING` names it; the prompt-match or transcript check then reports that take's own score. If no take of an item can be finished, the item gets `AUDIO-FINISH` `FAIL` and the batch goes on with the others, so `validate` exits 5 until it is redone. Only when nothing at all can be finished does the run fail.
+
+To finish again from the takes already made (other finishing settings, or after a failed run), pass the generation report to `audio-process`; no model runs:
+
+```text
+assetforge run audio-process --input source=assets/<asset>/outputs/audio-generation.json --set format=wav
+```
+
+`music-generation.json` works the same way. The report's take files must still exist in the original asset.
 
 ## `audio-music`
 
@@ -371,7 +387,7 @@ Steps: `comfyforge.music` → `audio.finish` → `asset.record`. Validation adds
 
 ## `audio-process`
 
-Finish existing audio: one file, or every audio file directly in a folder (`.wav .ogg .mp3 .flac .m4a .aac .opus .aif .aiff`). No model runs. The params are the finishing params, with `loudness` defaulting to `peak`. Steps: `audio.source` → `audio.finish` → `asset.record`.
+Finish existing audio: one file, every audio file directly in a folder (`.wav .ogg .mp3 .flac .m4a .aac .opus .aif .aiff`), or the takes listed in an `audio-generation.json` / `music-generation.json` report. No model runs. The params are the finishing params, with `loudness` defaulting to `peak`. Steps: `audio.source` → `audio.finish` → `asset.record`.
 
 ## Custom recipes
 

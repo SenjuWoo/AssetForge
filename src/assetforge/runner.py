@@ -6,6 +6,7 @@ pipeline, marks the job FAILED and leaves the asset folder for inspection.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -994,6 +995,21 @@ def _audio_work(ctx: Context, name: str) -> Path:
     return work
 
 
+# Seconds of worker time allowed per take when the timeout is left at its
+# default. MOSS made 117 takes in about 30 minutes (15 s each); model loading
+# and the checks come on top.
+SECONDS_PER_TAKE = 120
+
+
+def _worker_timeout(ctx: Context, takes_total: int) -> float:
+    """The worker runs the whole batch in one process. A timeout the caller
+    set is kept; the recipe default grows with the batch, so a long prompt
+    list is not killed at the hour mark after most of it was made."""
+    given = float(ctx.params.get("timeout") or 3600)
+    default = float((ctx.recipe.get("params", {}).get("timeout") or {}).get("default") or 3600)
+    return max(given, float(SECONDS_PER_TAKE * takes_total)) if given == default else given
+
+
 def _audio_lines(ctx: Context, input_name: str, text_param: str) -> list[dict]:
     path = ctx.copied.get(input_name)
     try:
@@ -1007,6 +1023,28 @@ def _asr_check(name: str, similarity, heard) -> dict:
         return {"artifact": name, "id": "AUDIO-ASR", "status": "NOT_TESTED", "detail": "nonverbal line: no words to compare"}
     status = "PASS" if similarity >= 0.85 else "WARNING" if similarity >= 0.6 else "FAIL"
     return {"artifact": name, "id": "AUDIO-ASR", "status": status, "detail": f"Whisper heard {heard!r} ({similarity:.0%} word match)"}
+
+
+def _clap_check(name: str, score: float, takes: int, what: str = "prompt match") -> dict:
+    status = "PASS" if score >= CLAP_PASS else "WARNING" if score >= CLAP_WARN else "FAIL"
+    return {"artifact": name, "id": "AUDIO-CLAP", "status": status,
+            "detail": f"CLAP {what} {score:.2f} (pass >= {CLAP_PASS}, best of {takes})"}
+
+
+def _take_rank(take: dict) -> tuple:
+    return (take.get("usable", True), take.get("score") if take.get("score") is not None else -1.0)
+
+
+def _alternates(item: dict, best: str, check=None) -> list[dict]:
+    """The other takes of one item, best first, for audio.finish to use when
+    the chosen take cannot be finished (silent after trimming, or FFmpeg
+    refuses it). Each carries its own score and evidence."""
+    out = []
+    for take in sorted((t for t in item.get("takes") or [] if t.get("path") and t["path"] != best), key=_take_rank, reverse=True):
+        entry = {"path": take["path"], "seed": take.get("seed"), "score": take.get("score")}
+        entry.update(check(take) if check else {})
+        out.append(entry)
+    return out
 
 
 def _record_takes(ctx: Context, result: dict, work: Path) -> None:
@@ -1052,7 +1090,7 @@ def _audio_voice(ctx: Context) -> dict:
         "asr": check and runtime == "speech",
     }
     try:
-        result = audio.run_worker(runtime, request, work, timeout=float(ctx.params.get("timeout") or 3600))
+        result = audio.run_worker(runtime, request, work, timeout=_worker_timeout(ctx, len(lines) * takes))
         if check and runtime != "speech" and providers.get("audio-speech", ctx.project).get("available"):
             # Kokoro has its own runtime; Whisper lives in the speech runtime.
             heard = audio.run_worker("speech", {"job": "transcribe", "engine": "asr", "language": request["language"],
@@ -1069,8 +1107,12 @@ def _audio_voice(ctx: Context) -> dict:
     for item in result["items"]:
         entry = {"name": item["name"], "source": Path(item["best"]), "text": item["text"], "kind": "speech",
                  "seed": item["seed"], "score": item["score"]}
-        if result.get("asr"):
+        asr = result.get("asr")
+        if asr:
             entry["asr"] = _asr_check(item["name"], item.get("asr_similarity"), item.get("asr_text"))
+        # Kokoro is transcribed afterwards from its best take only, so its other takes carry no ASR evidence.
+        entry["alternates"] = _alternates(item, item["best"], lambda t, n=item["name"]: (
+            {"asr": _asr_check(n, t.get("asr_similarity"), t.get("asr_text"))} if asr and "asr_text" in t else {}))
         items.append(entry)
     ctx.outputs["audio_items"] = items
     ctx.outputs["audio_kind"] = "speech"
@@ -1097,7 +1139,7 @@ def _audio_sfx(ctx: Context) -> dict:
         "clap": bool(ctx.params.get("check", True)),
     }
     try:
-        result = audio.run_worker(runtime, request, work, timeout=float(ctx.params.get("timeout") or 3600))
+        result = audio.run_worker(runtime, request, work, timeout=_worker_timeout(ctx, len(lines) * takes))
     except audio.AudioError as exc:
         raise RunFailed(str(exc)) from exc
     _record_takes(ctx, result, work)
@@ -1106,10 +1148,9 @@ def _audio_sfx(ctx: Context) -> dict:
         entry = {"name": item["name"], "source": Path(item["best"]), "text": item["text"], "kind": "sfx",
                  "seed": item["seed"], "score": item["score"]}
         if item.get("clap") is not None:
-            score = item["clap"]
-            status = "PASS" if score >= CLAP_PASS else "WARNING" if score >= CLAP_WARN else "FAIL"
-            entry["clap"] = {"artifact": item["name"], "id": "AUDIO-CLAP", "status": status,
-                             "detail": f"CLAP prompt match {score:.2f} (pass >= {CLAP_PASS}, best of {takes})"}
+            entry["clap"] = _clap_check(item["name"], item["clap"], takes)
+        entry["alternates"] = _alternates(item, item["best"], lambda t, n=item["name"]: (
+            {"clap": _clap_check(n, t["clap"], takes)} if t.get("clap") is not None else {}))
         items.append(entry)
     ctx.outputs["audio_items"] = items
     ctx.outputs["audio_kind"] = "sfx"
@@ -1119,8 +1160,59 @@ def _audio_sfx(ctx: Context) -> dict:
     return {"status": "PASS", "detail": f"{len(items)} sound(s), {takes} take(s) each, {request['seconds']} s, {request['steps']} steps"}
 
 
+def _report_items(report: Path) -> list[dict]:
+    """Items from an AssetForge generation report (audio-generation.json or
+    music-generation.json), so a failed or changed finish runs again from the
+    takes already made instead of generating them again."""
+    try:
+        data = json.loads(report.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise RunFailed(f"{report.name} is not readable JSON: {exc}") from exc
+    music = isinstance(data, dict) and bool(data.get("best")) and isinstance(data.get("takes"), list)
+    if music:
+        best_take = next((t for t in data["takes"] if isinstance(t, dict) and t.get("path") == data["best"]), {})
+        data = {"items": [{"name": "music", "text": data.get("tags", ""), "best": data["best"], "takes": data["takes"],
+                           "seed": best_take.get("seed"), "score": best_take.get("clap"), "clap": best_take.get("clap")}]}
+    raw = data.get("items") if isinstance(data, dict) else None
+    if not isinstance(raw, list) or not raw or not all(isinstance(i, dict) and i.get("best") and i.get("name") for i in raw):
+        raise RunFailed(f"{report.name} is not an AssetForge generation report (audio-generation.json or music-generation.json)")
+    items = []
+    for item in raw:
+        best = str(item["best"])
+        name = audio._item_name(str(item["name"]))
+        takes = len(item.get("takes") or []) or 1
+        # Carry the evidence the generation recorded for each take.
+        def evidence(take: dict, name=name, takes=takes) -> dict:
+            if "asr_text" in take:
+                return {"asr": _asr_check(name, take.get("asr_similarity"), take.get("asr_text"))}
+            if take.get("clap") is not None:
+                return {"clap": _clap_check(name, float(take["clap"]), takes)}
+            return {}
+        kind = "music" if music else "speech" if "asr_text" in item else "sfx" if "clap" in item else "source"
+        entry = {"name": name, "source": Path(best), "text": item.get("text"), "kind": kind,
+                 "seed": item.get("seed"), "score": item.get("score"), "alternates": _alternates(item, best, evidence), **evidence(item)}
+        found = [t for t in entry["alternates"] if Path(t["path"]).is_file()]
+        if not Path(best).is_file():
+            if not found:
+                raise RunFailed(f"{entry['name']}: none of its takes exist any more ({Path(best).name} and {len(entry['alternates'])} other(s))")
+            entry.pop("asr", None)
+            entry.pop("clap", None)
+            entry.update({k: v for k, v in found[0].items() if k != "path"}, source=Path(found[0]["path"]))
+            found = found[1:]
+        entry["alternates"] = found
+        items.append(entry)
+    return items
+
+
 def _audio_source(ctx: Context) -> dict:
     source = ctx.input("source")
+    if source.is_file() and source.suffix.lower() == ".json":
+        items = _report_items(source)
+        if len({i["name"] for i in items}) != len(items):
+            raise RunFailed("two items in the report share a name; the outputs would collide")
+        ctx.outputs["audio_items"] = items
+        ctx.outputs["audio_kind"] = "source"
+        return {"status": "PASS", "detail": f"{len(items)} item(s) from the takes listed in {source.name}"}
     if source.is_dir():
         files = sorted(p for p in source.iterdir() if p.is_file() and p.suffix.lower() in audio.AUDIO_SUFFIXES)
         if not files:
@@ -1165,20 +1257,46 @@ def _audio_finish(ctx: Context) -> dict:
         raise RunFailed("sample_rate must be 22050, 24000, 32000, 44100 or 48000 and channels 1 or 2")
     trim = bool(ctx.params.get("trim", True))
     work = _audio_work(ctx, "finish")
-    summary, failed, first = [], 0, None
+    summary, failed, first, lost = [], 0, None, []
     for item in items:
         target = ctx.asset.path("outputs", f"{item['name']}.{fmt}")
-        try:
-            applied = audio.finish(ffmpeg, Path(item["source"]), target, fmt=fmt, loudness=loudness, true_peak=true_peak,
-                                   sample_rate=sample_rate, channels=channels, trim=trim,
-                                   highpass=int(ctx.params.get("highpass") or 0), work=work,
-                                   loop_bar=float(item.get("loop_bar") or 0.0))
-            found, info = audio.checks(ffmpeg, target, loudness=loudness, true_peak=true_peak, sample_rate=sample_rate, channels=channels)
-        except audio.AudioError as exc:
-            raise RunFailed(str(exc)) from exc
-        for extra in ("asr", "clap", "lyrics"):
-            if item.get(extra):
-                found.append(dict(item[extra], artifact=target.name))
+        # One take that cannot be finished must not cost the batch: try the
+        # item's other takes in score order, and when none works record the
+        # item as failed and go on with the rest.
+        chosen = {"path": str(item["source"]), "seed": item.get("seed"), "score": item.get("score"),
+                  **{k: item[k] for k in ("asr", "clap") if item.get(k)}}
+        used, errors = None, []
+        for take in [chosen, *(item.get("alternates") or [])]:
+            source = Path(take["path"])
+            try:
+                applied = audio.finish(ffmpeg, source, target, fmt=fmt, loudness=loudness, true_peak=true_peak,
+                                       sample_rate=sample_rate, channels=channels, trim=trim,
+                                       highpass=int(ctx.params.get("highpass") or 0), work=work,
+                                       loop_bar=float(item.get("loop_bar") or 0.0))
+                found, info = audio.checks(ffmpeg, target, loudness=loudness, true_peak=true_peak, sample_rate=sample_rate, channels=channels)
+                used = take
+                break
+            except audio.AudioError as exc:
+                errors.append(f"{source.name}: {exc}")
+                target.unlink(missing_ok=True)
+        if used is None:
+            lost.append(item["name"])
+            ctx.validation.append({"artifact": item["name"], "id": "AUDIO-FINISH", "status": "FAIL",
+                                   "detail": f"no take could be finished: {'; '.join(errors)}"})
+            summary.append({"name": item["name"], "file": None, "kind": item.get("kind"), "text": item.get("text"), "error": "; ".join(errors)})
+            continue
+        if used is not chosen:
+            found.append({"artifact": target.name, "id": "AUDIO-TAKE", "status": "WARNING",
+                          "detail": f"used {Path(used['path']).name} (score {used.get('score')}) because a better-scored take could not be finished: {'; '.join(errors)}"})
+        for extra, check_id in (("asr", "AUDIO-ASR"), ("clap", "AUDIO-CLAP")):
+            if used.get(extra):
+                found.append(dict(used[extra], artifact=target.name))
+            elif chosen.get(extra):
+                # Kokoro's transcript covers its best take only; never pass that evidence on to another take.
+                found.append({"artifact": target.name, "id": check_id, "status": "NOT_TESTED",
+                              "detail": f"{Path(used['path']).name} was not checked; only the take that could not be finished was"})
+        if item.get("lyrics"):
+            found.append(dict(item["lyrics"], artifact=target.name))
         if applied.get("loop"):
             loop = applied["loop"]
             trimmed = loop["source_bars"] - (loop["last_bar"] - loop["first_bar"] + 1)
@@ -1199,19 +1317,24 @@ def _audio_finish(ctx: Context) -> dict:
         failed += sum(1 for check in found if check["status"] == "FAIL")
         ctx.artifact(target, "audio", item["name"])
         first = first or target
-        summary.append({"name": item["name"], "file": target.name, "kind": item.get("kind"), "text": item.get("text"), "seed": item.get("seed"),
-                        "score": item.get("score"), "seconds": info.get("seconds"), "lufs": info.get("lufs"),
+        summary.append({"name": item["name"], "file": target.name, "kind": item.get("kind"), "text": item.get("text"),
+                        "source": Path(used["path"]).name, "seed": used.get("seed"), "score": used.get("score"), "seconds": info.get("seconds"), "lufs": info.get("lufs"),
                         "true_peak": info.get("true_peak"), "gain_db": applied["gain_db"], "mode": applied["mode"],
                         "checks": {check["id"]: check["status"] for check in found}})
     shutil.rmtree(work, ignore_errors=True)
+    if first is None:
+        raise RunFailed("no sound could be finished: " + "; ".join(f"{s['name']}: {s['error']}" for s in summary))
     ctx.asset.set_primary("audio", first)
     ctx.outputs["audio"] = first
     ctx.report("audio.json", {"format": fmt, "loudness": loudness, "true_peak": true_peak, "sample_rate": sample_rate,
                               "channels": channels, "items": summary})
     ctx.validation.append({"artifact": first.name, "id": "AUDIO-LISTEN", "status": "NOT_TESTED",
                            "detail": "checks measure levels, format and transcript or prompt match; nobody listened to the sound"})
+    failed += len(lost)
     status = "WARNING" if failed else "PASS"
-    return {"status": status, "detail": f"{len(summary)} {fmt} file(s)" + (f"; {failed} failed check(s), see validation" if failed else "")}
+    made = len(summary) - len(lost)
+    return {"status": status, "detail": f"{made} {fmt} file(s)" + (f"; not finished: {', '.join(lost)}" if lost else "")
+            + (f"; {failed} failed check(s), see validation" if failed else "")}
 
 
 MUSIC_KEY = re.compile(r"^[A-G](?:#|b)? (?:major|minor)$")
@@ -1314,12 +1437,14 @@ def _comfyforge_music(ctx: Context) -> dict:
         beats = int(str(ctx.params.get("time_signature") or "4"))
         entry["loop_bar"] = beats * 60.0 / bpm
     if best["clap"] is not None:
-        status = "PASS" if best["clap"] >= CLAP_PASS else "WARNING" if best["clap"] >= CLAP_WARN else "FAIL"
-        entry["clap"] = {"artifact": name, "id": "AUDIO-CLAP", "status": status,
-                         "detail": f"CLAP match to the tags {best['clap']:.2f} (pass >= {CLAP_PASS}, best of {len(takes_made)})"}
+        entry["clap"] = _clap_check(name, best["clap"], len(takes_made), "match to the tags")
     elif scores is None:
         ctx.validation.append({"artifact": None, "id": "AUDIO-CLAP", "status": "NOT_TESTED",
                                "detail": "tag match off, or the sfx runtime (CLAP) is not installed"})
+    entry["alternates"] = [
+        dict({"path": t["path"], "seed": t["seed"], "score": t["clap"]},
+             **({"clap": _clap_check(name, t["clap"], len(takes_made), "match to the tags")} if t["clap"] is not None else {}))
+        for t in sorted((t for t in takes_made if t is not best), key=rank, reverse=True)]
     if not instrumental:
         entry["lyrics"] = {"artifact": name, "id": "AUDIO-LYRICS", "status": "NOT_TESTED",
                            "detail": "sung words are not checked; speech recognition is unreliable on singing"}

@@ -1,27 +1,23 @@
-# AssetForge 0.8.1 — Audit fixes
+# AssetForge 0.8.2 — Sound batches survive a bad take
 
-A maintenance release from a full audit of 0.8.0. Nothing was removed and no format changed; results that were wrong or silently weaker are now correct.
+A fix release for generated audio. Nothing was removed and no format changed.
 
 ## Fixed
 
-- **`blender-qa` on your own `.blend`:** an empty `object` now checks every mesh, as documented. It used to look for the pipeline's `SM_Crate` and fail on any other file.
-- **Validation keeps the run's evidence:** `validate` and `export` no longer drop checks only the run can make (Blender QA and visual review, teardown render and review, transcript, CLAP, length, loop and lyrics). An asset with a pending review or an early-ending song is no longer reported as a plain `PASS`.
-- **Malformed GLB files** get a `GLB-001 FAIL` report instead of a Python traceback.
-- **Truer mesh numbers:** triangle strips and fans are counted, so they can no longer slip under a triangle budget; percent-encoded image URIs resolve.
-- **No silent defaults:** a misspelt boolean (`loop=ture`) is an error, not `false`; an explicit `audio-music url=` that does not answer is an error, not a quiet switch to another ComfyUI; `true_peak=0` is respected.
-- **Dry runs** list every provider a recipe calls, including teardown's and the optional checkers.
-- **Jobs:** Ctrl+C ends a job `CANCELLED` instead of `RUNNING`; `status --last` is exact within one second; ids that are paths are refused.
-- **Windows:** a global npm `gltf-transform.cmd` is detected; the installer's activate scripts point at `.venv`; `Update.ps1` stops on uncommitted changes.
+- **One bad take no longer fails the batch.** In `audio-voice`, `audio-sfx` and `audio-music`, a chosen take that cannot be finished (silent after trimming, or refused by FFmpeg) is replaced by the next-best take of the same item, reported as `AUDIO-TAKE` `WARNING` with that take's own score. An item with no usable take is marked `AUDIO-FINISH` `FAIL` and every other item is still finished. Before, one such take failed the whole asset after the generation had already run.
+- **Silent takes are not picked.** A take whose loudest sample is under -40 dBFS never wins while another take has sound, even when it matched a prompt like "a quiet sigh" better.
+- **Long batches are not cut off at one hour.** Left at its default, the worker timeout grows with the number of takes; a timeout you set is kept.
+- **No silently dropped prompts.** JSON prompt lists accept `"prompt"` as well as `"text"`; an entry with neither is an error instead of being skipped.
+- **Clearer FFmpeg errors.** A failure that prints nothing names the exit code; a take trimmed to nothing is reported as silent.
 
-## Faster
+## New
 
-- Providers are detected once per command instead of on every lookup: a `glb-inspect` run drops from about 4 s to about 1.6 s.
-- `probe` stops reading a large folder at its 5,000-file cap.
+- **Finish again without generating:** `assetforge run audio-process --input source=<asset>/outputs/audio-generation.json` (or `music-generation.json`) finishes the existing takes with new settings, keeping their CLAP or transcript evidence.
 
 ## Verified
 
-Windows 11, Python 3.14, Blender 5.3.0, Godot 4.7.2, FFmpeg 9.0.2, glTF-Transform 4.5.1, the Khronos validator, teardown, and the three audio runtimes: the full suite passed with every provider present, plus 30 new regression tests that failed before their fixes. `Install.ps1` was run twice in a copy of the release in a folder whose name has spaces, parentheses and `!`.
+Windows 11, Python 3.14, FFmpeg 9.0.2 and the audio runtimes: the full suite passed with every provider present, including new tests that failed before the fixes (a silent best take, an item with no usable take, take ranking, resume from the generation report, prompt-list parsing).
 
 ## Not verified
 
-The limits of 0.8.0 stand: no engine other than Godot was launched, no person listened to generated audio, and rendering in Godot is not tested.
+No person listened to the generated audio. No engine other than Godot was launched, and rendering in Godot is not tested.

@@ -56,7 +56,7 @@ assetforge.cmd run audio-sfx --set "prompt=A heavy wooden door creaking open slo
 assetforge.cmd run audio-sfx --input prompts=sfx.txt --set takes=4
 ```
 
-Describe the sound the way a caption would: the source, the action, the space, and how long it lasts. MOSS-SoundEffect v2 writes 48 kHz audio up to 30 seconds long. It always denoises a full 30-second window and then crops it, so a take costs the same whatever its length: about 17 seconds at 100 steps on an RTX 4080 SUPER, with peak VRAM near 10 GB. `steps` (default 100) trades speed for detail, and `cfg` (default 4.0) controls how closely it follows the prompt. CLAP scores every take against its prompt, and the take with the best score is kept.
+Describe the sound the way a caption would: the source, the action, the space, and how long it lasts. MOSS-SoundEffect v2 writes 48 kHz audio up to 30 seconds long. It always denoises a full 30-second window and then crops it, so a take costs the same whatever its length: about 17 seconds at 100 steps on an RTX 4080 SUPER, with peak VRAM near 10 GB. `steps` (default 100) trades speed for detail, and `cfg` (default 4.0) controls how closely it follows the prompt. CLAP scores every take against its prompt, and the take with the best score is kept. A take with no sound in it (loudest sample under -40 dBFS) loses to any take that has sound, whatever its score. If the kept take still cannot be finished, the next one is used (`AUDIO-TAKE`); an item with no usable take fails alone (`AUDIO-FINISH`) and the others are finished. `audio-process --input source=<asset>/outputs/audio-generation.json` finishes the existing takes again without generating.
 
 ## Music
 
@@ -96,6 +96,8 @@ Every audio recipe ends with the same step:
 | AUDIO-LENGTH | Music: PASS when the finished take is at least 90% of the asked length (not used for loops) |
 | AUDIO-LOOP | Music with `loop=true`: the bars kept and the intro or outro bars left out. WARNING when quiet bars (more than 6 dB under the median bar) sit inside the loop |
 | AUDIO-LYRICS | Music with lyrics: always NOT_TESTED, because the sung words are not checked |
+| AUDIO-TAKE | WARNING: the chosen take could not be finished, so the next-best take was used; names the take and why |
+| AUDIO-FINISH | FAIL: no take of this item could be finished (all silent after trimming, or refused by FFmpeg). The rest of the batch is still finished; redo this item |
 | AUDIO-LISTEN | Always NOT_TESTED: no person listened |
 
 These checks show the file is well-formed, sits at sane levels, and says the words or roughly fits the prompt. They do not show that it sounds good or fits the game. Listen before you ship. A FAIL on AUDIO-ASR usually means the model babbled or swallowed a word: run more takes, or rephrase the line.

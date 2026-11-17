@@ -267,13 +267,18 @@ def load_lines(path: Path | None, text: str = "", name: str = "") -> list[dict]:
         if path.suffix.lower() == ".json":
             data = json.loads(raw)
             if isinstance(data, dict):
-                items = [{"name": str(k), "text": str(v)} for k, v in data.items()]
+                for key, value in data.items():
+                    if not isinstance(value, str):
+                        raise AudioError(f"{path.name}: {key!r} must map to a text string")
+                    items.append({"name": str(key), "text": value})
             elif isinstance(data, list):
                 for index, entry in enumerate(data, 1):
-                    if isinstance(entry, str):
-                        items.append({"name": f"line{index:02d}", "text": entry})
-                    elif isinstance(entry, dict) and entry.get("text"):
-                        items.append({"name": str(entry.get("name") or f"line{index:02d}"), "text": str(entry["text"])})
+                    # An entry that names no words used to be dropped without a word.
+                    words = entry if isinstance(entry, str) else (entry.get("text") or entry.get("prompt")) if isinstance(entry, dict) else None
+                    if not isinstance(words, str) or not words.strip():
+                        raise AudioError(f"{path.name}: entry {index} has no \"text\" (or \"prompt\") string")
+                    name = entry.get("name") if isinstance(entry, dict) else None
+                    items.append({"name": str(name or f"line{index:02d}"), "text": words})
             else:
                 raise AudioError(f"{path.name}: expected a JSON object or list")
         else:
@@ -305,6 +310,17 @@ def ffprobe_for(ffmpeg: str) -> str | None:
     return shutil.which("ffprobe")
 
 
+def _why(result: dict) -> str:
+    """The reason a tool run failed. FFmpeg can exit non-zero without a word
+    (a crash on Windows, a killed process); say so instead of an empty reason."""
+    text = (result.get("stderr") or result.get("error") or "").strip()[-300:]
+    if text:
+        return text
+    if result.get("returncode") is None:
+        return "ffmpeg did not finish"
+    return f"ffmpeg exited with code {result['returncode']} and printed nothing"
+
+
 def probe(ffprobe: str, path: Path) -> dict:
     proc = run([ffprobe, "-v", "error", "-show_entries", "format=duration,format_name:stream=codec_type,codec_name,sample_rate,channels",
                 "-of", "json", str(path)], timeout=60)
@@ -334,7 +350,7 @@ def measure(ffmpeg: str, path: Path, silence_db: float = -50.0) -> dict:
     proc = run([ffmpeg, "-hide_banner", "-nostats", "-i", str(path), "-af", chain, "-f", "null", "-"], timeout=300)
     err = proc.get("stderr") or ""
     if proc["returncode"] != 0:
-        raise AudioError(f"ffmpeg could not decode {path.name}: {err.strip()[-300:]}")
+        raise AudioError(f"ffmpeg could not decode {path.name}: {_why(proc)}")
     result: dict = {}
     block = err[err.rfind("{"):err.rfind("}") + 1] if "{" in err else ""
     try:
@@ -409,7 +425,7 @@ def make_loop(ffmpeg: str, source: Path, target: Path, bar_seconds: float) -> di
     result = run([ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-i", str(source), "-filter_complex", graph,
                   "-map", "[out]", "-c:a", "pcm_f32le", str(target)], timeout=300)
     if result["returncode"] != 0 or not target.is_file():
-        raise AudioError(f"ffmpeg could not build the loop: {(result.get('stderr') or result.get('error') or '').strip()[-300:]}")
+        raise AudioError(f"ffmpeg could not build the loop: {_why(result)}")
     kept = levels[first:last + 1]
     return {"bars": last - first, "bar_seconds": round(bar_seconds, 4), "seconds": round(end - start - fade, 3),
             "first_bar": first, "last_bar": last, "source_bars": len(levels), "source_seconds": round(seconds, 3),
@@ -445,8 +461,11 @@ def finish(ffmpeg: str, source: Path, target: Path, fmt: str = "ogg", loudness="
         filters += ["afade=t=in:d=0.004", "areverse", "afade=t=in:d=0.015", "areverse"]
     first = run([ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-i", str(source), "-af", ",".join(filters),
                  "-ac", str(channels), "-ar", str(sample_rate), "-c:a", "pcm_f32le", str(stage)], timeout=300)
-    if first["returncode"] != 0 or not stage.is_file():
-        raise AudioError(f"ffmpeg could not prepare {source.name}: {(first.get('stderr') or first.get('error') or '').strip()[-300:]}")
+    if first["returncode"] != 0:
+        raise AudioError(f"ffmpeg could not prepare {source.name}: {_why(first)}")
+    if not stage.is_file():
+        # FFmpeg writes nothing when trimming leaves no samples at all.
+        raise AudioError(f"{source.name} is silent after trimming")
     looped = None
     if loop_bar:
         loop_stage = work / f"{target.stem}.loop.wav"
@@ -471,7 +490,7 @@ def finish(ffmpeg: str, source: Path, target: Path, fmt: str = "ogg", loudness="
                   "-ac", str(channels), "-ar", str(sample_rate), *FORMATS[fmt], str(target)], timeout=300)
     stage.unlink(missing_ok=True)
     if second["returncode"] != 0 or not target.is_file():
-        raise AudioError(f"ffmpeg could not encode {target.name}: {(second.get('stderr') or second.get('error') or '').strip()[-300:]}")
+        raise AudioError(f"ffmpeg could not encode {target.name}: {_why(second)}")
     return {"gain_db": round(gain, 2), "mode": mode, "before": {k: before.get(k) for k in ("lufs", "true_peak", "max_db")}, "loop": looped}
 
 
