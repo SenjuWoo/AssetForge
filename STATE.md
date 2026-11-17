@@ -1,12 +1,15 @@
 # State
 
-- **Version:** 0.8.2
-- **Milestone:** 0.8.2: generated-sound batches survive an unfinishable take
-- **Active task:** 0.9.0 (PLAN.md): textures, PBR sets, sprites, sprite rendering, comfy-forge backend start
-- **Current revision:** `v0.8.2` = `8d6a6c4` on main
-- **Last known-good:** tag `v0.8.2`
+- **Version:** 0.9.0
+- **Milestone:** 0.9.0: textures, sprites and image to 3D
+- **Active task:** none
+- **Current revision:** `v0.9.0` = `809fa8d` on main
+- **Last known-good:** tag `v0.9.0`
+- **Build/run:** `python -m unittest discover -s tests`; `assetforge doctor`; installer `Install.ps1`. Logs: each job's record under `<project>/.assetforge/jobs/`; SwarmUI/ComfyUI started for a job log to `<asset>/work/swarmui.log` or `comfyui.log`.
 
 ## Completed
+
+- Textures, sprites and image to 3D (0.9.0, 2026-11-17). New recipes `texture-generate`, `texture-tileable`, `texture-pbr`, `sprite-generate`, `image-cutout`, `pixel-art`, `sprite-slice`, `sprite-render`, `comfy-3d`; comfy-forge images start SwarmUI for the job, pass newer `generate` options the installed script declares, record seeds, name files; DDS/TGA output. Fixes in CHANGELOG 0.9.0, including the `mesh-gameready` zero-tangent field report. spritecast evaluated: not a provider (paid OpenAI/Tripo keys, plugin not CLI); its 3D-guide idea is `sprite-render`. Released 2026-11-17: local suite 365 OK / 2 skipped with every provider present; CI 7/7 green on `809fa8d`; 0 open Dependabot/secret alerts (code scanning not set up); release asset SHA-256 `b471245e…efa9` re-downloaded and matched; installed from the zip, doctor exit 0; PATH `assetforge` (editable checkout) reports 0.9.0, doctor exit 0. Real runs in VALIDATION.md.
 
 - Sound batch fix (0.8.2, 2026-11-16), from a field report: a 39-prompt `audio-sfx` run (117 takes, ~30 min) went FAILED in `audio.finish` because one best take was silent after trimming, keeping one output. Now each item falls back to its next take (`AUDIO-TAKE` WARNING), an item with no usable take is `AUDIO-FINISH` FAIL while the rest finish, near-silent takes (peak < -40 dBFS) never win over audible ones, `audio-process` finishes again from `audio-generation.json` / `music-generation.json`, the default worker timeout scales with the batch, JSON prompt entries with `"prompt"` are read instead of dropped, and a message-less FFmpeg failure names its exit code. The report's empty-stderr "could not prepare" was not reproduced locally (FFmpeg 9.0.2 wrote a header-only stage for every silent case tried); the fallback covers it either way. Released 2026-11-16: local suite 229 OK / 2 skipped with every provider present; real 3-prompt MOSS run reproduced the report (an item with only near-silent takes failed alone, the others finished); CI 7/7 green on `8d6a6c4`; 0 open Dependabot/secret alerts (code scanning not set up); release asset SHA-256 `b052ae8f…3dbb` re-downloaded and matched; installed from the zip, doctor exit 0; checkout `.venv` rebuilt, PATH `assetforge` reports 0.8.2, doctor exit 0.
 
@@ -92,19 +95,11 @@ assetforge.cmd doctor
 
 ## Next action
 
-NEXT ACTION (0.9.0 is uncommitted in the working tree; VERSION already says 0.9.0, nothing pushed or released):
+None queued. Open items:
 
-1. Run `python -m unittest discover -s tests` on the final tree. The last full run (355 tests, OK, 2 skipped) predates the two-band fold, `repair_unit_vectors`, the `flat` engine, clean generated names and the sprite-render export change; each of those passed its own test file afterwards.
-2. Docs still to update: README (recipe table, capability table, texture section, ImageMagick row), `docs/RECIPES.md` (the 11 new recipes, image-prep, sprite-atlas, comfy-generate), AGENTS.md table, `docs/PROVIDERS.md` (comfy-forge start, ImageMagick), `docs/UPSTREAM-EVALUATIONS.md` (spritecast: not a provider, paid OpenAI/Tripo keys), ROADMAP.md, RELEASE.md, RELEASE-NOTES.md. `docs/TEXTURES-SPRITES.md` and the CHANGELOG entry are written.
-3. VALIDATION.md: record the real runs. Done: `texture-generate` through a running SwarmUI (seam 6.69 -> 0.56, PBR set); `mesh-gameready` on the reported Pixal3D axe (2 tangents rewritten, official validator 0 errors, Godot `engine-check` PASS); `sprite-render` on that axe (workbench) and the showcase sword (eevee); DDS and TGA through `image-prep`. Not done: `sprite-generate`, `comfy-3d` and a render through a SwarmUI AssetForge started itself (`backend=start`) - the GPU was held by other sessions; the start/stop path is covered by mocked tests only.
-4. PLAN.md: fill the Evidence column, then commit, push, CI on the SHA, alerts, release zip, install, doctor.
-
-Open: comfy-forge 0.11.0 is unreleased; `comfy-3d` and the optional `generate` flags were built against its working tree and tested against stand-ins. Its `-Tileable` crashes on Anima here (field report filed there). The field report against `mesh-gameready` is fixed and cleared.
-
-Earlier line:
-
-Earlier note: Deliberately left from the audit (suspected, not proven defects): `adapters.comfykit_*` keep their comfy-kit names; the `examples/README` fixture regeneration one-liner was not re-run.
-Candidates after that: Candidates: Roblox Studio import evidence; a Unity import check (MCP for Unity or Unity-MCP, see `docs/UPSTREAM-EVALUATIONS.md`); a rendered rig deformation preview; KTX2 texture compression as an opt-in recipe (Blender 5.3's glTF exporter writes KTX2 natively, per blender-skills 1.3.0).
+- `comfy-3d` live run against comfy-forge 0.11.0 (see VALIDATION.md for the result of the run started at release time).
+- SwarmUI started by AssetForge for an image job (`backend=auto` with nothing running) is covered by mocked tests only; SwarmUI was already running for other sessions.
+- Candidates: a matting route for busy backgrounds through comfy-forge `-Transparent`; KTX2/BC7 compression; Roblox Studio and Unity import evidence; rendered rig deformation preview.
 
 ## Integration status
 

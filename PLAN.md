@@ -9,22 +9,22 @@ A task is `complete` only when its Verify passed; Evidence records `cmd @ sha ex
 
 | ID | Task | Status | Depends on | Verify | Evidence |
 | --- | --- | --- | --- | --- | --- |
-| T1 | `texture.py`: seamless tiling (`make_tileable`), seam metric (`TEX-SEAM`) | pending | - | cmd:python -m unittest discover -s tests -p "test_texture.py" | - |
-| T2 | `texture.py`: PBR set from a colour map (height, normal, roughness, AO, metallic, ORM, material.json) | pending | T1 | cmd:python -m unittest discover -s tests -p "test_texture.py" | - |
-| T3 | `sprites.py`: cut-out (background key + border flood fill, feather, decontaminate, trim, anchor) | pending | - | cmd:python -m unittest discover -s tests -p "test_sprites.py" | - |
-| T4 | `sprites.py`: pixel art (downscale, fixed palettes or `.hex`, dither, preview) | pending | T3 | cmd:python -m unittest discover -s tests -p "test_sprites.py" | - |
-| T5 | `sprites.py`: sheet slicing (grid and alpha islands) | pending | T3 | cmd:python -m unittest discover -s tests -p "test_sprites.py" | - |
-| T6 | `sprite-render`: Blender renders a GLB in N facings at a camera pitch, per animation, with anchor and sheet | pending | - | cmd:python -m unittest discover -s tests -p "test_sprite_render.py" | - |
-| T7 | comfy-forge images: `steps`/`cfg` pass-through, SwarmUI started for the job when none runs, messages say comfy-forge | pending | - | cmd:python -m unittest discover -s tests -p "test_*.py" | - |
-| T8 | Recipes `texture-tileable`, `texture-pbr`, `texture-generate`, `image-cutout`, `sprite-generate`, `pixel-art`, `sprite-slice`, `sprite-render`; runner handlers, STEP_PROVIDERS, schema | pending | T1-T7 | cmd:python -m unittest discover -s tests -p "test_*.py" | - |
-| T9 | Export: sidecar data (atlas.json, sprites.json, material.json) ships, stale files cleared, name collisions refused | pending | T8 | cmd:python -m unittest discover -s tests -p "test_exporters.py" | - |
-| T10 | Bugs found in the read: image size bounds, atlas frame cap, `name=path` input message (exit 2), probe routes for the new recipes | pending | T8 | cmd:python -m unittest discover -s tests -p "test_*.py" | - |
-| T11 | DDS and TGA output for `image-prep` (ImageMagick writes DDS) | pending | T10 | cmd:python -m unittest discover -s tests -p "test_images.py" | - |
-| T12 | Real runs: texture-generate through SwarmUI, texture-pbr, sprite-render on the showcase sword, sprite-generate | pending | T8 | file:VALIDATION.md | - |
-| T13 | Docs (README, AGENTS, RECIPES, TEXTURES-SPRITES, UPSTREAM-EVALUATIONS, ROADMAP), version 0.9.0, changelog, STATE | pending | T12 | cmd:python -m unittest discover -s tests | - |
-| T15 | Field report: `mesh-gameready` output fails GLB-014 (zero tangents after the collapse); `repair_unit_vectors` | pending | - | cmd:python -m unittest discover -s tests -p "test_glb_repair.py" | - |
-| T16 | `comfy-3d` recipe over comfy-forge 0.11.0 `model3d.py`; optional `generate` flags probed from its `param()` block | pending | T8 | cmd:python -m unittest discover -s tests -p "test_comfy_forge.py" | - |
-| T14 | Push, CI green on the exact SHA, alerts checked, release asset verified, installed, doctor | pending | T13 | cmd:gh run list --commit <sha> | - |
+| T1 | `texture.py`: seamless tiling (`make_tileable`), seam metric (`TEX-SEAM`) | complete | - | cmd:python -m unittest discover -s tests -p "test_texture.py" | cmd:python -m unittest discover -s tests @ 809fa8d exit=0 (365 OK, 2 skipped) |
+| T2 | `texture.py`: PBR set from a colour map (height, normal, roughness, AO, metallic, ORM, material.json) | complete | T1 | cmd:python -m unittest discover -s tests -p "test_texture.py" | cmd:python -m unittest discover -s tests @ 809fa8d exit=0 (365 OK, 2 skipped) |
+| T3 | `sprites.py`: cut-out (background key + border flood fill, feather, decontaminate, trim, anchor) | complete | - | cmd:python -m unittest discover -s tests -p "test_sprites.py" | cmd:python -m unittest discover -s tests @ 809fa8d exit=0 (365 OK, 2 skipped) |
+| T4 | `sprites.py`: pixel art (downscale, fixed palettes or `.hex`, dither, preview) | complete | T3 | cmd:python -m unittest discover -s tests -p "test_sprites.py" | cmd:python -m unittest discover -s tests @ 809fa8d exit=0 (365 OK, 2 skipped) |
+| T5 | `sprites.py`: sheet slicing (grid and alpha islands) | complete | T3 | cmd:python -m unittest discover -s tests -p "test_sprites.py" | cmd:python -m unittest discover -s tests @ 809fa8d exit=0 (365 OK, 2 skipped) |
+| T6 | `sprite-render`: Blender renders a GLB in N facings at a camera pitch, per animation, with anchor and sheet | complete | - | cmd:python -m unittest discover -s tests -p "test_sprite_render.py" | cmd:python -m unittest discover -s tests @ 809fa8d exit=0 (365 OK, 2 skipped) |
+| T7 | comfy-forge images: `steps`/`cfg` pass-through, SwarmUI started for the job when none runs, messages say comfy-forge | complete | - | cmd:python -m unittest discover -s tests -p "test_*.py" | cmd:python -m unittest discover -s tests @ 809fa8d exit=0 (365 OK, 2 skipped) |
+| T8 | Recipes `texture-tileable`, `texture-pbr`, `texture-generate`, `image-cutout`, `sprite-generate`, `pixel-art`, `sprite-slice`, `sprite-render`; runner handlers, STEP_PROVIDERS, schema | complete | T1-T7 | cmd:python -m unittest discover -s tests -p "test_*.py" | cmd:python -m unittest discover -s tests @ 809fa8d exit=0 (365 OK, 2 skipped) |
+| T9 | Export: sidecar data (atlas.json, sprites.json, material.json) ships, stale files cleared, name collisions refused | complete | T8 | cmd:python -m unittest discover -s tests -p "test_exporters.py" | cmd:python -m unittest discover -s tests @ 809fa8d exit=0 (365 OK, 2 skipped) |
+| T10 | Bugs found in the read: image size bounds, atlas frame cap, `name=path` input message (exit 2), probe routes for the new recipes | complete | T8 | cmd:python -m unittest discover -s tests -p "test_*.py" | cmd:python -m unittest discover -s tests @ 809fa8d exit=0 (365 OK, 2 skipped) |
+| T11 | DDS and TGA output for `image-prep` (ImageMagick writes DDS) | complete | T10 | cmd:python -m unittest discover -s tests -p "test_images.py" | cmd:python -m unittest discover -s tests @ 809fa8d exit=0 (365 OK, 2 skipped) |
+| T12 | Real runs: texture-generate through SwarmUI, texture-pbr, sprite-render on the showcase sword, sprite-generate | complete | T8 | file:VALIDATION.md | file:VALIDATION.md (0.9.0 section) @ 809fa8d |
+| T13 | Docs (README, AGENTS, RECIPES, TEXTURES-SPRITES, UPSTREAM-EVALUATIONS, ROADMAP), version 0.9.0, changelog, STATE | complete | T12 | cmd:python -m unittest discover -s tests | cmd:python -m unittest discover -s tests @ 809fa8d exit=0 (365 OK, 2 skipped); docs and CHANGELOG in the commit |
+| T15 | Field report: `mesh-gameready` output fails GLB-014 (zero tangents after the collapse); `repair_unit_vectors` | complete | - | cmd:python -m unittest discover -s tests -p "test_glb_repair.py" | cmd:python -m unittest discover -s tests @ 809fa8d exit=0 (365 OK, 2 skipped) |
+| T16 | `comfy-3d` recipe over comfy-forge 0.11.0 `model3d.py`; optional `generate` flags probed from its `param()` block | complete | T8 | cmd:python -m unittest discover -s tests -p "test_comfy_forge.py" | cmd:python -m unittest discover -s tests @ 809fa8d exit=0 (365 OK, 2 skipped) |
+| T14 | Push, CI green on the exact SHA, alerts checked, release asset verified, installed, doctor | complete | T13 | cmd:gh run list --commit <sha> | cmd:gh run view 44202681239 @ 809fa8d exit=0 (7/7 jobs success); release v0.9.0 asset SHA-256 b471245e…efa9 re-downloaded and matched; zip install doctor exit=0; 0 Dependabot / 0 secret-scanning alerts |
 
 ### Decisions
 
