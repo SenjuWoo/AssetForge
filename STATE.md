@@ -97,7 +97,7 @@ assetforge.cmd doctor
 
 None queued. Open items:
 
-- `comfy-3d` live run: the attempt at release time timed out after 40 min inside comfy-forge's `model3d.py` because another job held the GPU at 100 % (failure reported cleanly, exit 6). Rerun on an idle GPU: `assetforge run comfy-3d --input <picture>`.
+- `comfy-3d` end to end is unproven live: four attempts on 2026-11-17/18 ran while another session's voice batch shared the 16 GB GPU; two hit comfy-forge's time limit (40 and 60 min), two were stopped (one stalled, one at the operator's request). Each failed cleanly and left no ComfyUI process. The per-job ComfyUI start and stop did run live. Rerun on an idle GPU: `assetforge run comfy-3d --input <picture>` (about 4 min expected).
 - SwarmUI started by AssetForge for an image job (`backend=auto` with nothing running) is covered by mocked tests only; SwarmUI was already running for other sessions.
 - Candidates: a matting route for busy backgrounds through comfy-forge `-Transparent`; KTX2/BC7 compression; Roblox Studio and Unity import evidence; rendered rig deformation preview.
 
