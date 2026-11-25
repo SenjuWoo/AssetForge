@@ -82,9 +82,9 @@ Here the showcase sword goes through that loop for real: `probe` says it is over
 
 ![Terminal: assetforge run mesh-gameready collapses the sword from 21,856 to 16,951 triangles under the 20,000 cap with glTF validation PASS=14, FAIL=0; probe on the result now fits generic, Godot, Minecraft and Roblox; sprite-render writes 8 frames and one sheet](docs/presentation/screenshot-pipeline.png)
 
-And the assets that run produced, unretouched:
+The same recipes on the same sword, from a separate run with larger frames, laid out side by side and labelled (the renders themselves are not retouched). Panels 1 and 2 are top-down `sprite-render` frames of the source and the game-ready GLB:
 
-![Four outputs of one AssetForge run on the enchanted fire sword, rendered by Blender: the source GLB at 21,856 triangles beside the mesh-gameready result at 16,951 triangles, which looks the same; a 64-pixel pico8 pixel-art sprite made from the game-ready render; and the game-ready sword in 8 facings at a 30 degree camera from sprite-render](docs/presentation/asset-pipeline.png)
+![Outputs of AssetForge recipes on the enchanted fire sword, rendered by Blender: the source GLB at 21,856 triangles beside the mesh-gameready result at 16,951 triangles, which looks the same; a 64-pixel pico8 pixel-art sprite made from the game-ready render; and the game-ready sword in 8 facings at a 30 degree camera from sprite-render](docs/presentation/asset-pipeline.png)
 
 ## Recipes
 
@@ -148,7 +148,7 @@ project/
 
 - **Recipes are data.** A recipe can only name implemented step kinds; it cannot run a shell string or an arbitrary script. External tools are called with argument lists, explicit working directories and timeouts.
 - **Paths stay inside the project.** Artifact paths are project-relative and rejected if absolute, missing or escaping the project (`..` and symlinks included).
-- **Evidence is tiered.** `VERIFIED`, `WARNING`, `NOT_TESTED` and `FAIL` are kept apart, and a `NOT_TESTED` check is never reported as passed. Generated pictures and sounds carry `GEN-VISUAL` / `AUDIO-LISTEN` `NOT_TESTED` until a person looks or listens.
+- **Evidence is tiered.** Every check is `PASS`, `WARNING`, `FAIL` or `NOT_TESTED`, and a `NOT_TESTED` check is never reported as passed. Generated pictures and sounds carry `GEN-VISUAL` / `AUDIO-LISTEN` `NOT_TESTED` until a person looks or listens.
 - **Nothing leaves the machine.** AssetForge never uploads to Roblox, Godot or any account and stores no credentials. Audio models run locally; their weights download from Hugging Face on first use.
 
 Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Capability status, providers, the recommended Blender (blender-skills) and comfy-forge workflows, and the security boundaries: [docs/CAPABILITIES.md](docs/CAPABILITIES.md).

@@ -1,5 +1,16 @@
 # Plan
 
+## 0.9.1 - field reports and presentation (2026-11-25)
+
+| ID | Task | Status | Depends on | Verify | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| P1 | CI token read-only (code-scanning alerts 1-2) | complete | - | cmd:gh api code-scanning/alerts?state=open | cmd:gh api @ 587c9d5: 0 open |
+| P2 | Repeated text gets its own seeds (`take_seeds`) | complete | - | cmd:python -m unittest tests.test_audio | cmd:python -m unittest discover -s tests @ 0edfd8f exit=0 (369 OK, 2 skipped) |
+| P3 | GPU lock for audio workers (`gpu_lock`, `ASSETFORGE_AUDIO_GPU_WAIT`) | complete | - | cmd:python -m unittest tests.test_audio | same run; stub-tested only |
+| P4 | Failed batch names its saved takes | complete | - | cmd:python -m unittest tests.test_audio | same run; `audio-process --input <folder>` ran on two WAVs |
+| P5 | README presentation pass, `docs/CAPABILITIES.md`, real-run images | complete | - | read every PNG | images in `docs/presentation/` |
+| P6 | Release 0.9.1 | complete | P1-P5 | cmd:gh run list --commit <sha> | CI 7/7 green on `0edfd8f`; asset SHA-256 `8f1867a9…8ea3` matched; zip install doctor exit 0 |
+
 ## 0.9.0 - cover what a text-and-code agent cannot make (2026-11-17)
 
 Goal: an agent that can only write text and code gets every 2D asset it needs from AssetForge:

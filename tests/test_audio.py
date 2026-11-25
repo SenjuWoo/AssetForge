@@ -186,6 +186,42 @@ class WorkerHelpers(unittest.TestCase):
         flat = [s for row in (seeds[0], seeds[2], seeds[3]) for s in row]
         self.assertEqual(len(flat), len(set(flat)))
 
+    def test_sfx_job_gives_repeats_their_own_seeds_and_records_each_take(self):
+        # The real worker loop with the model, the WAV writer and the
+        # measurements swapped out: no torch, no GPU.
+        from unittest import mock
+        seen = []
+
+        class FakeMoss:
+            def __init__(self, request):
+                pass
+
+            def generate(self, text, seed, seconds, steps, cfg):
+                seen.append((text, seed))
+                return [seed], 48000
+
+        def fake_write(path, audio, sr):
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
+            Path(path).write_bytes(b"RIFF")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result_path = Path(tmp) / "result.json"
+            request = {"items": [{"name": "boom1", "text": "boom"}, {"name": "boom2", "text": "boom"}],
+                       "takes": 2, "seed": 0, "out_dir": tmp, "_result_path": result_path}
+            result = {"ok": False, "items": []}
+            with mock.patch.object(audio_worker, "MossSFX", FakeMoss), \
+                    mock.patch.object(audio_worker, "write_wav", fake_write), \
+                    mock.patch.object(audio_worker, "signal_stats", lambda a, sr: {"peak": 0.5, "quiet": 0.1, "clipped": 0.0}), \
+                    mock.patch.object(audio_worker, "free", lambda *a: None):
+                audio_worker.sfx_job(request, result)
+            seeds = [seed for _, seed in seen]
+            self.assertEqual(len(seeds), 4)
+            self.assertEqual(len(set(seeds)), 4)
+            self.assertEqual(seeds[:2], [1, 18])  # the first line keeps its old seeds
+            written = json.loads(result_path.read_text(encoding="utf-8"))
+            self.assertEqual([t["name"] for t in written["takes_made"]], ["boom1", "boom1", "boom2", "boom2"])
+            self.assertEqual(len(result["items"]), 2)
+
     def test_speech_score_prefers_the_take_that_says_the_words(self):
         stats = {"seconds": 1.5, "quiet": 0.1, "clipped": 0.0, "f0": 220.0}
         good = audio_worker.speech_score({"text": "Hello there traveler", "asr_similarity": 1.0}, stats, 220.0)

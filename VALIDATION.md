@@ -4,6 +4,18 @@ Verified working tree: 0.3.0 release candidate based on `9027141dc5680a29ed4d7d4
 
 Environment: Windows 11, Python 3.14.10, Node 26.13.0, Pillow 13.0.0, jsonschema 4.x, glTF-Transform 4.5.1, Khronos glTF Validator installed locally in `.tools`, current Blender reports 5.3.0. The project works without any optional provider.
 
+## 0.9.1 sound batches that share a GPU — 2026-11-25
+
+Environment: Windows 11, Python 3.14.10, Pillow 13.0.0, Blender 5.3.0, Godot 4.7.2, ImageMagick 7.1.2-34, FFmpeg 9.0.2, Node 26.13.1, the three audio runtimes present.
+
+- Baseline before any change (0.9.0 at `1915927`): **365 OK, 2 skipped**, `doctor` exit 0.
+- Full suite after the fixes: **369 OK, 2 skipped** with every provider present (the real Kokoro test included); CI 7/7 green on `0edfd8f`. A later test-only commit adds a pure-Python run of `sfx_job` (model, WAV writer and measurements swapped out): two same-text lines get four distinct seeds, the first line keeps 1 and 18, and `result.json` lists all four takes as they are made.
+- GPU lock: two concurrent `run_worker` calls on a one-second stub worker never overlap (the second printed `waiting for the GPU`); `gpu_lock(wait=0)` inside a held lock fails with `GPU busy`; the lock is free again after release. Not exercised against a live model contention.
+- Saved takes: a stub worker that writes one take, a partial `result.json` and exits 3 without an error gives `audio worker failed: it stopped before finishing (exit 3); 1 take(s) were saved in ...: finish them with assetforge run audio-process --input "..."`. That `audio-process --input <folder>` form ran on a folder of two WAVs: `audio.source` 2 files, `audio.finish` 2 ogg files, SUCCEEDED. `audio-process` takes at most 200 files a run, so a larger saved folder has to be finished in parts.
+- Presentation runs (images in `docs/presentation/`): `doctor` READY; `probe` on the showcase sword: 21,856 triangles, 61 meshes, validation PASS, fits Roblox no; `mesh-gameready`: 16,951 triangles, glTF checks PASS=14 FAIL=0 NOT_TESTED=1, 11 s; `probe` on the result fits every budget; `sprite-render` 8 facings eevee; `pixel-art` 64 px pico8 on a top-down frame; `texture-pbr` on `source.png`. Every image was looked at.
+- Release `v0.9.1`: asset SHA-256 `8f1867a9d5863d769a341fe2ac7a414045183c096731210ad3898b0968338ea3`, re-downloaded and matched; extracted, `Install.ps1 -WithImages`, `assetforge.cmd --version` 0.9.1, `doctor` exit 0.
+- Not run this release: the sdist build and the showcase generator SHA-256 check from `RELEASE.md`; no new audio was generated.
+
 ## 0.9.0 textures, sprites and image to 3D — 2026-11-17
 
 Environment: Windows 11, Python 3.14.10, Pillow 13.0.0, Blender 5.3.0, Godot 4.7.2, ImageMagick 7.1.2-34, comfy-forge 0.10.0 then 0.11.0 with SwarmUI 0.9.8.4 (ComfyUI backend on 7821), Anima model `woomixAnima_v180`, RTX 4080 SUPER shared with other jobs.

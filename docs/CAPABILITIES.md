@@ -23,7 +23,7 @@ The detail behind the README: what each capability has proven, which external pr
 | Mesh conversion | VERIFIED | Blender 5.3: rigged animated FBX and OBJ to GLB; other formats depend on the installed Blender build |
 | Khronos glTF validation | VERIFIED when installed | Optional Node package in `.tools`; otherwise `NOT_TESTED` |
 | Conservative GLB optimization | VERIFIED | glTF-Transform; source and optimized structure compared |
-| Game-ready mesh collapse | IMPLEMENTED | `mesh-gameready` decimates a GLB in Blender and fails above the budget cap. Default is 20,000 triangles. Engine import remains `NOT_TESTED` |
+| Game-ready mesh collapse | VERIFIED | `mesh-gameready` decimates a GLB in Blender and fails above the budget cap (default 20,000 triangles). Real Blender 5.3 runs: a 699,878-triangle GLB to 17,000 (official validator 0 errors) and the 21,856-triangle showcase sword to 16,951 (glTF checks PASS=14, FAIL=0). Engine import remains `NOT_TESTED` |
 | Blender background export | VERIFIED | Real Blender 5.3.0 (earlier 5.2.3); `blender-sample` and upstream export pipeline executed |
 | blender-skills catalog and routing | VERIFIED | 28 skills detected at upstream v1.3.1 (`b1b21df`); CLI list/route tested |
 | Blender asset QA gate | VERIFIED | Upstream `blender-asset-qa`: 108 tris, 0 errors, 0 warnings; review sheets generated and explicitly approved after inspection |

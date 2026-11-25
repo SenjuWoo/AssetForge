@@ -381,6 +381,7 @@ Songs and instrumentals from style tags with ACE-Step 1.5, rendered by comfy-for
 | `name` | track | names the file and the asset |
 | `seconds` | 60 | 1-600 |
 | `bpm`, `key`, `time_signature`, `language` | 120, C major, 4, en | musical settings passed to ACE-Step |
+| `instrumental` | false | `true` makes an instrumental even when lyrics are given; with no lyrics the track is instrumental anyway |
 | `loop` | false | make a seamless loop from the full-level bars, with the last bar crossfaded into the first (`AUDIO-LOOP`) |
 | `variant` | aio | comfy-forge variant (`aio`, `turbo`, `turbo-4b`, `xl-turbo`, `xl-sft`, `xl-base`); its weights must be installed by comfy-forge |
 | `steps`, `cfg` | variant default | sampler overrides |
