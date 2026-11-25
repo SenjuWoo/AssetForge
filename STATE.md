@@ -1,13 +1,15 @@
 # State
 
-- **Version:** 0.9.0
-- **Milestone:** 0.9.0: textures, sprites and image to 3D
-- **Active task:** none
-- **Current revision:** `v0.9.0` = `809fa8d` on main
+- **Version:** 0.9.1
+- **Milestone:** 0.9.1: sound batches that share a GPU (two field reports) and the README presentation pass
+- **Active task:** 0.9.1 release (push, CI on the exact SHA, tag, asset check)
+- **Current revision:** main (0.9.1 commit); `v0.9.0` = `809fa8d`
 - **Last known-good:** tag `v0.9.0`
 - **Build/run:** `python -m unittest discover -s tests`; `assetforge doctor`; installer `Install.ps1`. Logs: each job's record under `<project>/.assetforge/jobs/`; SwarmUI/ComfyUI started for a job log to `<asset>/work/swarmui.log` or `comfyui.log`.
 
 ## Completed
+
+- Sound batches and presentation (0.9.1, 2026-11-25). Field reports cleared: repeated text in one `audio-voice`/`audio-sfx` run now gets its own seeds (`audio_worker.take_seeds`; non-repeating runs keep their seeds); audio workers queue on an OS file lock `<audio home>/gpu.lock` (`audio.gpu_lock`, `ASSETFORGE_AUDIO_GPU_WAIT`, default 4 h; smoke jobs skip it); the worker rewrites `result.json` after every take and a failed run names the saved takes and the `audio-process` command. Lock tested with stub workers only (two concurrent runs never overlap; zero wait fails with `GPU busy`); no live GPU contention run. README rewritten to the fleet presentation standard with real-run shots (`docs/presentation/`), new mark `docs/icon.svg`; capability/provider/workflow detail moved to `docs/CAPABILITIES.md`. Showcase claim corrected (21,856 triangles, over the 20,000 cap until `mesh-gameready`, 16,951 after). CI token read-only (code-scanning alerts 1-2 closed by `587c9d5`). Local suite 369 OK / 2 skipped with every provider present.
 
 - Textures, sprites and image to 3D (0.9.0, 2026-11-17). New recipes `texture-generate`, `texture-tileable`, `texture-pbr`, `sprite-generate`, `image-cutout`, `pixel-art`, `sprite-slice`, `sprite-render`, `comfy-3d`; comfy-forge images start SwarmUI for the job, pass newer `generate` options the installed script declares, record seeds, name files; DDS/TGA output. Fixes in CHANGELOG 0.9.0, including the `mesh-gameready` zero-tangent field report. spritecast evaluated: not a provider (paid OpenAI/Tripo keys, plugin not CLI); its 3D-guide idea is `sprite-render`. Released 2026-11-17: local suite 365 OK / 2 skipped with every provider present; CI 7/7 green on `809fa8d`; 0 open Dependabot/secret alerts (code scanning not set up); release asset SHA-256 `b471245e…efa9` re-downloaded and matched; installed from the zip, doctor exit 0; PATH `assetforge` (editable checkout) reports 0.9.0, doctor exit 0. Real runs in VALIDATION.md.
 

@@ -406,6 +406,33 @@ class Clap:
 
 
 # --------------------------------------------------------------------- jobs
+def take_seeds(base_seed: int, items: list[dict], takes: int) -> list[list[int]]:
+    """Seed of every take, per item. Take k of a line is base + 17k + 1, as it
+    always was; a line whose text repeats an earlier line in the same run is
+    shifted by 7919 per repeat, so variants of one sound are separate
+    generations instead of copies. A run without repeated text keeps the seeds
+    (and so the audio) it made before."""
+    seen: dict[str, int] = {}
+    out = []
+    for item in items:
+        key = " ".join(str(item.get("text", "")).split()).casefold()
+        repeat = seen.get(key, 0)
+        seen[key] = repeat + 1
+        out.append([base_seed + 17 * k + 1 + 7919 * repeat for k in range(takes)])
+    return out
+
+
+def note_take(result: dict, result_path: Path | None, item: dict, take: dict) -> None:
+    """Record a finished take in result.json at once, so a run that dies later
+    (out of GPU memory, killed, timed out) still lists the takes it saved."""
+    result.setdefault("takes_made", []).append({"name": item["name"], "text": item.get("text"), "seed": take["seed"], "path": take["path"]})
+    if result_path is not None:
+        try:
+            result_path.write_text(json.dumps(result, indent=1, default=str), encoding="utf-8")
+        except OSError:
+            pass
+
+
 def speech_job(request: dict, result: dict) -> None:
     engine = request["engine"]
     items = request["items"]
@@ -469,10 +496,11 @@ def speech_job(request: dict, result: dict) -> None:
         data, sr = to_mono(data, sr)
         ref_f0 = median_f0(data, sr)
 
-    for item in items:
+    seeds = take_seeds(base_seed, items, takes)
+    for index, item in enumerate(items):
         candidates = []
         for k in range(takes):
-            seed = base_seed + 17 * k + 1
+            seed = seeds[index][k]
             t0 = time.time()
             if engine == "qwen3-tts":
                 audio, sr = generator.clone(item["text"], seed, ref_audio, ref_text)
@@ -491,6 +519,7 @@ def speech_job(request: dict, result: dict) -> None:
             write_wav(str(path), audio, sr)
             take["path"] = str(path)
             candidates.append(take)
+            note_take(result, request.get("_result_path"), item, take)
             log(f"{item['name']} take {k + 1}: score {take['score']} {stats} {take.get('asr_text', '')!r}")
         best = pick_best(candidates)
         result["items"].append({"name": item["name"], "text": item["text"], "best": best["path"], "seed": best["seed"], "score": best["score"],
@@ -510,14 +539,16 @@ def sfx_job(request: dict, result: dict) -> None:
     takes_dir = Path(request["out_dir"]) / "takes"
     made = []
     engine = MossSFX(request)
-    for item in items:
+    seeds = take_seeds(base_seed, items, takes)
+    for index, item in enumerate(items):
         for k in range(takes):
-            seed = base_seed + 17 * k + 1
+            seed = seeds[index][k]
             t0 = time.time()
             audio, sr = engine.generate(item["text"], seed, seconds, steps, cfg)
             path = takes_dir / f"{item['name']}-take{k + 1}.wav"
             write_wav(str(path), audio, sr)
             made.append((item, {"seed": seed, "path": str(path), "stats": signal_stats(audio, sr), "seconds_to_make": round(time.time() - t0, 2)}, audio, sr))
+            note_take(result, request.get("_result_path"), item, made[-1][1])
             log(f"{item['name']} take {k + 1}: {made[-1][1]['stats']}")
     free(engine)
     clap = None
@@ -594,6 +625,7 @@ def main() -> int:
     request = json.loads(request_path.read_text(encoding="utf-8"))
     result_path = request_path.with_name("result.json")
     result: dict = {"ok": False, "engine": request.get("engine"), "models": {}, "items": []}
+    request["_result_path"] = result_path
     os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")  # MOSS wraps its DiT in torch.compile; Triton is absent on Windows
     os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
     started = time.time()

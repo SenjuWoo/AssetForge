@@ -175,6 +175,17 @@ class WorkerHelpers(unittest.TestCase):
         chosen = SimpleNamespace(params={"timeout": 600}, recipe=recipe)
         self.assertEqual(runner._worker_timeout(chosen, 500), 600)  # the caller's own limit stands
 
+    def test_repeated_text_in_one_run_gets_its_own_seeds(self):
+        # Field report 0.8.2: four lines with one prompt came out as four
+        # identical files. A repeat is shifted; lines without repeats keep
+        # the seeds they always had.
+        items = [{"text": "boom"}, {"text": "hiss"}, {"text": "Boom "}, {"text": "boom"}]
+        seeds = audio_worker.take_seeds(5, items, 2)
+        self.assertEqual(seeds[0], [6, 23])
+        self.assertEqual(seeds[1], [6, 23])
+        flat = [s for row in (seeds[0], seeds[2], seeds[3]) for s in row]
+        self.assertEqual(len(flat), len(set(flat)))
+
     def test_speech_score_prefers_the_take_that_says_the_words(self):
         stats = {"seconds": 1.5, "quiet": 0.1, "clipped": 0.0, "f0": 220.0}
         good = audio_worker.speech_score({"text": "Hello there traveler", "asr_similarity": 1.0}, stats, 220.0)
@@ -225,6 +236,70 @@ class Runtimes(unittest.TestCase):
                 audio.run_worker("speech", {"job": "nope"}, Path(self.tmp.name) / "work", timeout=60)
         finally:
             os.environ.pop("ASSETFORGE_AUDIO_WORKER", None)
+
+    def test_gpu_lock_lets_one_audio_job_in_at_a_time(self):
+        with audio.gpu_lock(wait=0):
+            with self.assertRaisesRegex(audio.AudioError, "GPU busy"):
+                with audio.gpu_lock(wait=0):
+                    pass
+        with audio.gpu_lock(wait=0):
+            pass  # released on exit
+
+    def test_two_workers_never_overlap(self):
+        # Field report 0.9.0: two audio workers at once filled the GPU and
+        # stalled. The second run_worker queues until the first is done.
+        import threading
+        make_runtime(self.home, "sfx")
+        stub = Path(self.tmp.name) / "slow.py"
+        stub.write_text(
+            "import json, sys, time\n"
+            "from pathlib import Path\n"
+            "req = Path(sys.argv[1]); start = time.time(); time.sleep(1.0)\n"
+            "req.with_name('result.json').write_text(json.dumps({'ok': True, 'items': [], 'start': start, 'end': time.time()}))\n",
+            encoding="utf-8")
+        os.environ["ASSETFORGE_AUDIO_WORKER"] = str(stub)
+        results, errors = {}, []
+
+        def job(n):
+            try:
+                results[n] = audio.run_worker("sfx", {"job": "sfx"}, Path(self.tmp.name) / f"work{n}", timeout=120)
+            except Exception as exc:  # surfaced below
+                errors.append(exc)
+        try:
+            threads = [threading.Thread(target=job, args=(n,)) for n in (1, 2)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join(180)
+        finally:
+            os.environ.pop("ASSETFORGE_AUDIO_WORKER", None)
+        self.assertEqual(errors, [])
+        first, second = sorted(results.values(), key=lambda r: r["start"])
+        self.assertLessEqual(first["end"], second["start"])
+
+    def test_a_killed_batch_names_the_takes_it_saved(self):
+        # Field report 0.9.0: an out-of-memory kill left result.json with no
+        # items, so the takes already made looked lost.
+        make_runtime(self.home, "sfx")
+        stub = Path(self.tmp.name) / "dies.py"
+        stub.write_text(
+            "import json, os, sys\n"
+            "from pathlib import Path\n"
+            "req = Path(sys.argv[1]); take = req.parent / 'takes' / 'boom-take1.wav'\n"
+            "take.parent.mkdir(parents=True, exist_ok=True); take.write_bytes(b'RIFF')\n"
+            "req.with_name('result.json').write_text(json.dumps({'ok': False, 'items': [], 'takes_made': [{'name': 'boom', 'seed': 1, 'path': str(take)}]}))\n"
+            "os._exit(3)\n",
+            encoding="utf-8")
+        os.environ["ASSETFORGE_AUDIO_WORKER"] = str(stub)
+        try:
+            with self.assertRaises(audio.AudioError) as caught:
+                audio.run_worker("sfx", {"job": "sfx"}, Path(self.tmp.name) / "work", timeout=60)
+        finally:
+            os.environ.pop("ASSETFORGE_AUDIO_WORKER", None)
+        message = str(caught.exception)
+        self.assertIn("stopped before finishing (exit 3)", message)
+        self.assertIn("1 take(s) were saved", message)
+        self.assertIn("assetforge run audio-process --input", message)
 
     def test_cli_lists_runtimes_without_installing(self):
         result = run_cli(["audio-setup", "--list", "--json"], Path(self.tmp.name), self.env)

@@ -47,7 +47,7 @@ class SchemaTests(unittest.TestCase):
             "README.md", "ROADMAP.md", "RELEASE.md", "RELEASE-NOTES.md",
             "docs/ARCHITECTURE.md", "docs/PROVIDERS.md", "docs/RECIPES.md",
             "docs/THIRD-PARTY-NOTICES.md", "docs/UPSTREAM-EVALUATIONS.md",
-            "docs/UABS-INTEGRATION.md",
+            "docs/UABS-INTEGRATION.md", "docs/CAPABILITIES.md",
         ):
             path = ROOT / name
             if not path.exists():

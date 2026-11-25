@@ -1,69 +1,43 @@
-# AssetForge
+<div align="center">
 
-AssetForge is a standalone, agent-friendly toolkit for producing, validating and packaging game assets. It provides a Python CLI, versioned JSON contracts and optional adapters for Blender, blender-skills, glTF-Transform, the Khronos glTF Validator, comfy-forge (ComfyUI images, music and image to 3D), img2threejs, teardown and local audio models (voice lines and sound effects).
+![AssetForge: an orange low-poly cube with an ember spark on a dark forge-glow background, with the tagline 'Source art in, engine-ready assets out: meshes, textures, sprites and audio, each checked before it ships.'](docs/presentation/hero.png)
 
-It is designed to work on its own and can also be registered as a companion of the Ultimate AI Starter Bundle. The bundle is recommended, never required.
+[![CI](https://github.com/SenjuWoo/AssetForge/actions/workflows/ci.yml/badge.svg)](https://github.com/SenjuWoo/AssetForge/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/SenjuWoo/AssetForge?color=ff8a3d)](https://github.com/SenjuWoo/AssetForge/releases)
+[![Python](https://img.shields.io/badge/python-3.10%2B-ffc857)](pyproject.toml)
+[![Dependencies](https://img.shields.io/badge/runtime%20deps-none-ff5a36)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-a8968a)](LICENSE)
 
-AssetForge orchestrates other owners. It does not fork Blender, ComfyUI, Graphite, img2threejs or any other upstream application.
+**[Install](#install)** · **[Tour](#a-short-tour)** · **[Recipes](#recipes)** · **[Commands](#commands)** · **[How it works](#how-it-works)** · **[Changelog](CHANGELOG.md)**
 
-## Start with `probe`
+</div>
 
-```bat
-assetforge.cmd probe path\to\model.fbx
-assetforge.cmd probe path\to\folder
+AssetForge is a command-line toolkit that turns source art into **validated, engine-ready game assets**: GLB meshes, PBR textures, sprites, voice lines, sound effects and music. It is built so an AI agent that can only write text and code can still ship a model, a material or a sound, and so a person can check every claim it makes. It orchestrates the tools that already do the work well (Blender, glTF-Transform, the Khronos validator, comfy-forge, img2threejs, teardown and local audio models) and owns what sits around them: one command per job, a manifest per asset, a validation report per claim and an export package per engine.
+
+## What you get
+
+- **Ask before you act.** `probe` reads any file or folder with no project and no writes: triangles, textures, rig, animations, which export budgets it fits, and the exact recipe command to run next.
+- **Game-ready meshes, enforced.** `mesh-gameready` collapses a sculpt-density GLB in Blender under a hard triangle cap (20,000 by default) and shrinks textures, then validates the result. Over the cap is a failure, not a warning.
+- **Sprites from 3D.** `sprite-render` draws a GLB at your game's camera angle in 1 to 16 facings, every animation, one shared scale, with a sheet and per-frame anchors. `pixel-art`, `image-cutout` and `sprite-slice` finish the job.
+- **Materials from words or pictures.** `texture-generate` turns a prompt into a tileable PBR set through comfy-forge; `texture-tileable` and `texture-pbr` do the same to a picture you already have, with no model at all.
+- **Voice, sound effects and music, checked.** Local Apache-2.0 models design and clone voices, speak nonverbals and make effects; Whisper checks the words, CLAP checks the prompt, and the best take is trimmed, levelled and encoded.
+- **Honest evidence.** Structural validation, official glTF validation, export packaging and engine import are four separate claims. An export never says an engine loaded the file; `engine-check` actually launches Godot to prove it.
+- **JSON everywhere.** Every command takes `--json`; exit codes are stable (`0` ok, `2` usage, `3` missing, `4` provider unavailable, `5` validation or budget failure, `6` run failure).
+
+![Terminal: assetforge doctor reports READY with Pillow 13, Node 26, glTF-Transform 4.5.1, the glTF validator, blender-skills 1.3.1, comfy-forge 0.11.0, img2threejs 2.0.1, ImageMagick 7.1.2, teardown 1.0.0 and the three audio runtimes all PASS; blender --version prints Blender 5.3.0; assetforge probe reads the showcase sword as 21,856 triangles over 61 meshes and 12 materials, validation PASS, fits generic, Godot and Minecraft but not Roblox, and names mesh-gameready as the next command](docs/presentation/screenshot-doctor-probe.png)
+
+## Install
+
+**Windows:** download the source zip from the [latest release](https://github.com/SenjuWoo/AssetForge/releases/latest), extract it and run `START-HERE.bat`. It creates a repo-local `.venv`, installs Pillow for the image recipes and runs `doctor`. Or from a shell:
+
+```powershell
+git clone https://github.com/SenjuWoo/AssetForge
+cd AssetForge
+powershell -ExecutionPolicy Bypass -File Install.ps1 -WithImages
+.\assetforge.cmd doctor
 ```
 
-`probe` needs no project and writes nothing. It reports what the file is (triangles, texture sizes, rig, animations, which export budgets it fits) and prints the recipe command to run next. A mesh that is not a GLB goes through `mesh-convert` first.
-
-## Game-ready mesh (one command)
-
-A generated GLB at sculpt density does not ship. About 700,000 triangles fails. The default budget `game` hard-fails above **20,000 triangles** and shrinks textures to **1024**. Ask for `hero` (30,000) only for a close-up that is not a Roblox mesh, or `accessory` (4,000) for a worn Roblox accessory.
-
-```bat
-assetforge.cmd run mesh-gameready --input mesh=model.glb
-```
-
-Rules: [docs/GAME-READY.md](docs/GAME-READY.md).
-
-## Textures and sprites
-
-```bat
-assetforge.cmd run texture-generate --set "prompt=worn oak floor planks" --set name=oak-planks
-assetforge.cmd run sprite-generate --set "prompt=a red health potion in a round glass bottle" --set name=potion
-assetforge.cmd run pixel-art --input potion-cutout.png --set size=48 --set palette=pico8
-assetforge.cmd run sprite-render --input hero.glb --set directions=8 --set pitch=30
-assetforge.cmd run comfy-3d --input axe.png
-```
-
-A prompt becomes a tileable PBR material (base colour, normal, height, roughness, occlusion, metallic, ORM and `material.json`) or a cut-out sprite with its anchor; comfy-forge renders the picture, and SwarmUI is started for the job when it is not running. `texture-tileable`, `texture-pbr`, `image-cutout`, `pixel-art` and `sprite-slice` do the same work on pictures you already have, with no model. `sprite-render` turns a GLB into sprites at your game's camera angle, in 1 to 16 facings, every animation, one scale, with a sheet and frame anchors. `comfy-3d` turns one picture into a game-ready GLB. Guide: [docs/TEXTURES-SPRITES.md](docs/TEXTURES-SPRITES.md).
-
-## Voice lines and sound effects
-
-```bat
-assetforge.cmd audio-setup
-assetforge.cmd run audio-voice --input lines=lines.txt --set "voice=a warm, slightly haughty young princess"
-assetforge.cmd run audio-sfx --set "prompt=a steel sword swinging through the air" --set name=swing
-assetforge.cmd run audio-music --set "tags=medieval tavern music, lute, flute, cheerful" --set seconds=60 --set name=tavern
-assetforge.cmd export ASSET --target minecraft --namespace mymod
-```
-
-`audio-setup` installs three isolated local runtimes. Qwen3-TTS designs a voice from a description and clones it for every line, Dia speaks nonverbals such as `(laughs)` and `(gasps)`, Kokoro gives fast preset voices, and MOSS-SoundEffect v2 makes sound effects. All of them are Apache-2.0. `audio-music` renders songs and instrumentals with ACE-Step 1.5 through comfy-forge's ComfyUI: a running one, or one AssetForge starts for the job and stops afterwards. Whisper checks the words of each take, CLAP checks each effect against its prompt, and the best take is trimmed, levelled to a loudness target and encoded. `audio-process` finishes audio you already have. Details: [docs/AUDIO.md](docs/AUDIO.md).
-
-## Quick start (Windows)
-
-1. Run `START-HERE.bat`. It creates a repo-local `.venv`, installs Pillow for the image recipes, and runs `doctor`.
-2. Create or enter a project folder and run:
-
-```bat
-assetforge.cmd init .
-assetforge.cmd recipes
-assetforge.cmd providers
-assetforge.cmd run image-prep --input path\to\source.png
-```
-
-The installer writes only inside the AssetForge folder. It does not install Blender, Node packages, ComfyUI or model weights.
-
-## Quick start (Linux / macOS)
+**Linux / macOS (Python 3.10+):**
 
 ```bash
 python3 -m venv .venv
@@ -71,6 +45,71 @@ source .venv/bin/activate
 pip install -e ".[images]"
 assetforge doctor
 ```
+
+The installer writes only inside the AssetForge folder. It does not install Blender, Node packages, ComfyUI or model weights: `doctor` finds what you have and names the variable that selects anything it cannot find (`BLENDER_EXE`, `GODOT_EXE`, `FFMPEG_EXE`, `MAGICK_EXE`, `COMFY_FORGE_ROOT`, `BLENDER_SKILLS_ROOT`). A missing optional provider is a `WARNING`, and only the recipes that need it exit with code `4`.
+
+| Optional provider | Unlocks |
+|---|---|
+| Blender 5.2+ | `mesh-convert`, `mesh-gameready`, `sprite-render`, the `blender-*` recipes |
+| [blender-skills](https://github.com/EL4CTEO/blender-skills) | the Blender QA gate, PBR presets, export pipelines, LODs, retopology and UV packing |
+| Node.js (+ glTF-Transform, Khronos validator in `.tools`) | `glb-optimize` and official glTF conformance |
+| comfy-forge | `texture-generate`, `sprite-generate`, `comfy-generate`, `comfy-3d`, `audio-music` |
+| Godot 4 | `engine-check` (headless import and load) |
+| FFmpeg | audio finishing and measurement, `teardown-film` video |
+| ImageMagick | DDS output with mipmaps |
+| uv + `assetforge audio-setup` | `audio-voice` and `audio-sfx` (about 20 GB of runtimes and models) |
+
+**Update:** `Update.ps1` fetches, refuses to run on uncommitted changes, fast-forwards only, then rebuilds `.venv` (the previous one is kept as `.venv.prev`). **Uninstall:** delete the AssetForge folder. The only thing written outside it is what you created on purpose: the audio runtimes and model cache under `~/.assetforge/audio` (or `ASSETFORGE_AUDIO_HOME`) and your own project folders.
+
+## A short tour
+
+```text
+assetforge probe model.fbx                          # what is it, what fits, what to run next
+assetforge init .                                   # once per project; every write goes under it
+assetforge run mesh-convert --input model.fbx       # anything Blender reads, to one validated GLB
+assetforge run mesh-gameready --input mesh=model.glb
+assetforge run sprite-render --input model.glb --set directions=8 --set pitch=30
+assetforge run texture-generate --set "prompt=worn oak floor planks" --set name=oak-planks
+assetforge run audio-sfx --set "prompt=a steel sword swinging through the air" --set name=swing
+assetforge validate ASSET --json
+assetforge export ASSET --target godot --dry-run --json
+assetforge engine-check model-gameready.glb          # Godot 4 imports and loads it
+```
+
+Add `--dry-run` to any `run` to see the steps and every provider it would call before anything happens. On a failure, `assetforge status --last --json` shows the failed step with the tool's own message.
+
+Here the showcase sword goes through that loop for real: `probe` says it is over budget, `mesh-gameready` brings it under, `sprite-render` draws it.
+
+![Terminal: assetforge run mesh-gameready collapses the sword from 21,856 to 16,951 triangles under the 20,000 cap with glTF validation PASS=14, FAIL=0; probe on the result now fits generic, Godot, Minecraft and Roblox; sprite-render writes 8 frames and one sheet](docs/presentation/screenshot-pipeline.png)
+
+And the assets that run produced, unretouched:
+
+![Four outputs of one AssetForge run on the enchanted fire sword, rendered by Blender: the source GLB at 21,856 triangles beside the mesh-gameready result at 16,951 triangles, which looks the same; a 64-pixel pico8 pixel-art sprite made from the game-ready render; and the game-ready sword in 8 facings at a 30 degree camera from sprite-render](docs/presentation/asset-pipeline.png)
+
+## Recipes
+
+31 built-in recipes, all declarative JSON. The full table with every parameter is in [docs/RECIPES.md](docs/RECIPES.md); the evidence behind each one is in [docs/CAPABILITIES.md](docs/CAPABILITIES.md).
+
+| Need | Recipe |
+|---|---|
+| Any mesh to one validated GLB | `mesh-convert` (FBX, OBJ, STL, PLY, glTF, USD, Alembic, `.blend`; rigs and animations kept) |
+| Inspect, validate, optimize a GLB | `glb-inspect`, `glb-optimize` |
+| Under a triangle budget | `mesh-gameready` (`budget=game` 20,000, `hero` 30,000, `accessory` 4,000) |
+| A 3D model from a picture | `comfy-3d` |
+| Sprites of a 3D model | `sprite-render` |
+| A sprite from words | `sprite-generate`, then `pixel-art` for a pixel game |
+| A sprite from a picture | `image-cutout`, `pixel-art`, `sprite-slice`, `sprite-atlas` |
+| A material from words | `texture-generate` |
+| A seamless or PBR version of a picture | `texture-tileable`, `texture-pbr`, `texture-pack` (ORM) |
+| Resize, re-encode, DDS, TGA | `image-prep` |
+| Voice lines, effects, music | `audio-voice`, `audio-sfx`, `audio-music`, `audio-process` |
+| Blender skills pipeline and QA gate | `blender-pipeline`, `blender-qa`, `blender-optimize`, `blender-retopo-uv`, `blender-sample` |
+| comfy-forge renders | `comfy-generate`, `comfy-import` |
+| img2threejs and teardown | `img2threejs-probe`, `img2threejs-codegen`, `teardown-build`, `teardown-film` |
+
+![Terminal: assetforge recipes lists all 31 recipes from audio-music to texture-tileable; assetforge run texture-pbr on a 256 px PNG succeeds with one material: base colour, normal (OpenGL), height, roughness, occlusion, metallic and ORM](docs/presentation/screenshot-recipes.png)
+
+Guides: [game-ready meshes](docs/GAME-READY.md) · [textures and sprites](docs/TEXTURES-SPRITES.md) · [audio](docs/AUDIO.md).
 
 ## Commands
 
@@ -83,212 +122,53 @@ assetforge blender-skills [--route NAME] [--json]
 assetforge probe PATH [--json]
 assetforge init [path] [--name NAME]
 assetforge recipes [list | RECIPE] [--json]
-assetforge run RECIPE [--input PATH | NAME=PATH] [--set KEY=VALUE] [--dry-run] [--json]
+assetforge run RECIPE [--input PATH | NAME=PATH] [--set KEY=VALUE] [--asset NAME] [--dry-run] [--json]
 assetforge status [JOB_ID | --last] [--json]
 assetforge inspect ASSET [--json]
 assetforge validate ASSET [--json]
 assetforge export ASSET --target roblox|godot|generic|minecraft [--namespace NS] [--dry-run] [--json]
 assetforge audio-setup [speech|sfx|kokoro ...] [--list] [--device auto|cuda|cpu] [--json]
-assetforge engine-check FILE.glb [--json]
+assetforge engine-check FILE.glb [--engine godot] [--timeout S] [--json]
 ```
 
-Exit codes are stable: `0` success, `2` usage/recipe error, `3` missing project/asset/job, `4` provider unavailable, `5` validation or budget failure, `6` run failure.
+On Windows without an activated environment, call `assetforge.cmd` from the AssetForge folder. `--set` values are typed by the recipe: a boolean takes `true/false`, `yes/no`, `on/off` or `1/0`, and anything else (such as `ture`) is a usage error, not `false`.
 
-`--set` values are typed by the recipe. A boolean takes `true/false`, `yes/no`, `on/off` or `1/0`; anything else (such as `ture`) is a usage error, not `false`. `--dry-run` lists every provider the recipe would call, including optional checkers such as the Khronos validator and CLAP.
-
-## Update and uninstall
-
-- **Update a Git checkout:** `Update.ps1` fetches, refuses to run on uncommitted changes, fast-forwards only, then rebuilds `.venv` with `Install.ps1` (which keeps the previous environment as `.venv.prev`).
-- **Uninstall:** delete the AssetForge folder. The installer writes nothing outside it, except what you created on purpose: the audio runtimes and model cache under `~/.assetforge/audio` (or `ASSETFORGE_AUDIO_HOME`; about 20 GB with every model downloaded) and your own project folders. Delete `~/.assetforge` to remove the audio runtimes.
-
-## Recommended texture workflow (comfy-forge)
-
-For free local texture generation, the recommended companion is **comfy-forge** (formerly comfy-kit). It owns the SwarmUI/ComfyUI installation, models, presets and MCP configuration; AssetForge only delegates a render and keeps the result inside the asset.
-
-```bat
-assetforge.cmd run texture-generate --set "prompt=weathered steel plates" --set name=steel
-assetforge.cmd export ASSET --target godot
-```
-
-A running SwarmUI is used as it is; otherwise comfy-forge's SwarmUI is started without a browser for the job and stopped afterwards. `seed=-1` picks a seed and records it. `comfy-import` also accepts an existing comfy-forge output folder. If comfy-forge is not installed, the generating recipes exit with code `4` and a clear provider message; AssetForge never installs models or changes comfy-forge configuration.
-
-## Recommended Blender workflow (blender-skills)
-
-For Blender work, the recommended provider is [EL4CTEO/blender-skills](https://github.com/EL4CTEO/blender-skills), an MIT-licensed set of 28 agent skills for modeling, UVs, PBR, baking, rigging, animation, optimization, QA and export. AssetForge exposes all 28 and executes six of them through explicit, whitelisted operations: core runner, PBR materials, asset QA, export pipelines, mesh optimization (`mesh-stats`, `make-lods`) and retopology/UV (`auto-retopo`, `uv-pack`, `texel-density`). AssetForge does not vendor upstream; point `BLENDER_SKILLS_ROOT` at a checkout or installed skills folder, then inspect the catalog:
-
-```bat
-assetforge.cmd blender-skills --json
-assetforge.cmd blender-skills --route materials
-assetforge.cmd run blender-pipeline
-assetforge.cmd run blender-optimize --input input.blend --set operation=mesh-stats --set budget=roblox
-assetforge.cmd run blender-retopo-uv --input sculpt.blend --set operation=uv-pack
-assetforge.cmd export ASSET --target godot
-```
-
-`blender-pipeline` builds a procedural crate, applies an upstream PBR preset, runs the **mandatory** `blender-asset-qa` gate, writes random/wire review sheets, exports GLB through upstream `blender-export-pipelines`, optimizes it and validates it. A QA error or unaccepted warning fails the job before delivery. Rendering the review sheets is not visual approval: `BLENDER-QA-VISUAL` stays `NOT_TESTED` until an explicit `--set visual_review=approved --set approval_note="..."` records the inspection. `blender-qa` applies the same gate to an existing `.blend`. `blender-optimize` and `blender-retopo-uv` expose the mesh-statistics, LOD generation, retopology, UV packing and texel-density scripts on an existing `.blend`; mutating operations write a new `.blend` artifact and leave the input untouched.
-
-Blender 5.2+ is required. `BLENDER_EXE` selects the executable; detection also checks `PATH`, the Blender Foundation folders, the uninstall registry, every Steam library and a portable copy under a declared tool root. Blender MCP is optional and not required; every step runs headless.
-
-Upstream was tested at v1.3.1 (revision `b1b21dfb73bc40b874ebf2aa12645931bfed3523`) with Blender 5.3.0; v1.3.0 and v1.2.0 remain compatible. AssetForge finds a plain clone in a declared tool root, reports the detected release and revision, and never updates upstream automatically. Installation, Hermes `skills.external_dirs` setup, routing and the tested evidence are in [docs/PROVIDERS.md](docs/PROVIDERS.md).
-
-## Showcase
-
-![AssetForge-generated enchanted fire sword](examples/assets/enchanted-fire-sword.png)
-
-This low-poly enchanted-fire sword is the AssetForge showcase for stylized game props. It is built directly in Blender and included at `examples/assets/enchanted-fire-sword.glb`, with a reproducible generator (`examples/generate-enchanted-fire-sword.py`) producing the faceted blade shell, ember layers, raised runes and scrollwork, bat-wing crossguard, wrapped hilt, finial and floating sparks. It is a strong reference for low-poly stylized games such as Roblox-style worlds and games; Roblox Studio import was not run, so engine integration remains `NOT_TESTED`.
-
-The concept exploration for this prop was generated locally through the comfy-forge / SwarmUI workflow; the shipped GLB itself is project-owned procedural geometry and does not depend on the generated reference images. comfy-forge remains the recommended free local companion for texture work.
-
-## Built-in recipes
-
-| Recipe | Purpose |
-| --- | --- |
-| `image-prep` | Inspect, resize/re-encode (PNG, JPEG, WebP, TGA, DDS with mipmaps) and thumbnail a raster image. |
-| `texture-pack` | Pack occlusion, roughness and metallic maps into an RGB ORM texture. |
-| `sprite-atlas` | Pack up to 256 images into a grid atlas with JSON frame metadata. |
-| `texture-generate` | Prompt to a tileable PBR material through comfy-forge. |
-| `texture-tileable` | Make a picture repeat without a seam; the seam is measured (`TEX-SEAM`). |
-| `texture-pbr` | Normal (OpenGL or DirectX), height, roughness, occlusion, metallic and ORM from one colour map. |
-| `sprite-generate` | Prompt to a transparent, trimmed sprite through comfy-forge. |
-| `image-cutout` | Make a plain background transparent, trim, record the anchor. |
-| `pixel-art` | Downscale onto a palette (built-in, file, or picked colours). |
-| `sprite-slice` | Cut a sheet into frames by grid or by islands of pixels. |
-| `sprite-render` | Render a GLB as sprites: 1-16 facings at a camera pitch, every animation, sheet and anchors. |
-| `comfy-3d` | One picture to a game-ready GLB: comfy-forge image-to-3D, then the `mesh-gameready` collapse. |
-| `mesh-convert` | FBX, OBJ, STL, PLY, glTF, USD, Alembic or `.blend` to one validated GLB through Blender; rigs and animations kept. |
-| `glb-inspect` | Record geometry, rig, material and texture statistics and structural conformance. |
-| `glb-optimize` | Conservative glTF-Transform pass: no simplification, compression, flattening or joining. |
-| `mesh-gameready` | Collapse a generated GLB under a hard triangle cap. Default `game` fails above 20,000 triangles. |
-| `blender-sample` | Headless Blender bevelled-cube export. Requires Blender. |
-| `blender-pipeline` | Procedural crate → PBR material → upstream QA gate → GLB export → optimize → validate. |
-| `blender-qa` | Run upstream `blender-asset-qa` and review sheets on an existing `.blend`. |
-| `blender-optimize` | Run whitelisted `blender-game-optimization` operations (`mesh-stats`, `make-lods`). |
-| `blender-retopo-uv` | Run whitelisted `blender-retopology-uv` operations (`auto-retopo`, `uv-pack`, `texel-density`). |
-| `comfy-generate` | One render through comfy-forge (SwarmUI started for the job when it is down); image to image with `--input init=`. |
-| `comfy-import` | Copy newest images from a comfy-forge output folder. |
-| `img2threejs-probe` | Run the external img2threejs technical image probe. |
-| `img2threejs-codegen` | Generate an editable Three.js factory from an ObjectSculptSpec through upstream img2threejs. |
-| `teardown-build` | Bundle a teardown machine simulator into one offline HTML page. |
-| `teardown-film` | Render a teardown simulator to MP4, or to a labelled review sheet, in headless Chromium. |
-| `audio-voice` | Voice lines from text: Qwen3-TTS voice design and cloning, Dia nonverbals, Kokoro presets; Whisper-checked takes. |
-| `audio-sfx` | Sound effects from text prompts with MOSS-SoundEffect v2; CLAP-checked takes. |
-| `audio-music` | Songs and instrumentals from style tags (and lyrics): ACE-Step 1.5 through comfy-forge; CLAP-checked takes. |
-| `audio-process` | Trim, level, convert and measure existing audio files or a folder of them. |
-
-Every recipe writes a job record under `.assetforge/jobs/` with per-step status, errors and tool versions. Assets keep copied inputs, a JSON manifest, relative artifact paths and provenance. A manifest-defined primary artifact decides what gets exported.
-
-`img2threejs-codegen` output is TypeScript source, not a mesh or texture. It remains an editable intermediate artifact: it is not compiled, rendered or exported by AssetForge. Compilation, visual fidelity and game-ready conversion are unverified and must be handled by the owning workflow.
-
-## Capability status
-
-| Capability | Status | Boundary |
-| --- | --- | --- |
-| CLI, projects, jobs, manifests | VERIFIED | Full test suite |
-| Image processing | VERIFIED | Pillow; alpha and JPEG-flatten behavior tested |
-| PBR channel packing | VERIFIED | R=occlusion, G=roughness, B=metallic; mismatched sizes fail unless resize is explicitly enabled |
-| Sprite atlases | VERIFIED | Deterministic grid, frames copied into the asset, JSON frame rectangles; the JSON ships with the export |
-| Seamless textures and PBR sets | VERIFIED | `texture-generate` ran through a real SwarmUI render; seam measured; derived maps stay `TEX-DERIVED` `NOT_TESTED` |
-| Cut-outs, pixel art, sheet slicing | VERIFIED | Unit and recipe tests; colour-key cut-out needs a plain background |
-| Sprites from a GLB | VERIFIED | `sprite-render` on real Blender 5.3: facing directions, anchors, animations and one shared scale checked from the pixels |
-| Image to 3D | IMPLEMENTED | `comfy-3d` drives comfy-forge 0.11.0's `model3d.py`; tested against a stand-in, the collapse step on a real Pixal3D mesh |
-| Texture-only export | VERIFIED packaging | Generic/Godot/Roblox packages contain PNGs and no mesh; engine import `NOT_TESTED` |
-| GLB inspection | VERIFIED | Standard-library container and accessor reader |
-| Source probe | VERIFIED | `probe` on files and folders; read-only, no project needed |
-| Structural GLB validation | VERIFIED | Container, accessors, materials, UV sets, node transforms; not a conformance claim |
-| Rig and animation validation | VERIFIED | Joints, inverse bind matrices, skin weights and animation channels are consistent; deformation is not rendered |
-| Embedded texture budgets | VERIFIED | Sizes read from PNG, JPEG, WebP and KTX2 headers inside the GLB |
-| Mesh conversion | VERIFIED | Blender 5.3: rigged animated FBX and OBJ to GLB; other formats depend on the installed Blender build |
-| Khronos glTF validation | VERIFIED when installed | Optional Node package in `.tools`; otherwise `NOT_TESTED` |
-| Conservative GLB optimization | VERIFIED | glTF-Transform; source and optimized structure compared |
-| Game-ready mesh collapse | IMPLEMENTED | `mesh-gameready` decimates a GLB in Blender and fails above the budget cap. Default is 20,000 triangles. Engine import remains `NOT_TESTED` |
-| Blender background export | VERIFIED | Real Blender 5.3.0 (earlier 5.2.3); `blender-sample` and upstream export pipeline executed |
-| blender-skills catalog and routing | VERIFIED | 28 skills detected at upstream v1.3.1 (`b1b21df`); CLI list/route tested |
-| Blender asset QA gate | VERIFIED | Upstream `blender-asset-qa`: 108 tris, 0 errors, 0 warnings; review sheets generated and explicitly approved after inspection |
-| Blender optimization and retopo/UV | VERIFIED | `blender-optimize` and `blender-retopo-uv` execute whitelisted `blender-game-optimization` and `blender-retopology-uv` scripts on real Blender; mutating operations create new `.blend` artifacts |
-| comfy-forge image generation | VERIFIED | `comfy-generate` and `texture-generate` through comfy-forge's running SwarmUI; starting SwarmUI for a job is covered by tests, not by a live run |
-| img2threejs probe | VERIFIED | Upstream v2.0.1; technical probe only; reconstruction remains agent-driven |
-| img2threejs spec-to-Three.js codegen | VERIFIED | Upstream deterministic generator; consumes an ObjectSculptSpec, not a raw image |
-| Roblox Studio import | NOT TESTED | No Studio run is automated |
-| img2threejs reconstruction | PLANNED | Image-to-spec review gates remain agent-driven |
-| Roblox / Godot / generic export | VERIFIED packaging | Mesh and texture-only packages; the export itself runs no engine, so its engine import stays `NOT_TESTED` |
-| Godot import check | VERIFIED | `engine-check`: Godot 4.7.2 headless imports the GLB, then loads and instantiates it; rendering and playback are not tested |
-| teardown simulator page | VERIFIED | Upstream example bundled through `teardown-build`; page opens offline (`PAGE-001`) |
-| teardown film | VERIFIED | Upstream example rendered to MP4 in headless Chromium through `teardown-film`; visual review stays `NOT_TESTED` |
-| Voice lines | VERIFIED | Qwen3-TTS designed a voice and cloned it for 3 lines, 100% Whisper word match; Dia and Kokoro lines also passed. Nobody listened: `AUDIO-LISTEN` stays `NOT_TESTED` |
-| Sound effects | VERIFIED | MOSS-SoundEffect v2 through `audio-sfx` with CLAP prompt scores; listening stays `NOT_TESTED` |
-| Audio finishing and checks | VERIFIED | Trim, fixed-gain loudness/peak levelling, encode; decode, level, true-peak, loudness, edge-silence and format checks |
-| Minecraft sound export | VERIFIED packaging | Ogg files plus `sounds.json` with numbered variants grouped; game load `NOT_TESTED` |
-| Music generation | VERIFIED | `audio-music`: ACE-Step 1.5 through comfy-forge, via a running SwarmUI backend and via a ComfyUI started for the job; instrumental and vocal takes passed CLAP and loudness checks. Listening and sung words stay `NOT_TESTED` |
-| FFmpeg | USED | Audio finishing and measurement; `teardown-film` encodes through it; `doctor` reports version and purpose |
-| ImageMagick | USED | `image-prep format=dds` writes DXT1/DXT5 with mipmaps through it |
-| Rig deformation preview, MCP, Graphite | PLANNED | Not implemented yet |
-
-`VERIFIED` means the behaviour was executed with recorded evidence. `IMPLEMENTED / UNVERIFIED` means code exists but the real integration was not exercised. A successful export is not proof that an asset works inside the target engine.
-
-## External providers
-
-AssetForge detects providers without installing or reconfiguring them.
-
-| Provider | Used for | Missing behaviour |
-| --- | --- | --- |
-| Pillow | Image inspection and conversion | Image recipes fail with a clear message |
-| glTF-Transform | GLB optimization | `glb-optimize` exits with code `4` |
-| Khronos glTF Validator | Official conformance check | Recorded as `NOT_TESTED` |
-| Blender | Background execution and export | `blender-sample` exits with code `4` |
-| blender-skills | Recommended Blender skills catalog, QA and export | Blender steps exit with code `4` |
-| comfy-forge (formerly comfy-kit) | Images, textures and sprites through SwarmUI; ACE-Step music and image to 3D through ComfyUI | The generating recipes exit with code `4` |
-| img2threejs | Technical image probe and spec-to-Three.js codegen | `img2threejs-probe` / `img2threejs-codegen` exit with code `4` |
-| teardown | Offline simulator pages and their films | `teardown-build` / `teardown-film` exit with code `4` |
-| audio-speech / audio-sfx / audio-kokoro | Local voice and sound-effect models, installed by `assetforge audio-setup` | `audio-voice` / `audio-sfx` exit with code `4` and name the setup command |
-| FFmpeg | Audio finishing and measurement, video encoding | Audio recipes exit with code `4` |
-| ImageMagick | DDS output | `image-prep format=dds` exits with code `4` |
-
-Detection paths and environment variables are documented in [docs/PROVIDERS.md](docs/PROVIDERS.md).
-
-## Project layout
+## How it works
 
 ```text
 project/
   assetforge.json
   assets/<asset-id>/
-    asset.json
-    inputs/
-    outputs/
-    previews/
-    exports/
+    asset.json          manifest: inputs, artifacts, provenance, validation
+    inputs/             copies of the sources; a source file is never modified
+    outputs/  previews/  exports/
   .assetforge/jobs/<job-id>/
-    job.json
-    run.log
+    job.json  run.log   per-step status, errors and tool versions
 ```
 
-Artifact paths in `asset.json` are project-relative and are validated against path escapes before use. Large binaries never live inside JSON. Original input locations are kept only in the job's provenance record.
+- **Recipes are data.** A recipe can only name implemented step kinds; it cannot run a shell string or an arbitrary script. External tools are called with argument lists, explicit working directories and timeouts.
+- **Paths stay inside the project.** Artifact paths are project-relative and rejected if absolute, missing or escaping the project (`..` and symlinks included).
+- **Evidence is tiered.** `VERIFIED`, `WARNING`, `NOT_TESTED` and `FAIL` are kept apart, and a `NOT_TESTED` check is never reported as passed. Generated pictures and sounds carry `GEN-VISUAL` / `AUDIO-LISTEN` `NOT_TESTED` until a person looks or listens.
+- **Nothing leaves the machine.** AssetForge never uploads to Roblox, Godot or any account and stores no credentials. Audio models run locally; their weights download from Hugging Face on first use.
 
-## Security boundaries
+Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Capability status, providers, the recommended Blender (blender-skills) and comfy-forge workflows, and the security boundaries: [docs/CAPABILITIES.md](docs/CAPABILITIES.md).
 
-- Recipes are declarative JSON. They can only name implemented step kinds; they cannot inject shell commands or arbitrary code.
-- External tools run through structured argument lists with explicit working directories and timeouts. AssetForge does not install them silently.
-- Asset inputs are copied into the project. Artifact paths are rejected if absolute, missing or outside the project, including `..` and symlink escapes.
-- Validation and export never claim an engine import was tested. `engine_import` is always `NOT_TESTED` until a real editor run is recorded.
-- AssetForge does not upload assets to Roblox, Godot or any account, and never stores credentials. Audio models run locally; their weights download from Hugging Face on first use.
+## Showcase
 
-## Adding to the Ultimate AI Starter Bundle
+![The enchanted fire sword: a low-poly blade with a glowing ember core, raised runes, a bat-wing crossguard, a wrapped hilt and floating sparks, rendered in Blender on black](examples/assets/enchanted-fire-sword.png)
 
-The bundle detects an installed AssetForge through the companion registry and routes asset work to it. AssetForge keeps ownership of installation, updates, diagnostics, dependencies and releases. The proposed registry entry and the exact contract are in [docs/UABS-INTEGRATION.md](docs/UABS-INTEGRATION.md) and `integration/COMPANIONS.asset-forge.json`.
+A stylized prop built directly in Blender: `examples/assets/enchanted-fire-sword.glb`, with a reproducible generator (`examples/generate-enchanted-fire-sword.py`) for the faceted blade shell, ember layers, raised runes and scrollwork, bat-wing crossguard, wrapped hilt, finial and floating sparks. As shipped it is 21,856 triangles, just over the 20,000 game cap, so `probe` sends it to `mesh-gameready` first; after that it fits every export budget, Roblox included. Roblox Studio import was not run, so engine integration there stays `NOT_TESTED`. The concept exploration was generated locally through comfy-forge; the GLB itself is project-owned procedural geometry.
 
-No bundle files are modified by this repository.
+## Ultimate AI Starter Bundle
+
+AssetForge stands alone. It can also be registered as a companion of the Ultimate AI Starter Bundle, which then routes asset work to it; AssetForge keeps ownership of its installation, updates, diagnostics and releases, and no bundle files are modified by this repository. Contract: [docs/UABS-INTEGRATION.md](docs/UABS-INTEGRATION.md) and `integration/COMPANIONS.asset-forge.json`.
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [Providers](docs/PROVIDERS.md)
-- [Game-ready meshes](docs/GAME-READY.md)
-- [Audio](docs/AUDIO.md)
-- [Recipes](docs/RECIPES.md)
-- [Upstream evaluations](docs/UPSTREAM-EVALUATIONS.md)
-- [Bundle integration](docs/UABS-INTEGRATION.md)
-- [Third-party notices](docs/THIRD-PARTY-NOTICES.md)
-- [Plan](PLAN.md) / [State](STATE.md) / [Validation evidence](VALIDATION.md)
-- [Roadmap](ROADMAP.md) / [Release checklist](RELEASE.md)
+- [Capabilities, providers and workflows](docs/CAPABILITIES.md) · [Architecture](docs/ARCHITECTURE.md) · [Providers](docs/PROVIDERS.md) · [Recipes](docs/RECIPES.md)
+- [Game-ready meshes](docs/GAME-READY.md) · [Textures and sprites](docs/TEXTURES-SPRITES.md) · [Audio](docs/AUDIO.md)
+- [Upstream evaluations](docs/UPSTREAM-EVALUATIONS.md) · [Bundle integration](docs/UABS-INTEGRATION.md) · [Third-party notices](docs/THIRD-PARTY-NOTICES.md)
+- [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md) · [Plan](PLAN.md) · [State](STATE.md) · [Validation evidence](VALIDATION.md) · [Release checklist](RELEASE.md)
 
 ## License
 

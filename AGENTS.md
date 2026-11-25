@@ -33,7 +33,7 @@ Generated results carry `GEN-VISUAL` `NOT_TESTED`: render a preview and look bef
 
 1. `assetforge init <folder>` once. All writes go under that project.
 2. `assetforge run <recipe> --input <path> [--set key=value] --json`. Add `--dry-run` to see steps and missing providers first.
-3. `assetforge validate <asset> --json`, then `assetforge export <asset> --target roblox|godot|generic --dry-run --json`.
+3. `assetforge validate <asset> --json`, then `assetforge export <asset> --target roblox|godot|generic|minecraft --dry-run --json`.
 4. On a failure read `assetforge status --last --json`: the failed step carries the tool's own message.
 
 Exit codes: `0` ok, `2` usage or recipe error, `3` missing project/asset/job, `4` provider unavailable, `5` validation or budget failure, `6` run failure.

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.9.1 — 2026-11-25
+
+Two field reports from long sound batches, plus a new README.
+
+Fixes:
+
+- Lines with the same text in one `audio-voice` or `audio-sfx` run came out identical: every line seeded take k with the same number, so four variants of one prompt were four copies (correlation 1.000) and every check passed them. A line that repeats an earlier line's text is now shifted to its own seeds. Runs without repeated text keep their seeds and therefore their audio.
+- Two audio jobs started at once (two projects, two sessions) shared the GPU with no coordination: two MOSS workers filled a 16 GB card and stalled, and a third job ran a live batch out of memory. Audio workers now queue on an operating-system file lock in the audio home (`gpu.lock`, released when the holder exits or dies). A waiting job prints `waiting for the GPU` and waits up to `ASSETFORGE_AUDIO_GPU_WAIT` seconds (default four hours; `0` fails at once with `GPU busy`). The lock orders AssetForge's own audio workers only, not ComfyUI or other programs. Tested with stub workers (two concurrent runs never overlap); not exercised on a live GPU contention.
+- A batch that died part-way left `result.json` with no items, so its saved takes looked lost. The worker now records each take as it is written, and the error names how many takes were saved, where, and the `audio-process` command that finishes them.
+
+Also:
+
+- README rewritten around real runs: a doctor and probe shot, the showcase sword through `mesh-gameready` and `sprite-render`, and the images that run produced. The capability table, provider table, Blender and comfy-forge workflows, recipe list and security boundaries moved to `docs/CAPABILITIES.md` unchanged.
+- The README called the showcase sword low-poly and a reference for Roblox-style games; as shipped it is 21,856 triangles, over the 20,000 game cap and over the Roblox budget. It now says so, and that `mesh-gameready` brings it to 16,951 triangles, after which it fits every budget.
+- `AGENTS.md` listed the export targets without `minecraft`.
+- CI runs with a read-only token (code scanning: missing workflow permissions).
+
 ## 0.9.0 — 2026-11-17
 
 Textures, sprites and image-to-3D for an agent that can only write text and code. Eleven new recipes; every one of them is a single command.

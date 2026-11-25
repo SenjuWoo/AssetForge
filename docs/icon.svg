@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- AssetForge mark: a low-poly asset cube struck on the forge, with one ember spark. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a1d17"/>
+      <stop offset="1" stop-color="#0d0907"/>
+    </linearGradient>
+    <linearGradient id="top" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe08a"/>
+      <stop offset="1" stop-color="#ffb347"/>
+    </linearGradient>
+    <linearGradient id="left" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff8a3d"/>
+      <stop offset="1" stop-color="#e2531f"/>
+    </linearGradient>
+    <linearGradient id="right" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c2371c"/>
+      <stop offset="1" stop-color="#7a1f12"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="104" fill="url(#tile)"/>
+  <rect x="16" y="16" width="480" height="480" rx="104" fill="none" stroke="#ff8a3d" stroke-opacity="0.35" stroke-width="6"/>
+  <!-- cube -->
+  <polygon points="256,112 392,190 256,268 120,190" fill="url(#top)"/>
+  <polygon points="120,190 256,268 256,424 120,346" fill="url(#left)"/>
+  <polygon points="392,190 256,268 256,424 392,346" fill="url(#right)"/>
+  <!-- facet lines: the wireframe of a game mesh -->
+  <g stroke="#120d0b" stroke-width="7" stroke-linejoin="round" fill="none">
+    <polygon points="256,112 392,190 392,346 256,424 120,346 120,190"/>
+    <polyline points="120,190 256,268 392,190"/>
+    <line x1="256" y1="268" x2="256" y2="424"/>
+    <line x1="120" y1="190" x2="256" y2="346"/>
+    <line x1="392" y1="190" x2="256" y2="346" stroke-opacity="0.6"/>
+  </g>
+  <!-- ember spark -->
+  <path d="M404 84 L414 118 L448 128 L414 138 L404 172 L394 138 L360 128 L394 118 Z" fill="#ffe08a"/>
+  <circle cx="404" cy="128" r="9" fill="#fff6d8"/>
+</svg>

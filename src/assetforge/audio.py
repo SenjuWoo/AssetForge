@@ -10,11 +10,13 @@ measuring use FFmpeg. AssetForge's own environment stays dependency-free.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
 import shutil
 import sys
+import time
 from pathlib import Path
 
 from .util import now_iso, run
@@ -166,6 +168,78 @@ def _gpu_present() -> bool:
     return run([smi, "-L"], timeout=20)["returncode"] == 0
 
 
+GPU_WAIT_DEFAULT = 4 * 3600.0
+
+
+def _lock_handle(handle) -> None:
+    handle.seek(0)
+    if sys.platform == "win32":
+        import msvcrt
+
+        msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+    else:
+        import fcntl
+
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def _unlock_handle(handle) -> None:
+    handle.seek(0)
+    if sys.platform == "win32":
+        import msvcrt
+
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+    else:
+        import fcntl
+
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def gpu_wait_seconds() -> float:
+    value = os.environ.get("ASSETFORGE_AUDIO_GPU_WAIT", "").strip()
+    try:
+        return max(0.0, float(value)) if value else GPU_WAIT_DEFAULT
+    except ValueError:
+        raise AudioError(f"ASSETFORGE_AUDIO_GPU_WAIT must be a number of seconds, not {value!r}") from None
+
+
+@contextlib.contextmanager
+def gpu_lock(wait: float | None = None):
+    """One AssetForge audio worker on the GPU at a time, across processes and
+    projects. Two workers at once filled a 16 GB card and stalled, and a third
+    ran a live batch out of memory. The lock is an OS file lock on
+    `<audio home>/gpu.lock`, so it is released when its holder exits or dies;
+    a waiting job queues for up to `wait` seconds (ASSETFORGE_AUDIO_GPU_WAIT,
+    default 4 hours; 0 fails at once). It only orders AssetForge's own audio
+    workers: ComfyUI or another program on the same GPU does not take it."""
+    wait = gpu_wait_seconds() if wait is None else max(0.0, float(wait))
+    path = home() / "gpu.lock"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle = open(path, "a+b")
+    deadline = time.monotonic() + wait
+    told = False
+    try:
+        while True:
+            try:
+                _lock_handle(handle)
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise AudioError(f"GPU busy: another AssetForge audio job holds {path} (waited {wait:g} s; "
+                                     "ASSETFORGE_AUDIO_GPU_WAIT sets the wait)") from None
+                if not told:
+                    print(f"waiting for the GPU: another AssetForge audio job holds {path}", file=sys.stderr, flush=True)
+                    told = True
+                time.sleep(min(2.0, max(0.05, deadline - time.monotonic())))
+        try:
+            yield path
+        finally:
+            with contextlib.suppress(OSError):
+                _unlock_handle(handle)
+    finally:
+        handle.close()
+
+
 def run_worker(name: str, request: dict, work_dir: Path, timeout: float) -> dict:
     """Run one worker job in runtime `name`; return its result or raise with
     the worker's own error and the tail of its log."""
@@ -186,18 +260,37 @@ def run_worker(name: str, request: dict, work_dir: Path, timeout: float) -> dict
         "PYTHONIOENCODING": "utf-8",
         "TOKENIZERS_PARALLELISM": "false",
     }
-    proc = run([str(python), "-I", str(worker_path()), str(request_path)], timeout=timeout, cwd=work_dir, env=env)
+    argv = [str(python), "-I", str(worker_path()), str(request_path)]
+    # The import smoke test of `audio-setup` loads no model; it does not queue.
+    with contextlib.nullcontext() if request.get("job") == "smoke" else gpu_lock():
+        proc = run(argv, timeout=timeout, cwd=work_dir, env=env)
     (work_dir / "worker.log").write_text((proc.get("stdout") or "") + (proc.get("stderr") or ""), encoding="utf-8", errors="replace")
-    if proc.get("timed_out"):
-        raise AudioError(f"audio worker timed out after {timeout:g}s; see {work_dir / 'worker.log'}")
     try:
         result = json.loads(result_path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
+        result = None
+    saved = _saved_takes(result)
+    if proc.get("timed_out"):
+        raise AudioError(f"audio worker timed out after {timeout:g}s{saved}; see {work_dir / 'worker.log'}")
+    if result is None:
         tail = "\n".join((proc.get("stderr") or proc.get("error") or "").strip().splitlines()[-12:])
-        raise AudioError(f"audio worker wrote no result (exit {proc.get('returncode')}): {tail}") from None
+        raise AudioError(f"audio worker wrote no result (exit {proc.get('returncode')}): {tail}")
     if not result.get("ok"):
-        raise AudioError(f"audio worker failed: {result.get('error')}; see {work_dir / 'worker.log'}")
+        # The worker rewrites result.json after every take, so a run killed
+        # mid-batch (out of memory, for one) leaves a result with no error.
+        error = result.get("error") or f"it stopped before finishing (exit {proc.get('returncode')})"
+        raise AudioError(f"audio worker failed: {error}{saved}; see {work_dir / 'worker.log'}")
     return result
+
+
+def _saved_takes(result: dict | None) -> str:
+    """The takes a failed run already wrote, and how to finish them."""
+    takes = [t for t in (result or {}).get("takes_made") or [] if t.get("path") and Path(t["path"]).is_file()]
+    if not takes:
+        return ""
+    folder = Path(takes[0]["path"]).parent
+    return (f"; {len(takes)} take(s) were saved in {folder}: finish them with "
+            f"`assetforge run audio-process --input \"{folder}\"`")
 
 
 def setup(names: list[str], device: str = "auto", log=print) -> list[dict]:

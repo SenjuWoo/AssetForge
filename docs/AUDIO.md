@@ -115,6 +115,14 @@ assetforge.cmd export ASSET --target roblox --dry-run
 
 Engine import stays NOT_TESTED: an export launches no game.
 
+## One audio job on the GPU at a time
+
+`audio-voice`, `audio-sfx` and their Whisper and CLAP checks take a lock on `<audio home>/gpu.lock` before the worker starts, so two AssetForge audio jobs never share the GPU: the second one waits (it prints `waiting for the GPU` once) and starts when the first ends. The lock is an operating-system file lock, so it is released when its holder exits or is killed. `ASSETFORGE_AUDIO_GPU_WAIT` sets how many seconds a job waits (default 14400, four hours); `0` fails at once with `GPU busy`. The lock only orders AssetForge's own audio workers: a ComfyUI render (`audio-music`, `comfy-3d`) or another program on the same GPU does not take it.
+
+The worker records each take in `result.json` as soon as it is written. If a batch dies part-way (out of memory, killed, timed out), the error says how many takes were saved and where, and `assetforge run audio-process --input <that folder>` finishes them without generating again.
+
+Within one run, a line whose text repeats an earlier line gets its own seeds, so four lines with the same prompt are four different sounds rather than four copies. Lines that do not repeat keep the seeds they had before 0.9.1.
+
 ## Known limits
 
 - Genre coverage of the `aio` turbo variant is uneven. In testing on 2026-11-14, tavern folk scored CLAP 0.36 to 0.44 and EDM 0.34. Four takes for "boss battle music, epic orchestra, fast drums, choir" scored only 0.10 to 0.15, and they matched folk tags better than their own, so `AUDIO-CLAP` failed them. The tags reached the model intact. For orchestral music, try the `xl-sft` variant (install its weights in comfy-forge) or plainer tags, and listen.
